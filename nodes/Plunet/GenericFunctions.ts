@@ -1,4 +1,4 @@
-import { IExecuteFunctions, ICredentialDataDecryptedObject, INodeExecutionData } from 'n8n-workflow';
+import { IExecuteFunctions, ICredentialDataDecryptedObject, INodeExecutionData, IDataObject } from 'n8n-workflow';
 import { SoapHandler, SoapResponse } from './SoapHandler';
 
 export interface PlunetCredentials {
@@ -155,10 +155,18 @@ export function formatResponseForN8N(response: SoapResponse, operation: string):
 	if (!response.success) {
 		throw new Error(`Operation ${operation} failed: ${response.error ?? 'unknown error'}`);
 	}
+
 	if (Array.isArray(response.data)) {
-		return response.data.map((item: unknown) => ({ json: { operation, success: true, data: item } }));
+		return response.data.map((item) => ({
+			json: { operation, success: true, data: item } as IDataObject,
+		}));
 	}
-	return [{ json: { operation, success: true, data: response.data } }];
+
+	return [
+		{
+			json: { operation, success: true, data: response.data } as IDataObject,
+		},
+	];
 }
 
 /** Handle errors and format for n8n */
