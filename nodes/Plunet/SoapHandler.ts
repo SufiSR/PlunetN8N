@@ -64,24 +64,58 @@ export class SoapHandler {
     }
 
     /** Execute SOAP request */
-    async executeSoapRequest(endpoint: string, soapEnvelope: string, soapAction = ''): Promise<SoapResponse> {
-        try {
-            const options: IHttpRequestOptions = {
-                method: 'POST',
-                url: `${this.baseUrl}/${endpoint}`,
-                headers: {
-                    'Content-Type': 'text/xml; charset=utf-8', // SOAP 1.1 header; Plunet accepts this with 1.2 envelope
-                    'SOAPAction': soapAction,
-                },
-                body: soapEnvelope,
-            };
+    /** Execute SOAP request with 1.2 → 1.1 fallback */
+async executeSoapRequest(endpoint: string, soapEnvelope: string, soapAction = ''): Promise<SoapResponse> {
+	try {
+		// --- Attempt SOAP 1.2 first ---
+		// For SOAP 1.2, action is passed on the Content-Type parameter.
+		const headers12: Record<string, string> = {
+			'Content-Type': `application/soap+xml; charset=utf-8${soapAction ? `; action="${soapAction}"` : ''}`,
+		};
 
-            const response = await this.executeFunctions.helpers.httpRequest(options);
-            return this.parseSoapResponse(response);
-        } catch (e: any) {
-            return { success: false, error: e?.message ?? 'SOAP request failed' };
-        }
-    }
+		let options: IHttpRequestOptions = {
+			method: 'POST',
+			url: `${this.baseUrl}/${endpoint}`,
+			headers: headers12,
+			body: soapEnvelope, // 1.2 envelope (already correct in createSoapEnvelope)
+		};
+
+		try {
+			const resp12 = await this.executeFunctions.helpers.httpRequest(options);
+			return this.parseSoapResponse(resp12);
+		} catch (e: any) {
+			const code = (e?.statusCode ?? e?.status ?? 0) as number;
+			// If media type unsupported or server rejects 1.2, fall back to SOAP 1.1
+			if (code !== 415 && code !== 500 && code !== 400) throw e;
+		}
+
+		// --- Fallback to SOAP 1.1 ---
+		// 1) Switch envelope namespace to SOAP 1.1
+		const soap11 = soapEnvelope.replace(
+			'http://www.w3.org/2003/05/soap-envelope',
+			'http://schemas.xmlsoap.org/soap/envelope/',
+		);
+
+		// 2) SOAP 1.1 uses text/xml and the SOAPAction header
+		const headers11: Record<string, string> = {
+			'Content-Type': 'text/xml; charset=utf-8',
+			'SOAPAction': soapAction || '""',
+		};
+
+		options = {
+			method: 'POST',
+			url: `${this.baseUrl}/${endpoint}`,
+			headers: headers11,
+			body: soap11,
+		};
+
+		const resp11 = await this.executeFunctions.helpers.httpRequest(options);
+		return this.parseSoapResponse(resp11);
+	} catch (e: any) {
+		return { success: false, error: e?.message ?? 'SOAP request failed' };
+	}
+}
+
 
     /** Parse SOAP response */
     private parseSoapResponse(response: any): SoapResponse {
