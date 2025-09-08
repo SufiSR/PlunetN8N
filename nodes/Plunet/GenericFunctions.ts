@@ -1,4 +1,4 @@
-import { IExecuteFunctions, ICredentialsDecrypted, INodeExecutionData } from 'n8n-workflow';
+import { IExecuteFunctions, ICredentialDataDecryptedObject, INodeExecutionData } from 'n8n-workflow';
 import { SoapHandler, SoapResponse } from './SoapHandler';
 
 export interface PlunetCredentials {
@@ -19,8 +19,8 @@ const sessionCache = new Map<string, AuthSession>();
 /**
  * Get Plunet credentials
  */
-export function getPlunetCredentials(executeFunctions: IExecuteFunctions): PlunetCredentials {
-	const credentials = executeFunctions.getCredentials('plunetApi') as ICredentialsDecrypted;
+export async function getPlunetCredentials(executeFunctions: IExecuteFunctions): Promise<PlunetCredentials> {
+	const credentials = await executeFunctions.getCredentials('plunetApi') as ICredentialDataDecryptedObject;
 	
 	return {
 		serverUrl: credentials.serverUrl as string,
@@ -33,8 +33,8 @@ export function getPlunetCredentials(executeFunctions: IExecuteFunctions): Plune
 /**
  * Create SOAP handler instance
  */
-export function createSoapHandler(executeFunctions: IExecuteFunctions): SoapHandler {
-	const credentials = getPlunetCredentials(executeFunctions);
+export async function createSoapHandler(executeFunctions: IExecuteFunctions): Promise<SoapHandler> {
+	const credentials = await getPlunetCredentials(executeFunctions);
 	return new SoapHandler(executeFunctions, credentials.serverUrl);
 }
 
@@ -42,7 +42,7 @@ export function createSoapHandler(executeFunctions: IExecuteFunctions): SoapHand
  * Authenticate with Plunet API and get UUID token
  */
 export async function authenticatePlunet(executeFunctions: IExecuteFunctions): Promise<string> {
-	const credentials = getPlunetCredentials(executeFunctions);
+	const credentials = await getPlunetCredentials(executeFunctions);
 	const cacheKey = `${credentials.serverUrl}:${credentials.username}`;
 	
 	// Check if we have a valid cached session
@@ -52,7 +52,7 @@ export async function authenticatePlunet(executeFunctions: IExecuteFunctions): P
 	}
 
 	// Perform login
-	const soapHandler = createSoapHandler(executeFunctions);
+	const soapHandler = await createSoapHandler(executeFunctions);
 	const loginEnvelope = soapHandler.createSoapEnvelope({
 		operation: 'login',
 		parameters: {
@@ -85,7 +85,7 @@ export async function authenticatePlunet(executeFunctions: IExecuteFunctions): P
  * Logout from Plunet API
  */
 export async function logoutPlunet(executeFunctions: IExecuteFunctions, uuid: string): Promise<void> {
-	const soapHandler = createSoapHandler(executeFunctions);
+	const soapHandler = await createSoapHandler(executeFunctions);
 	const logoutEnvelope = soapHandler.createSoapEnvelope({
 		operation: 'logout',
 		uuid,
@@ -94,7 +94,7 @@ export async function logoutPlunet(executeFunctions: IExecuteFunctions, uuid: st
 	await soapHandler.executeSoapRequest('PlunetAPI', logoutEnvelope);
 	
 	// Clear from cache
-	const credentials = getPlunetCredentials(executeFunctions);
+	const credentials = await getPlunetCredentials(executeFunctions);
 	const cacheKey = `${credentials.serverUrl}:${credentials.username}`;
 	sessionCache.delete(cacheKey);
 }
@@ -103,7 +103,7 @@ export async function logoutPlunet(executeFunctions: IExecuteFunctions, uuid: st
  * Validate UUID token
  */
 export async function validateUuid(executeFunctions: IExecuteFunctions, uuid: string): Promise<boolean> {
-	const soapHandler = createSoapHandler(executeFunctions);
+	const soapHandler = await createSoapHandler(executeFunctions);
 	const validateEnvelope = soapHandler.createSoapEnvelope({
 		operation: 'validate',
 		uuid,
@@ -123,7 +123,7 @@ export async function executeAuthenticatedOperation(
 	parameters: Record<string, any> = {},
 ): Promise<SoapResponse> {
 	const uuid = await authenticatePlunet(executeFunctions);
-	const soapHandler = createSoapHandler(executeFunctions);
+	const soapHandler = await createSoapHandler(executeFunctions);
 	
 	const envelope = soapHandler.createSoapEnvelope({
 		operation,
@@ -227,4 +227,3 @@ export function getPlunetServices(): Array<{ name: string; value: string; descri
 		{ name: 'Admin Functions', value: 'admin', description: 'Administrative operations' },
 	];
 }
-
