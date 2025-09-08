@@ -11,18 +11,19 @@
     "api"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/SufiSR/n8n-nodes-plunet",
+  "homepage": "https://github.com/SufiSR/PlunetN8N#readme",
   "author": {
     "name": "SufiSR",
     "email": "sufian@gmx.net"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SufiSR/n8n-nodes-plunet.git"
+    "url": "git+https://github.com/SufiSR/PlunetN8N.git"
   },
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc && gulp build:icons",
+    "build": "tsc && gulp build:icons",              // ← if no gulpfile/build:icons, change to just:  "tsc"
     "dev": "tsc --watch",
     "format": "prettier nodes credentials --write",
     "lint": "eslint nodes credentials package.json",
@@ -30,7 +31,9 @@
     "prepublishOnly": "npm run build && npm run lint -s"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "n8n": {
     "n8nNodesApiVersion": 1,
@@ -46,12 +49,4 @@
     "eslint-plugin-n8n-nodes-base": "^1.11.0",
     "gulp": "^4.0.2",
     "n8n-workflow": "^1.0.0",
-    "prettier": "^2.7.1",
-    "typescript": "^4.8.4"
-  },
-  "dependencies": {
-    "fast-xml-parser": "^4.2.5",
-    "xml2js": "^0.6.2"
-  }
-}
-
+    "prettier": "^2.
