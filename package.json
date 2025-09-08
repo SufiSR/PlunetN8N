@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-plunet",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "N8N community node for Plunet BusinessManager API integration",
   "keywords": [
     "n8n-community-node-package",
