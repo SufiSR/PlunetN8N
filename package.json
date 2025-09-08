@@ -31,8 +31,8 @@
     "nodes": ["dist/nodes/Plunet/Plunet.node.js"]
   },
   "devDependencies": {
-    "@typescript-eslint/parser": "^5.45.0",
-    "@typescript-eslint/eslint-plugin": "^5.45.0",
+    "@typescript-eslint/parser": "^5.62.0",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
     "eslint": "^8.57.1",
     "eslint-plugin-n8n-nodes-base": "^1.11.0",
     "gulp": "^4.0.2",
