@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-plunet",
-  "version": "2.0.4",
+  "version": "2.0.5",
   "description": "n8n community node: Plunet API",
   "keywords": ["n8n-community-node-package", "plunet", "soap", "login"],
   "license": "MIT",
@@ -23,7 +23,7 @@
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": ["dist/credentials/PlunetApi.credentials.js"],
-    "nodes": ["dist/nodes/PlunetLogin/PlunetLogin.node.js", "dist/nodes/PlunetLogin/PlunetValidate.node.js"]
+    "nodes": ["dist/nodes/PlunetLogin/Plunet.node.js"]
   },
   "devDependencies": {
     "n8n-workflow": "^1.0.0",
