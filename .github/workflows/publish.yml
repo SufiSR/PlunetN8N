@@ -21,19 +21,26 @@ jobs:
         shell: bash
         run: |
           if [ -f package-lock.json ]; then
-            echo "package-lock.json found → using npm ci"
+            echo "Lockfile found → npm ci"
             npm ci --no-fund --no-audit
           else
-            echo "No lockfile → using npm install"
+            echo "No lockfile → npm install"
             npm install --no-fund --no-audit
           fi
 
-      - name: Sync version to tag
+      - name: Sync package.json version to tag
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          echo "Setting package.json version to: $VERSION"
-          npm version "$VERSION" --no-git-tag-version
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "Tag version: $VERSION"
+          echo "package.json version: $PKG_VERSION"
+          if [ "$PKG_VERSION" != "$VERSION" ]; then
+            npm version "$VERSION" --no-git-tag-version
+            echo "Updated package.json version to $VERSION"
+          else
+            echo "package.json already at $VERSION; skipping version bump"
+          fi
 
       - name: Build
         run: npm run build
