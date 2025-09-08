@@ -15,7 +15,7 @@ export class PlunetApi implements ICredentialType {
 			name: 'serverUrl',
 			type: 'string',
 			default: 'https://your-instance.plunet.com',
-			placeholder: 'https://8144.plunet.com',
+			placeholder: 'https://your-instance.plunet.com',
 			description: 'The base URL of your Plunet BusinessManager instance',
 			required: true,
 		},
