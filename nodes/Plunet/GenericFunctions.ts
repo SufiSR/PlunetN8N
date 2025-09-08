@@ -69,7 +69,7 @@ export async function authenticatePlunet(executeFunctions: IExecuteFunctions): P
         },
     });
 
-    const response = await soapHandler.executeSoapRequest('PlunetAPI', loginEnvelope);
+    const response = await soapHandler.executeSoapRequest('PlunetAPI', loginEnvelope, 'http://API.Integration/login');
     if (!response.success) {
         throw new Error(`Authentication failed: ${response.error ?? 'unknown error'}`);
     }
@@ -95,7 +95,8 @@ export async function logoutPlunet(executeFunctions: IExecuteFunctions, uuid: st
         operation: 'logout',
         uuid,
     });
-    await soapHandler.executeSoapRequest('PlunetAPI', logoutEnvelope);
+    await soapHandler.executeSoapRequest('PlunetAPI', logoutEnvelope, 'http://API.Integration/logout');
+
 
     // Clear from cache
     const credentials = await getPlunetCredentials(executeFunctions);
@@ -110,7 +111,7 @@ export async function validateUuid(executeFunctions: IExecuteFunctions, uuid: st
         operation: 'validate',
         uuid,
     });
-    const response = await soapHandler.executeSoapRequest('PlunetAPI', validateEnvelope);
+    const response = await soapHandler.executeSoapRequest('PlunetAPI', validateEnvelope, 'http://API.Integration/validate');
     // Some instances return boolean true/false; others return "true"/"false"
     const v = (response.data as any);
     return response.success && (v === true || v === 'true');
@@ -126,13 +127,8 @@ export async function executeAuthenticatedOperation(
     const uuid = await authenticatePlunet(executeFunctions);
     const soapHandler = await createSoapHandler(executeFunctions);
 
-    const envelope = soapHandler.createSoapEnvelope({
-        operation,
-        parameters,
-        uuid,
-    });
-
-    return soapHandler.executeSoapRequest(endpoint, envelope);
+    const envelope = soapHandler.createSoapEnvelope({ operation, parameters, uuid });
+    return soapHandler.executeSoapRequest(endpoint, envelope, `http://API.Integration/${operation}`);
 }
 
 /** Format response data for n8n */
