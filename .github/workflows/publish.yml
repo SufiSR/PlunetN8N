@@ -15,14 +15,14 @@ jobs:
         with:
           node-version: '18'
           registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
 
       - name: Install deps
-        run: npm ci
+        run: npm install --no-fund --no-audit
 
       - name: Sync package.json version to tag
         shell: bash
         run: |
-          echo "ref_name: $GITHUB_REF_NAME"
           VERSION="${GITHUB_REF_NAME#v}"
           echo "Setting package.json version to: $VERSION"
           npm version "$VERSION" --no-git-tag-version
