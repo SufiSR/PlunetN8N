@@ -119,12 +119,12 @@ async function executeAuthOperation(
         }
         case 'getVersion': {
             const envelope = soapHandler.createSoapEnvelope({ operation: 'getVersion' });
-            const response = await soapHandler.executeSoapRequest('PlunetAPI', envelope);
+            const response = await soapHandler.executeSoapRequest('PlunetAPI', envelope, 'http://API.Integration/getVersion');
             return formatResponseForN8N(response, 'getVersion');
         }
         case 'getPlunetVersion': {
             const envelope = soapHandler.createSoapEnvelope({ operation: 'getPlunetVersion' });
-            const response = await soapHandler.executeSoapRequest('PlunetAPI', envelope);
+            const response = await soapHandler.executeSoapRequest('PlunetAPI', envelope, 'http://API.Integration/getPlunetVersion');
             return formatResponseForN8N(response, 'getPlunetVersion');
         }
         default:
