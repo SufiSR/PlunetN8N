@@ -16,13 +16,21 @@ jobs:
           node-version: '18'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Sync version to tag
-        run: |
-          TAG="${GITHUB_REF_NAME#v}"
-          node -e "const fs=require('fs');const p=require('./package.json');if(TAG){p.version=TAG;}fs.writeFileSync('package.json',JSON.stringify(p,null,2));"
+      - name: Install deps
+        run: npm ci
 
-      - run: npm ci
-      - run: npm run build
-      - run: npm publish
+      - name: Sync package.json version to tag
+        shell: bash
+        run: |
+          echo "ref_name: $GITHUB_REF_NAME"
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Setting package.json version to: $VERSION"
+          npm version "$VERSION" --no-git-tag-version
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish
+        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
