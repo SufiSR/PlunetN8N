@@ -1,47 +1,35 @@
 {
   "name": "n8n-nodes-plunet",
-  "version": "1.1.2",
-  "description": "N8N community node for Plunet BusinessManager API integration",
-  "keywords": [
-    "n8n-community-node-package",
-    "plunet",
-    "translation",
-    "project-management",
-    "soap",
-    "api"
-  ],
+  "version": "1.9.0",
+  "description": "n8n community node: Plunet API",
+  "keywords": ["n8n-community-node-package", "plunet", "soap", "login"],
   "license": "MIT",
-  "homepage": "https://github.com/SufiSR/PlunetN8N#readme",
-  "author": { "name": "SufiSR", "email": "sufian@gmx.net" },
-  "repository": { "type": "git", "url": "git+https://github.com/SufiSR/PlunetN8N.git" },
+  "homepage": "https://github.com/SufiSR/PlunetN8N",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SufiSR/PlunetN8N.git"
+  },
+  "author": {
+    "name": "Sufian Reiter",
+    "email": "sufian.reiter@plunet.com"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "scripts": {
-    "build": "tsc && gulp build:icons",
-    "dev": "tsc --watch",
-    "format": "prettier nodes credentials --write",
-    "lint": "eslint --ext .ts \"nodes/**/*.ts\" \"credentials/**/*.ts\" \"index.ts\" package.json",
-    "lintfix": "eslint --ext .ts \"nodes/**/*.ts\" \"credentials/**/*.ts\" \"index.ts\" package.json --fix",
-    "prepublishOnly": "npm run build && npm run lint -s"
-  },
   "files": ["dist", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": ["dist/credentials/PlunetApi.credentials.js"],
-    "nodes": ["dist/nodes/Plunet/Plunet.node.js"]
+    "nodes": ["dist/nodes/PlunetLogin/PlunetLogin.node.js"]
   },
   "devDependencies": {
-    "@typescript-eslint/parser": "^5.62.0",
-    "@typescript-eslint/eslint-plugin": "^5.62.0",
-    "eslint": "^8.57.1",
-    "eslint-plugin-n8n-nodes-base": "^1.11.0",
-    "gulp": "^4.0.2",
     "n8n-workflow": "^1.0.0",
-    "prettier": "^2.7.1",
     "typescript": "^4.8.4"
   },
   "dependencies": {
-    "fast-xml-parser": "^4.2.5",
-    "xml2js": "^0.6.2"
+    "fast-xml-parser": "^4.2.5"
   }
 }
