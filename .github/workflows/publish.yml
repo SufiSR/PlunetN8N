@@ -17,9 +17,16 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
 
-      # 👇 DON'T use npm ci here since you don't have a lockfile
       - name: Install deps
-        run: npm install --no-fund --no-audit
+        shell: bash
+        run: |
+          if [ -f package-lock.json ]; then
+            echo "package-lock.json found → using npm ci"
+            npm ci --no-fund --no-audit
+          else
+            echo "No lockfile → using npm install"
+            npm install --no-fund --no-audit
+          fi
 
       - name: Sync version to tag
         shell: bash
