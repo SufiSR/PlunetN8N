@@ -12,41 +12,34 @@
   ],
   "license": "MIT",
   "homepage": "https://github.com/SufiSR/PlunetN8N#readme",
-  "author": {
-    "name": "SufiSR",
-    "email": "sufian@gmx.net"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/SufiSR/PlunetN8N.git"
-  },
+  "author": { "name": "SufiSR", "email": "sufian@gmx.net" },
+  "repository": { "type": "git", "url": "git+https://github.com/SufiSR/PlunetN8N.git" },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc && gulp build:icons",              // ← if no gulpfile/build:icons, change to just:  "tsc"
+    "build": "tsc && gulp build:icons",
     "dev": "tsc --watch",
     "format": "prettier nodes credentials --write",
     "lint": "eslint nodes credentials package.json",
     "lintfix": "eslint nodes credentials package.json --fix",
     "prepublishOnly": "npm run build && npm run lint -s"
   },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
+  "files": ["dist", "README.md", "LICENSE"],
   "n8n": {
     "n8nNodesApiVersion": 1,
-    "credentials": [
-      "dist/credentials/PlunetApi.credentials.js"
-    ],
-    "nodes": [
-      "dist/nodes/Plunet/Plunet.node.js"
-    ]
+    "credentials": ["dist/credentials/PlunetApi.credentials.js"],
+    "nodes": ["dist/nodes/Plunet/Plunet.node.js"]
   },
   "devDependencies": {
     "@typescript-eslint/parser": "^5.45.0",
     "eslint-plugin-n8n-nodes-base": "^1.11.0",
     "gulp": "^4.0.2",
     "n8n-workflow": "^1.0.0",
-    "prettier": "^2.
+    "prettier": "^2.7.1",
+    "typescript": "^4.8.4"
+  },
+  "dependencies": {
+    "fast-xml-parser": "^4.2.5",
+    "xml2js": "^0.6.2"
+  }
+}
