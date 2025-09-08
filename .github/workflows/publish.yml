@@ -17,10 +17,11 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
 
+      # 👇 DON'T use npm ci here since you don't have a lockfile
       - name: Install deps
         run: npm install --no-fund --no-audit
 
-      - name: Sync package.json version to tag
+      - name: Sync version to tag
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
