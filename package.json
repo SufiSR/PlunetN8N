@@ -20,8 +20,8 @@
     "build": "tsc && gulp build:icons",
     "dev": "tsc --watch",
     "format": "prettier nodes credentials --write",
-    "lint": "eslint nodes credentials package.json",
-    "lintfix": "eslint nodes credentials package.json --fix",
+    "lint": "eslint --ext .ts \"nodes/**/*.ts\" \"credentials/**/*.ts\" \"index.ts\" package.json",
+    "lintfix": "eslint --ext .ts \"nodes/**/*.ts\" \"credentials/**/*.ts\" \"index.ts\" package.json --fix",
     "prepublishOnly": "npm run build && npm run lint -s"
   },
   "files": ["dist", "README.md", "LICENSE"],
@@ -31,6 +31,7 @@
     "nodes": ["dist/nodes/Plunet/Plunet.node.js"]
   },
   "devDependencies": {
+    "eslint": "^8.57.0",
     "@typescript-eslint/parser": "^5.45.0",
     "eslint-plugin-n8n-nodes-base": "^1.11.0",
     "gulp": "^4.0.2",
