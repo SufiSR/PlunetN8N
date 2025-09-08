@@ -23,7 +23,7 @@
   "n8n": {
     "n8nNodesApiVersion": 1,
     "credentials": ["dist/credentials/PlunetApi.credentials.js"],
-    "nodes": ["dist/nodes/PlunetLogin/Plunet.node.js"]
+    "nodes": ["dist/nodes/Plunet/Plunet.node.js"]
   },
   "devDependencies": {
     "n8n-workflow": "^1.0.0",
