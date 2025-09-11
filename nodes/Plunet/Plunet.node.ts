@@ -164,7 +164,7 @@ export class Plunet implements INodeType {
                         if (!username || !password) {
                             throw new NodeOperationError(
                                 this.getNode(),
-                                'Username and Password are required for validate() but were not found in credentials.',
+                                'Username and Password are required for validate() but were not found in credentials .',
                                 { itemIndex: i },
                             );
                         }
