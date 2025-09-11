@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-plunet",
-  "version": "2.0.9",
+  "version": "2.1.0",
   "description": "n8n community node: Plunet API",
   "keywords": ["n8n-community-node-package", "plunet", "soap", "login"],
   "license": "MIT",
