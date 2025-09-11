@@ -137,14 +137,21 @@ export class Plunet implements INodeType {
                             );
                             resp = await requestSoap(this, url, env12, 'http://API.Integration/login', '1.2', timeoutMs);
                         }
-                        if (!resp.ok) throw new Error(resp.error || 'Login failed');
+                        if (!resp.ok) {
+                            const sm = resp.body ? extractStatusMessage(resp.body) : null;
+                            const msg = resp.error || 'Login failed';
+                            throw new Error(sm ? `${msg} — ${sm}` : msg);
+                        }
 
                         const uuid = extractUuid(resp.body);
                         if (!uuid) throw new Error('Could not find UUID in SOAP response');
 
+                        const statusMessage = extractStatusMessage(resp.body);
                         saveSession(this, creds, uuid); // store for subsequent calls
 
-                        out.push({ json: { success: true, resource, operation, uuid } as IDataObject });
+                        const result: IDataObject = { success: true, resource, operation, uuid };
+                        if (statusMessage) result.statusMessage = statusMessage;
+                        out.push({ json: result });
                         continue;
                     }
 
@@ -157,19 +164,16 @@ export class Plunet implements INodeType {
                             uuid = await ensureSession(this, creds, `${baseUrl}/PlunetAPI`, timeoutMs);
                         }
 
-                        // Pull username/password from stored credentials
                         const username = (creds.username ?? '').trim();
                         const password = (creds.password ?? '').trim();
-
                         if (!username || !password) {
                             throw new NodeOperationError(
                                 this.getNode(),
-                                'Username and Password are required for validate() but were not found in credentials .',
+                                'Username and Password are required for validate() but were not found in credentials.',
                                 { itemIndex: i },
                             );
                         }
 
-                        // SOAP 1.1 first, then fallback to 1.2 (your existing behavior)
                         const env11 = `<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://API.Integration/">
   <soapenv:Header/>
@@ -184,20 +188,25 @@ export class Plunet implements INodeType {
 
                         let resp = await requestSoap(this, url, env11, 'http://API.Integration/validate', '1.1', timeoutMs);
                         if (!resp.ok) {
-                            // Switch to SOAP 1.2 namespace and content-type+action
                             const env12 = env11.replace(
                                 'http://schemas.xmlsoap.org/soap/envelope/',
                                 'http://www.w3.org/2003/05/soap-envelope',
                             );
                             resp = await requestSoap(this, url, env12, 'http://API.Integration/validate', '1.2', timeoutMs);
                         }
-                        if (!resp.ok) throw new Error(resp.error || 'Validate failed');
+                        if (!resp.ok) {
+                            const sm = resp.body ? extractStatusMessage(resp.body) : null;
+                            const msg = resp.error || 'Validate failed';
+                            throw new Error(sm ? `${msg} — ${sm}` : msg);
+                        }
 
                         const valid = parseValidate(resp.body);
-                        out.push({ json: { success: true, resource, operation, valid, uuid } as IDataObject });
+                        const statusMessage = extractStatusMessage(resp.body);
+                        const result: IDataObject = { success: true, resource, operation, valid, uuid };
+                        if (statusMessage) result.statusMessage = statusMessage;
+                        out.push({ json: result });
                         continue;
                     }
-
 
                     if (operation === 'logout') {
                         const useStored = this.getNodeParameter('useStoredSession', i, true) as boolean;
@@ -230,11 +239,18 @@ export class Plunet implements INodeType {
                             );
                             resp = await requestSoap(this, url, env12, 'http://API.Integration/logout', '1.2', timeoutMs);
                         }
-                        if (!resp.ok) throw new Error(resp.error || 'Logout failed');
+                        if (!resp.ok) {
+                            const sm = resp.body ? extractStatusMessage(resp.body) : null;
+                            const msg = resp.error || 'Logout failed';
+                            throw new Error(sm ? `${msg} — ${sm}` : msg);
+                        }
 
                         clearSession(this, creds);
 
-                        out.push({ json: { success: true, resource, operation, uuid } as IDataObject });
+                        const statusMessage = extractStatusMessage(resp.body);
+                        const result: IDataObject = { success: true, resource, operation, uuid };
+                        if (statusMessage) result.statusMessage = statusMessage;
+                        out.push({ json: result });
                         continue;
                     }
 
@@ -253,6 +269,7 @@ export class Plunet implements INodeType {
                 );
             } catch (err) {
                 if (this.continueOnFail()) {
+                    // We likely only have the message here; statusMessage is already baked into thrown messages when available.
                     out.push({ json: { success: false, error: (err as Error).message } as IDataObject });
                 } else {
                     throw err;
@@ -358,7 +375,6 @@ function extractUuid(xml: string): string | null {
     return null;
 }
 
-
 function parseValidate(xml: string): boolean {
     const parser = new XMLParser({ ignoreAttributes: false, removeNSPrefix: true, trimValues: true });
     const parsed = parser.parse(xml) as Record<string, unknown>;
@@ -391,6 +407,27 @@ function parseValidate(xml: string): boolean {
         if (typeof maybe === 'string') return maybe.toLowerCase() === 'true';
     }
     return false;
+}
+
+function extractStatusMessage(xml: string): string | null {
+    const parser = new XMLParser({ ignoreAttributes: false, removeNSPrefix: true, trimValues: true });
+    const parsed = parser.parse(xml) as unknown;
+
+    function dfs(node: unknown): string | null {
+        if (!node || typeof node !== 'object') return null;
+        for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+            if (typeof k === 'string' && k.toLowerCase().includes('statusmessage')) {
+                if (typeof v === 'string') return v;
+                const fromChild = dfs(v);
+                if (fromChild) return fromChild;
+            }
+            const rec = dfs(v);
+            if (rec) return rec;
+        }
+        return null;
+    }
+
+    return dfs(parsed);
 }
 
 function isUuid(s: string): boolean {
@@ -456,10 +493,15 @@ async function ensureSession(
         );
         resp = await requestSoap(ctx, urlPlunetAPI, env12, 'http://API.Integration/login', '1.2', timeoutMs);
     }
-    if (!resp.ok) throw new Error(resp.error || 'Auto-login failed');
+    if (!resp.ok) {
+        const sm = resp.body ? extractStatusMessage(resp.body) : null;
+        const msg = resp.error || 'Auto-login failed';
+        throw new Error(sm ? `${msg} — ${sm}` : msg);
+    }
 
     const uuid = extractUuid(resp.body);
     if (!uuid) throw new Error('Auto-login succeeded but UUID not found');
+
     saveSession(ctx, creds, uuid);
     return uuid;
 }
