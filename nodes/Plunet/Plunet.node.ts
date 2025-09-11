@@ -21,9 +21,10 @@ type Creds = {
 
 /** Map resource -> SOAP endpoint path (relative to base host) */
 const endpointMap: Record<string, string> = {
-    PlunetAPI: 'PlunetAPI',
-    // Future: DataOrder30: 'DataOrder30',
-    // Future: DataCustomer30: 'DataCustomer30',
+    auth: 'PlunetAPI',
+    session: 'PlunetAPI',
+    // Future: orders: 'DataOrder30',
+    // Future: customers: 'DataCustomer30',
 };
 
 export class Plunet implements INodeType {
@@ -39,41 +40,52 @@ export class Plunet implements INodeType {
         outputs: [NodeConnectionType.Main],
         credentials: [{ name: 'plunetApi', required: true }],
         properties: [
-            /* ---------------- Resource ---------------- */
+            /* ---------------- Resource (creates “sections”) ---------------- */
             {
                 displayName: 'Resource',
                 name: 'resource',
                 type: 'options',
                 noDataExpression: true,
                 options: [
-                    {
-                        name: 'PlunetAPI (Auth / Misc)',
-                        value: 'PlunetAPI',
-                        description: 'Authentication & utility endpoints',
-                    },
-                    // { name: 'Orders (DataOrder30)', value: 'DataOrder30' },
-                    // { name: 'Customers (DataCustomer30)', value: 'DataCustomer30' },
+                    { name: 'Authentication', value: 'auth', description: 'Login / session helpers' },
+                    { name: 'Session', value: 'session', description: 'Validate / logout' },
+                    // { name: 'Orders', value: 'orders', description: 'Order-related endpoints' },
+                    // { name: 'Customers', value: 'customers', description: 'Customer-related endpoints' },
                 ],
-                default: 'PlunetAPI',
-                description: 'Choose which Plunet SOAP resource to call',
+                default: 'auth',
+                description: 'Choose which Plunet SOAP resource group to call',
             },
 
-            /* ---------------- Operation (per resource) ---------------- */
+            /* ---------------- Operations per Resource ---------------- */
+
+            // Authentication operations
             {
                 displayName: 'Operation',
                 name: 'operation',
                 type: 'options',
                 noDataExpression: true,
-                displayOptions: { show: { resource: ['PlunetAPI'] } },
+                displayOptions: { show: { resource: ['auth'] } },
                 options: [
-                    { name: 'Login', value: 'login', description: 'Authenticate and get a session UUID' },
-                    { name: 'Validate', value: 'validate', description: 'Validate an existing session UUID' },
-                    { name: 'Logout', value: 'logout', description: 'End a session UUID' },
+                    { name: 'Login', value: 'login', action: 'Log in to Plunet', description: 'Authenticate and obtain a session UUID' },
                 ],
                 default: 'login',
             },
 
-            /* ---------------- Session handling helpers ---------------- */
+            // Session operations
+            {
+                displayName: 'Operation',
+                name: 'operation',
+                type: 'options',
+                noDataExpression: true,
+                displayOptions: { show: { resource: ['session'] } },
+                options: [
+                    { name: 'Validate', value: 'validate', action: 'Validate Plunet session', description: 'Check whether a UUID is valid' },
+                    { name: 'Logout', value: 'logout', action: 'Log out of Plunet', description: 'Invalidate a session UUID' },
+                ],
+                default: 'validate',
+            },
+
+            /* ---------------- Session handling helpers (for validate/logout) ---------------- */
             {
                 displayName: 'Use Stored Session',
                 name: 'useStoredSession',
@@ -81,7 +93,7 @@ export class Plunet implements INodeType {
                 default: true,
                 description:
                     'Use workflow-stored UUID or auto-login if none is stored. Disable to provide a UUID manually.',
-                displayOptions: { show: { resource: ['PlunetAPI'], operation: ['validate', 'logout'] } },
+                displayOptions: { show: { resource: ['session'], operation: ['validate', 'logout'] } },
             },
             {
                 displayName: 'UUID',
@@ -90,7 +102,7 @@ export class Plunet implements INodeType {
                 default: '',
                 required: false, // optional when using stored session
                 description: 'Session UUID (leave empty to use stored session when enabled)',
-                displayOptions: { show: { resource: ['PlunetAPI'], operation: ['validate', 'logout'] } },
+                displayOptions: { show: { resource: ['session'], operation: ['validate', 'logout'] } },
             },
         ],
     };
@@ -115,8 +127,8 @@ export class Plunet implements INodeType {
                 const url = `${baseUrl}/${endpoint}`;
                 const timeoutMs = creds.timeout ?? 30000;
 
-                /* ==================== Resource: PlunetAPI ==================== */
-                if (resource === 'PlunetAPI') {
+                /* ==================== Auth + Session resources (same endpoint) ==================== */
+                if (resource === 'auth' || resource === 'session') {
                     if (operation === 'login') {
                         const env11 = `<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://API.Integration/">
@@ -256,7 +268,7 @@ export class Plunet implements INodeType {
 
                     throw new NodeOperationError(
                         this.getNode(),
-                        `Unsupported operation for PlunetAPI: ${operation}`,
+                        `Unsupported operation for resource "${resource}": ${operation}`,
                         { itemIndex: i },
                     );
                 }
@@ -269,7 +281,6 @@ export class Plunet implements INodeType {
                 );
             } catch (err) {
                 if (this.continueOnFail()) {
-                    // We likely only have the message here; statusMessage is already baked into thrown messages when available.
                     out.push({ json: { success: false, error: (err as Error).message } as IDataObject });
                 } else {
                     throw err;
@@ -303,14 +314,14 @@ async function requestSoap(
     const headers =
         version === '1.1'
             ? {
-                'Content-Type': 'text/xml; charset=utf-8',
-                SOAPAction: `"${soapAction}"`,
-                Accept: 'text/xml, application/soap+xml, */*;q=0.8',
-            }
+                  'Content-Type': 'text/xml; charset=utf-8',
+                  SOAPAction: `"${soapAction}"`,
+                  Accept: 'text/xml, application/soap+xml, */*;q=0.8',
+              }
             : {
-                'Content-Type': `application/soap+xml; charset=utf-8; action="${soapAction}"`,
-                Accept: 'application/soap+xml, text/xml, */*;q=0.8',
-            };
+                  'Content-Type': `application/soap+xml; charset=utf-8; action="${soapAction}"`,
+                  Accept: 'application/soap+xml, text/xml, */*;q=0.8',
+              };
 
     const options: IHttpRequestOptions = {
         method: 'POST',
@@ -350,9 +361,9 @@ function extractUuid(xml: string): string | null {
     if (keys.length === 0) return null;
 
     const respKeyMaybe = keys.find((k) => /loginresponse|response|return/i.test(k)) ?? keys[0];
-    if (!respKeyMaybe) return null; // explicit guard
+    if (!respKeyMaybe) return null;
 
-    const respKey = respKeyMaybe as string; // narrow to string
+    const respKey = respKeyMaybe as string;
 
     const wrapperUnknown = (body as Record<string, unknown>)[respKey];
     const wrapper =
@@ -385,9 +396,9 @@ function parseValidate(xml: string): boolean {
     if (keys.length === 0) return false;
 
     const respKeyMaybe = keys.find((k) => /validate(response)?|response|return/i.test(k)) ?? keys[0];
-    if (!respKeyMaybe) return false; // explicit guard
+    if (!respKeyMaybe) return false;
 
-    const respKey = respKeyMaybe as string; // narrow to string
+    const respKey = respKeyMaybe as string;
 
     const wrapperUnknown = (body as Record<string, unknown>)[respKey];
     const wrapper =
