@@ -24,13 +24,13 @@ const operationProperties = services.map((s) => ({
 const extraProps = services.flatMap((s) => s.extraProperties);
 
 export const description: INodeTypeDescription = {
-    displayName: 'Plunet API',
+    displayName: 'Plunet BusinessManager',
     name: 'plunet',
     icon: 'file:plunet.png',
     group: ['transform'],
     version: 1,
-    description: 'Plunet SOAP API with session caching and per-service operations',
-    defaults: { name: 'Plunet API' },
+    description: 'Get and Set Data for Plunet BusinessManager ',
+    defaults: { name: 'Plunet BusinessManager' },
     inputs: [NodeConnectionType.Main],
     outputs: [NodeConnectionType.Main],
     credentials: [{ name: 'plunetApi', required: true }],

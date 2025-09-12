@@ -1,8 +1,8 @@
 {
   "name": "n8n-nodes-plunet",
-  "version": "2.1.6",
-  "description": "n8n community node: Plunet API",
-  "keywords": ["n8n-community-node-package", "plunet", "soap", "login"],
+  "version": "2.1.7",
+  "description": "n8n community node: Plunet BusinessManager",
+  "keywords": ["n8n-community-node-package", "plunet", "businessmanager"],
   "license": "MIT",
   "homepage": "https://github.com/SufiSR/PlunetN8N",
   "repository": {
