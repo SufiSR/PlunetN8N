@@ -26,7 +26,7 @@ const extraProps = services.flatMap((s) => s.extraProperties);
 export const description: INodeTypeDescription = {
     displayName: 'Plunet API',
     name: 'plunet',
-    icon: 'file:plunet.svg',
+    icon: 'file:plunet.png',
     group: ['transform'],
     version: 1,
     description: 'Plunet SOAP API with session caching and per-service operations',

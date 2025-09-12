@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-plunet",
-  "version": "2.1.5",
+  "version": "2.1.6",
   "description": "n8n community node: Plunet API",
   "keywords": ["n8n-community-node-package", "plunet", "soap", "login"],
   "license": "MIT",
@@ -19,7 +19,7 @@
   "scripts": {
     "build": "tsc && npm run copy:assets && npm run verify:icon",
     "copy:assets": "copyfiles \"nodes/**/*.{svg,png,ico}\" dist",
-    "verify:icon": "node -e \"require('fs').accessSync('dist/nodes/Plunet/plunet.svg');console.log('✅ icon ok')\"",
+    "verify:icon": "node -e \"require('fs').accessSync('dist/nodes/Plunet/plunet.png');console.log('✅ icon ok')\"",
     "prepublishOnly": "npm run build"
   },
   "n8n": {
