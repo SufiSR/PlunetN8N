@@ -130,4 +130,60 @@ const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap((
 
 function buildEnvelope(op: string, childrenXml: string): string {
   return `<?xml version="1.0" encoding="utf-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelop
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://API.Integration/">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <api:${op}>
+${childrenXml.split('\n').map((l) => (l ? '      ' + l : l)).join('\n')}
+    </api:${op}>
+  </soapenv:Body>
+</soapenv:Envelope>`;
+}
+
+async function runOp(
+  ctx: IExecuteFunctions,
+  creds: Creds,
+  url: string,
+  baseUrl: string,
+  timeoutMs: number,
+  itemIndex: number,
+  op: string,
+  paramNames: string[],
+): Promise<IDataObject> {
+  // ✅ Pass itemIndex (5th arg) to satisfy ensureSession signature
+  const uuid = await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, itemIndex);
+
+  const parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
+
+  for (const name of paramNames) {
+    const valRaw = ctx.getNodeParameter(name, itemIndex, '') as string;
+    const val = typeof valRaw === 'string' ? valRaw.trim() : String(valRaw ?? '');
+    if (val !== '') {
+      parts.push(`<${name}>${escapeXml(val)}</${name}>`);
+    }
+  }
+
+  const env11 = buildEnvelope(op, parts.join('\n'));
+  const soapAction = `http://API.Integration/${op}`;
+
+  const body = await sendSoapWithFallback(ctx, url, env11, soapAction, timeoutMs);
+
+  const statusMessage = extractStatusMessage(body);
+  const out: IDataObject = { success: true, resource: RESOURCE, operation: op, rawResponse: body };
+  if (statusMessage) out.statusMessage = statusMessage;
+  return out;
+}
+
+export const DataCustomer30Service: Service = {
+  resource: RESOURCE,
+  resourceDisplayName: 'Customers (DataCustomer30)',
+  resourceDescription: 'Customer-related endpoints',
+  endpoint: 'DataCustomer30',
+  operationOptions,
+  extraProperties,
+  async execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex) {
+    const paramNames = PARAM_ORDER[operation];
+    if (!paramNames) throw new Error(`Unsupported operation for ${RESOURCE}: ${operation}`);
+    return runOp(ctx, creds, url, baseUrl, timeoutMs, itemIndex, operation, paramNames);
+  },
+};
