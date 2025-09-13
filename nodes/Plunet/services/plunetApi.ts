@@ -1,12 +1,39 @@
-import { IExecuteFunctions, IDataObject, INodeProperties } from 'n8n-workflow';
-import { Creds, Service } from '../core/types';
+import {
+    IExecuteFunctions,
+    IDataObject,
+    INodeProperties,
+    INodePropertyOptions,
+} from 'n8n-workflow';
+
+import type { Creds, Service, NonEmptyArray } from '../core/types';
 import { escapeXml, sendSoapWithFallback } from '../core/soap';
 import { extractStatusMessage, extractUuid, parseValidate } from '../core/xml';
 import { ensureSession, getSession, saveSession, clearSession } from '../core/session';
 
 const RESOURCE = 'PlunetAPI';
 
+function labelize(op: string): string {
+    if (op.includes('_')) return op.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+    return op.replace(/([a-z])([A-Z0-9])/g, '$1 $2').replace(/\b\w/g, (m) => m.toUpperCase());
+}
+
+function asNonEmpty<T>(arr: T[], err = 'Expected non-empty array'): [T, ...T[]] {
+    if (arr.length === 0) throw new Error(err);
+    return arr as [T, ...T[]];
+}
+
+/** ---- Operations dropdown ---- */
+const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
+    [
+        { name: labelize('login'), value: 'login', action: 'Login', description: 'Authenticate and get a session UUID' },
+        { name: labelize('validate'), value: 'validate', action: 'Validate', description: 'Validate an existing session UUID' },
+        { name: labelize('logout'), value: 'logout', action: 'Logout', description: 'End a session UUID' },
+    ],
+);
+
+/** ---- UI fields ---- */
 const extraProperties: INodeProperties[] = [
+    // Use Stored Session for validate/logout
     {
         displayName: 'Use Stored Session',
         name: 'useStoredSession',
@@ -27,13 +54,25 @@ const extraProperties: INodeProperties[] = [
     },
 ];
 
-async function loginOp(
+/** ---- SOAP envelope builder ---- */
+function buildEnvelope(op: string, bodyXml: string): string {
+    return `<?xml version="1.0" encoding="utf-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://API.Integration/">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <api:${op}>
+${bodyXml.split('\n').map((l) => (l ? '      ' + l : l)).join('\n')}
+    </api:${op}>
+  </soapenv:Body>
+</soapenv:Envelope>`;
+}
+
+/** ---- Execute helpers ---- */
+async function doLogin(
     ctx: IExecuteFunctions,
     creds: Creds,
     url: string,
-    _baseUrl: string,
     timeoutMs: number,
-    itemIndex: number,
 ): Promise<IDataObject> {
     const env11 = `<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://API.Integration/">
@@ -49,16 +88,18 @@ async function loginOp(
     const body = await sendSoapWithFallback(ctx, url, env11, 'http://API.Integration/login', timeoutMs);
 
     const uuid = extractUuid(body);
-    if (!uuid) throw new Error('Could not find UUID in SOAP response');
+    if (!uuid) throw new Error('Login succeeded but UUID not found in SOAP response');
 
+    // Cache for subsequent calls
     saveSession(ctx, creds, uuid);
+
     const statusMessage = extractStatusMessage(body);
-    const result: IDataObject = { uuid };
+    const result: IDataObject = { success: true, resource: RESOURCE, operation: 'login', uuid };
     if (statusMessage) result.statusMessage = statusMessage;
     return result;
 }
 
-async function validateOp(
+async function doValidate(
     ctx: IExecuteFunctions,
     creds: Creds,
     url: string,
@@ -70,41 +111,32 @@ async function validateOp(
     let uuid = (ctx.getNodeParameter('uuid', itemIndex, '') as string).trim();
 
     if (useStored && !uuid) {
+        // ensure (may auto-login and cache)
         uuid = await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, itemIndex);
     }
 
-    const username = (creds.username ?? '').trim();
-    const password = (creds.password ?? '').trim();
-    if (!username || !password) {
-        throw new Error('Username and Password are required for validate() but were not found in credentials.');
-    }
+    const bodyXml = [
+        `<UUID>${escapeXml(uuid)}</UUID>`,
+        `<Username>${escapeXml(creds.username || '')}</Username>`,
+        `<Password>${escapeXml(creds.password || '')}</Password>`,
+    ].join('\n');
 
-    const env11 = `<?xml version="1.0" encoding="utf-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://API.Integration/">
-  <soapenv:Header/>
-  <soapenv:Body>
-    <api:validate>
-      <UUID>${escapeXml(uuid)}</UUID>
-      <Username>${escapeXml(username)}</Username>
-      <Password>${escapeXml(password)}</Password>
-    </api:validate>
-  </soapenv:Body>
-</soapenv:Envelope>`;
-
+    const env11 = buildEnvelope('validate', bodyXml);
     const body = await sendSoapWithFallback(ctx, url, env11, 'http://API.Integration/validate', timeoutMs);
 
     const valid = parseValidate(body);
     const statusMessage = extractStatusMessage(body);
-    const result: IDataObject = { valid, uuid };
-    if (statusMessage) result.statusMessage = statusMessage;
-    return result;
+
+    const out: IDataObject = { success: true, resource: RESOURCE, operation: 'validate', valid, uuid };
+    if (statusMessage) out.statusMessage = statusMessage;
+    return out;
 }
 
-async function logoutOp(
+async function doLogout(
     ctx: IExecuteFunctions,
     creds: Creds,
     url: string,
-    _baseUrl: string,
+    baseUrl: string,
     timeoutMs: number,
     itemIndex: number,
 ): Promise<IDataObject> {
@@ -112,45 +144,44 @@ async function logoutOp(
     let uuid = (ctx.getNodeParameter('uuid', itemIndex, '') as string).trim();
 
     if (useStored && !uuid) {
+        // don't auto-login for logout; just read stored
         const stored = getSession(ctx, creds);
         if (!stored) throw new Error('No stored session UUID to logout');
         uuid = stored;
     }
 
-    const env11 = `<?xml version="1.0" encoding="utf-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://API.Integration/">
-  <soapenv:Header/>
-  <soapenv:Body>
-    <api:logout>
-      <UUID>${escapeXml(uuid)}</UUID>
-    </api:logout>
-  </soapenv:Body>
-</soapenv:Envelope>`;
-
+    const env11 = buildEnvelope('logout', `<UUID>${escapeXml(uuid)}</UUID>`);
     const body = await sendSoapWithFallback(ctx, url, env11, 'http://API.Integration/logout', timeoutMs);
 
+    // Clear cache regardless of status (to avoid stale sessions)
     clearSession(ctx, creds);
+
     const statusMessage = extractStatusMessage(body);
-    const result: IDataObject = { uuid };
-    if (statusMessage) result.statusMessage = statusMessage;
-    return result;
+    const out: IDataObject = { success: true, resource: RESOURCE, operation: 'logout', uuid };
+    if (statusMessage) out.statusMessage = statusMessage;
+    return out;
 }
 
+/** ---- Service export ---- */
 export const PlunetApiService: Service = {
     resource: RESOURCE,
     resourceDisplayName: 'PlunetAPI (Auth / Misc)',
     resourceDescription: 'Authentication & utility endpoints',
     endpoint: 'PlunetAPI',
-    operationOptions: [
-        { name: 'Login', value: 'login', action: 'Log in to Plunet', description: 'Authenticate and obtain a session UUID' },
-        { name: 'Validate', value: 'validate', action: 'Validate Plunet session', description: 'Check whether a UUID is valid' },
-        { name: 'Logout', value: 'logout', action: 'Log out of Plunet', description: 'Invalidate a session UUID' },
-    ],
+
+    operationOptions,
     extraProperties,
+
     async execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex) {
-        if (operation === 'login') return loginOp(ctx, creds, url, baseUrl, timeoutMs, itemIndex);
-        if (operation === 'validate') return validateOp(ctx, creds, url, baseUrl, timeoutMs, itemIndex);
-        if (operation === 'logout') return logoutOp(ctx, creds, url, baseUrl, timeoutMs, itemIndex);
-        throw new Error(`Unsupported operation for ${RESOURCE}: ${operation}`);
+        switch (operation) {
+            case 'login':
+                return doLogin(ctx, creds, url, timeoutMs);
+            case 'validate':
+                return doValidate(ctx, creds, url, baseUrl, timeoutMs, itemIndex);
+            case 'logout':
+                return doLogout(ctx, creds, url, baseUrl, timeoutMs, itemIndex);
+            default:
+                throw new Error(`Unsupported operation for ${RESOURCE}: ${operation}`);
+        }
     },
 };
