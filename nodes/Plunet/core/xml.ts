@@ -16,8 +16,12 @@ export const xmlParser = new XMLParser({
 
 /** Utils exported so parsers can reuse them */
 export function asNum(v: unknown): number | undefined {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : undefined;
+    if (typeof v === 'number') return Number.isFinite(v) ? v : undefined;
+    if (typeof v === 'string') {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : undefined;
+    }
+    return undefined;
 }
 export function asStr(v: unknown): string | undefined {
     return typeof v === 'string' ? v : v == null ? undefined : String(v);
@@ -54,15 +58,40 @@ export function getDataNode(xml: string): unknown {
     return ret;
 }
 
+/** -------- Robust deep-search helpers -------- */
+function isUuid(s: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
+}
+function deepFind<T = unknown>(node: unknown, pred: (k: string, v: unknown) => T | undefined): T | undefined {
+    const seen = new Set<unknown>();
+    const stack: unknown[] = [node];
+    while (stack.length) {
+        const cur = stack.pop();
+        if (cur && typeof cur === 'object') {
+            if (seen.has(cur)) continue;
+            seen.add(cur);
+            for (const [k, v] of Object.entries(cur as Record<string, unknown>)) {
+                const hit = pred(k, v);
+                if (hit !== undefined) return hit;
+                if (v && typeof v === 'object') stack.push(v);
+            }
+        } else if (typeof cur === 'string' || typeof cur === 'number' || typeof cur === 'boolean') {
+            const hit = pred('', cur);
+            if (hit !== undefined) return hit;
+        }
+    }
+    return undefined;
+}
+
 /** Status extractors */
 export function extractResultBase(xml: string): ResultBase {
     const ret = getReturnNode(getBodyRoot(xml));
-    const statusCode = asNum((ret as any).statusCode);
-    const statusCodeAlphanumeric = asStr((ret as any).statusCodeAlphanumeric);
-    const statusMessage = asStr((ret as any).statusMessage);
+    const statusCode = asNum((ret as any).statusCode ?? (ret as any).StatusCode);
+    const statusCodeAlphanumeric = asStr((ret as any).statusCodeAlphanumeric ?? (ret as any).StatusCodeAlphanumeric);
+    const statusMessage = asStr((ret as any).statusMessage ?? (ret as any).StatusMessage);
 
-    const warn = (ret as any).warning_StatusCodeList;
-    const list = warn?.int ?? warn;
+    const warn = (ret as any).warning_StatusCodeList ?? (ret as any).Warning_StatusCodeList;
+    const list = (warn?.int ?? warn) as any;
     const warningStatusCodeList = toArray<number>(list)
         .map((x: any) => Number(x))
         .filter((n) => Number.isFinite(n));
@@ -83,53 +112,80 @@ export function extractStatusMessage(xml: string): string | undefined {
 export function parseStringResult(xml: string): ResultBase & { value?: string } {
     const base = extractResultBase(xml);
     const data = getDataNode(xml) as any;
-    const value = asStr(data?.value ?? data?.string ?? data);
+
+    // Common places a string might live
+    const value =
+        asStr(data?.value) ??
+        asStr(data?.string) ??
+        asStr((data && typeof data === 'object' ? undefined : data)); // direct string
+
     return { ...base, value };
 }
+
 export function parseIntegerResult(xml: string): ResultBase & { value?: number } {
     const base = extractResultBase(xml);
     const data = getDataNode(xml) as any;
-    const raw = data?.value ?? data?.int ?? data;
-    const value = asNum(raw);
-    return { ...base, value };
+
+    // Common integer field names we’ve seen across installs
+    const direct =
+        asNum(data?.value) ??
+        asNum(data?.int) ??
+        asNum(data?.status) ??                // e.g. getStatus
+        asNum(data?.Status) ??
+        asNum(data?.statusId) ??
+        asNum(data?.statusID) ??
+        asNum((typeof data === 'number' || typeof data === 'string') ? data : undefined);
+
+    if (direct !== undefined) return { ...base, value: direct };
+
+    // Fallback: deep search under data for the first numeric at known keys
+    const found = deepFind<number>(data, (k, v) => {
+        const num = asNum(v);
+        if (num === undefined) return;
+        if (/^(value|int|status|Status|statusId|statusID|id|Id|ID)$/i.test(k)) return num;
+        return;
+    });
+
+    return { ...base, value: found };
 }
+
 export function parseIntegerArrayResult(xml: string): ResultBase & { value: number[] } {
     const base = extractResultBase(xml);
     const data = getDataNode(xml) as any;
-    const arr = toArray<number>(data?.int ?? data);
-    const value = arr.map((x: any) => Number(x)).filter((n) => Number.isFinite(n));
+
+    // Typical shapes: <int>1</int><int>2</int>, or arrays on various keys
+    const candidates = [
+        ...(toArray<any>(data?.int)),
+        ...(toArray<any>(data?.ids ?? data?.idList ?? data?.integerList ?? data?.Integers)),
+        ...(toArray<any>(typeof data === 'number' || typeof data === 'string' ? [data] : [])),
+    ];
+    let value = candidates
+        .map(asNum)
+        .filter((n): n is number => n !== undefined);
+
+    if (value.length === 0) {
+        // Deep fallback: find all numbers at common list keys
+        const acc: number[] = [];
+        deepFind<void>(data, (k, v) => {
+            if (/^(int|ids|idList|integerList|Integers)$/i.test(k)) {
+                for (const x of toArray<any>(v)) {
+                    const n = asNum(x);
+                    if (n !== undefined) acc.push(n);
+                }
+            }
+            return;
+        });
+        value = acc;
+    }
+
     return { ...base, value };
 }
+
 /** Many setters/void results: OK when statusCode is 0 or missing */
 export function parseVoidResult(xml: string): ResultBase & { ok: boolean } {
     const base = extractResultBase(xml);
     const ok = (base.statusCode ?? 0) === 0;
     return { ...base, ok };
-}
-
-/** -------- Robust deep-search helpers -------- */
-function isUuid(s: string): boolean {
-    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
-}
-function deepFind<T = unknown>(node: unknown, pred: (k: string, v: unknown) => T | undefined): T | undefined {
-    const seen = new Set<unknown>();
-    const stack: unknown[] = [node];
-    while (stack.length) {
-        const cur = stack.pop();
-        if (cur && typeof cur === 'object') {
-            if (seen.has(cur)) continue;
-            seen.add(cur);
-            for (const [k, v] of Object.entries(cur as Record<string, unknown>)) {
-                const hit = pred(k, v);
-                if (hit !== undefined) return hit;
-                if (v && typeof v === 'object') stack.push(v);
-            }
-        } else if (typeof cur === 'string') {
-            const hit = pred('', cur);
-            if (hit !== undefined) return hit;
-        }
-    }
-    return undefined;
 }
 
 /** -------- Back-compat helpers used by session/plunetApi -------- */
