@@ -30,6 +30,9 @@ export function toArray<T>(v: T | T[] | undefined | null): T[] {
     if (v === undefined || v === null) return [];
     return Array.isArray(v) ? v : [v];
 }
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+    return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
 
 /** Envelope/Body helpers */
 export function getBodyRoot(xml: string): Record<string, unknown> {
@@ -83,7 +86,7 @@ function deepFind<T = unknown>(node: unknown, pred: (k: string, v: unknown) => T
     return undefined;
 }
 
-/** Status extractors */
+/** -------- Status extractors -------- */
 export function extractResultBase(xml: string): ResultBase {
     const ret = getReturnNode(getBodyRoot(xml));
     const statusCode = asNum((ret as any).statusCode ?? (ret as any).StatusCode);
@@ -108,18 +111,39 @@ export function extractStatusMessage(xml: string): string | undefined {
     return extractResultBase(xml).statusMessage;
 }
 
-/** -------- Primitive Result Parsers -------- */
-export function parseStringResult(xml: string): ResultBase & { value?: string } {
+/** -------- Primitive Result Parsers --------
+ * NOTE: By request, StringResult and IntegerArrayResult both expose { data: ... }.
+ */
+export function parseStringResult(xml: string): ResultBase & { data?: string } {
     const base = extractResultBase(xml);
-    const data = getDataNode(xml) as any;
 
-    // Common places a string might live
-    const value =
-        asStr(data?.value) ??
-        asStr(data?.string) ??
-        asStr((data && typeof data === 'object' ? undefined : data)); // direct string
+    // Prefer the explicit <data> node under <return>
+    const body = getBodyRoot(xml);
+    const ret = getReturnNode(body) as any;
 
-    return { ...base, value };
+    let dataVal: unknown = ret?.data;
+
+    // Self-closing <data/> may parse as '' or as {}, depending on server/options
+    if (dataVal !== undefined && isPlainObject(dataVal)) {
+        if (Object.keys(dataVal).length === 0) dataVal = ''; // treat empty object as empty string
+    }
+
+    // If not found, search for string-ish content under common keys
+    if (dataVal === undefined) {
+        dataVal =
+            deepFind<string>(ret, (k, v) => {
+                if (k === 'data' && (typeof v === 'string' || typeof v === 'number')) return String(v);
+                return;
+            }) ??
+            deepFind<string>(ret, (k, v) => {
+                if ((k === 'value' || k === 'string') && (typeof v === 'string' || typeof v === 'number')) return String(v);
+                return;
+            }) ??
+            (typeof ret === 'string' || typeof ret === 'number' ? String(ret) : undefined);
+    }
+
+    const data = asStr(dataVal);
+    return { ...base, data };
 }
 
 export function parseIntegerResult(xml: string): ResultBase & { value?: number } {
@@ -130,7 +154,8 @@ export function parseIntegerResult(xml: string): ResultBase & { value?: number }
     const direct =
         asNum(data?.value) ??
         asNum(data?.int) ??
-        asNum(data?.status) ??                // e.g. getStatus
+        asNum(data?.data) ??              // allow <data>42</data>
+        asNum(data?.status) ??
         asNum(data?.Status) ??
         asNum(data?.statusId) ??
         asNum(data?.statusID) ??
@@ -142,43 +167,53 @@ export function parseIntegerResult(xml: string): ResultBase & { value?: number }
     const found = deepFind<number>(data, (k, v) => {
         const num = asNum(v);
         if (num === undefined) return;
-        if (/^(value|int|status|Status|statusId|statusID|id|Id|ID)$/i.test(k)) return num;
+        if (/^(value|int|data|status|Status|statusId|statusID|id|Id|ID)$/i.test(k)) return num;
         return;
     });
 
     return { ...base, value: found };
 }
 
-export function parseIntegerArrayResult(xml: string): ResultBase & { value: number[] } {
+/** Returns { data: number[] } for IntegerArrayResult. Handles multiple <data> items. */
+export function parseIntegerArrayResult(xml: string): ResultBase & { data: number[] } {
     const base = extractResultBase(xml);
-    const data = getDataNode(xml) as any;
 
-    // Typical shapes: <int>1</int><int>2</int>, or arrays on various keys
-    const candidates = [
-        ...(toArray<any>(data?.int)),
-        ...(toArray<any>(data?.ids ?? data?.idList ?? data?.integerList ?? data?.Integers)),
-        ...(toArray<any>(typeof data === 'number' || typeof data === 'string' ? [data] : [])),
-    ];
-    let value = candidates
-        .map(asNum)
-        .filter((n): n is number => n !== undefined);
+    const body = getBodyRoot(xml);
+    const ret = getReturnNode(body) as any;
 
-    if (value.length === 0) {
-        // Deep fallback: find all numbers at common list keys
-        const acc: number[] = [];
-        deepFind<void>(data, (k, v) => {
-            if (/^(int|ids|idList|integerList|Integers)$/i.test(k)) {
-                for (const x of toArray<any>(v)) {
-                    const n = asNum(x);
-                    if (n !== undefined) acc.push(n);
-                }
+    // 1) Most common Plunet shape: multiple <data> elements side-by-side
+    let arr = toArray<any>(ret?.data);
+
+    // 2) Other commonly seen keys (<int>, <ids>, <idList>, <integerList>, <Integers>)
+    if (arr.length === 0) {
+        const dn = getDataNode(xml) as any;
+        arr = [
+            ...toArray<any>(dn?.data),
+            ...toArray<any>(dn?.int),
+            ...toArray<any>(dn?.ids),
+            ...toArray<any>(dn?.idList),
+            ...toArray<any>(dn?.integerList),
+            ...toArray<any>(dn?.Integers),
+        ];
+    }
+
+    // 3) Deep fallback: find all numbers under any of the list keys above
+    if (arr.length === 0) {
+        const acc: any[] = [];
+        deepFind<void>(ret, (k, v) => {
+            if (/^(data|int|ids|idList|integerList|Integers)$/i.test(k)) {
+                acc.push(...toArray<any>(v));
             }
             return;
         });
-        value = acc;
+        arr = acc;
     }
 
-    return { ...base, value };
+    const data = arr
+        .map(asNum)
+        .filter((n): n is number => n !== undefined);
+
+    return { ...base, data };
 }
 
 /** Many setters/void results: OK when statusCode is 0 or missing */

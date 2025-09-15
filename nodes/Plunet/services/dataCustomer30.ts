@@ -1,8 +1,9 @@
-import { IExecuteFunctions, IDataObject, INodeProperties, INodePropertyOptions } from 'n8n-workflow';
+import { IExecuteFunctions, IDataObject, INodeProperties, INodePropertyOptions, NodeOperationError } from 'n8n-workflow';
 import type { Creds, Service, NonEmptyArray } from '../core/types';
 import { escapeXml, sendSoapWithFallback } from '../core/soap';
 import { ensureSession } from '../core/session';
 import {
+    extractResultBase,
     extractStatusMessage,
     parseStringResult,
     parseIntegerResult,
@@ -60,9 +61,9 @@ const PARAM_ORDER: Record<string, string[]> = {
     ],
     update: [
         'academicTitle', 'costCenter', 'currency', 'customerID', 'email',
-        'externalID', 'fax', 'formOfAddress', 'fullName', 'mobilePhone',
-        'name1', 'name2', 'opening', 'phone', 'skypeID', 'status', 'userId', 'website',
-        'enableNullOrEmptyValues',
+        'externalID', 'fax', 'formOfAddress', 'fullName',
+        'mobilePhone', 'name1', 'name2', 'opening', 'phone', 'skypeID',
+        'status', 'userId', 'website', 'enableNullOrEmptyValues',
     ],
     search: ['SearchFilter'], // XML filter or criteria string
     seekByExternalID: ['ExternalID'],
@@ -220,6 +221,16 @@ async function runOp(
     const soapAction = `http://API.Integration/${op}`;
     const body = await sendSoapWithFallback(ctx, url, env11, soapAction, timeoutMs);
 
+    /** Enforce rule: any non-"OK" statusMessage is a hard error */
+    const base = extractResultBase(body);
+    if (base.statusMessage && base.statusMessage !== 'OK') {
+        throw new NodeOperationError(
+            ctx.getNode(),
+            `Plunet error (${op}): ${base.statusMessage}${base.statusCode !== undefined ? ` [${base.statusCode}]` : ''}`,
+            { itemIndex },
+        );
+    }
+
     // Dispatch to proper parser
     const rt = RETURN_TYPE[op] as R | undefined;
     let payload: IDataObject;
@@ -252,7 +263,7 @@ async function runOp(
         }
         case 'String': {
             const r = parseStringResult(body);
-            payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            payload = { data: r.data ?? '', statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
         case 'Integer': {
@@ -262,7 +273,7 @@ async function runOp(
         }
         case 'IntegerArray': {
             const r = parseIntegerArrayResult(body);
-            payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            payload = { data: r.data, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
         case 'Void': {

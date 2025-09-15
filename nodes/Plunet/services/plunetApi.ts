@@ -3,11 +3,12 @@ import {
     IDataObject,
     INodeProperties,
     INodePropertyOptions,
+    NodeOperationError,
 } from 'n8n-workflow';
 
 import type { Creds, Service, NonEmptyArray } from '../core/types';
 import { escapeXml, sendSoapWithFallback } from '../core/soap';
-import { extractStatusMessage, extractUuid, parseValidate } from '../core/xml';
+import { extractResultBase, extractStatusMessage, extractUuid, parseValidate } from '../core/xml';
 import { ensureSession, getSession, saveSession, clearSession } from '../core/session';
 
 const RESOURCE = 'PlunetAPI';
@@ -33,7 +34,6 @@ const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
 
 /** ---- UI fields ---- */
 const extraProperties: INodeProperties[] = [
-    // Use Stored Session for validate/logout
     {
         displayName: 'Use Stored Session',
         name: 'useStoredSession',
@@ -87,16 +87,19 @@ async function doLogin(
 
     const body = await sendSoapWithFallback(ctx, url, env11, 'http://API.Integration/login', timeoutMs);
 
+    /** Enforce rule: non-OK => hard error */
+    const base = extractResultBase(body);
+
     const uuid = extractUuid(body);
     if (!uuid) throw new Error('Login succeeded but UUID not found in SOAP response');
 
     // Cache for subsequent calls
     saveSession(ctx, creds, uuid);
 
-    const statusMessage = extractStatusMessage(body);
-    const result: IDataObject = { success: true, resource: RESOURCE, operation: 'login', uuid };
-    if (statusMessage) result.statusMessage = statusMessage;
-    return result;
+    const out: IDataObject = { success: true, resource: RESOURCE, operation: 'login', uuid };
+    if (base.statusMessage) out.statusMessage = base.statusMessage;
+    if (base.statusCode !== undefined) out.statusCode = base.statusCode;
+    return out;
 }
 
 async function doValidate(
@@ -124,11 +127,20 @@ async function doValidate(
     const env11 = buildEnvelope('validate', bodyXml);
     const body = await sendSoapWithFallback(ctx, url, env11, 'http://API.Integration/validate', timeoutMs);
 
-    const valid = parseValidate(body);
-    const statusMessage = extractStatusMessage(body);
+    /** Enforce rule: non-OK => hard error */
+    const base = extractResultBase(body);
+    if (base.statusMessage && base.statusMessage !== 'OK') {
+        throw new NodeOperationError(
+            ctx.getNode(),
+            `Plunet error (validate): ${base.statusMessage}${base.statusCode !== undefined ? ` [${base.statusCode}]` : ''}`,
+            { itemIndex },
+        );
+    }
 
+    const valid = parseValidate(body);
     const out: IDataObject = { success: true, resource: RESOURCE, operation: 'validate', valid, uuid };
-    if (statusMessage) out.statusMessage = statusMessage;
+    if (base.statusMessage) out.statusMessage = base.statusMessage;
+    if (base.statusCode !== undefined) out.statusCode = base.statusCode;
     return out;
 }
 
@@ -153,12 +165,22 @@ async function doLogout(
     const env11 = buildEnvelope('logout', `<UUID>${escapeXml(uuid)}</UUID>`);
     const body = await sendSoapWithFallback(ctx, url, env11, 'http://API.Integration/logout', timeoutMs);
 
-    // Clear cache regardless of status (to avoid stale sessions)
+    /** Enforce rule: non-OK => hard error */
+    const base = extractResultBase(body);
+    if (base.statusMessage && base.statusMessage !== 'OK') {
+        throw new NodeOperationError(
+            ctx.getNode(),
+            `Plunet error (logout): ${base.statusMessage}${base.statusCode !== undefined ? ` [${base.statusCode}]` : ''}`,
+            { itemIndex },
+        );
+    }
+
+    // Clear cache regardless of status (avoid stale sessions)
     clearSession(ctx, creds);
 
-    const statusMessage = extractStatusMessage(body);
     const out: IDataObject = { success: true, resource: RESOURCE, operation: 'logout', uuid };
-    if (statusMessage) out.statusMessage = statusMessage;
+    if (base.statusMessage) out.statusMessage = base.statusMessage;
+    if (base.statusCode !== undefined) out.statusCode = base.statusCode;
     return out;
 }
 
