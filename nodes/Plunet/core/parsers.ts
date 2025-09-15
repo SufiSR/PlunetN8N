@@ -1,212 +1,286 @@
 import {
-    ResultBase,
     asNum,
     asStr,
     toArray,
-    getDataNode,
+    getBodyRoot,
+    getReturnNode,
     extractResultBase,
+    type ResultBase,
 } from './xml';
 
-/** ------------ Customer DTO ------------ */
-export type Customer = {
-    academicTitle?: string;
-    costCenter?: string;
-    currency?: string;
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  Customer status enum mapping (local to avoid extra imports)
+ *  If you later factor enums, swap these helpers to your enums registry.
+ *  https://apidoc.plunet.com/latest/BM/API/SOAP/Enum/CustomerStatus.html
+ *  ACTIVE=1, NOT_ACTIVE=2, CONTACTED=3, NEW=4, BLOCKED=5, AQUISITION_ADDRESS=6,
+ *  NEW_AUTO=7, DELETION_REQUESTED=8
+ *  ─────────────────────────────────────────────────────────────────────────── */
+const CustomerStatusNameById: Record<number, string> = {
+    1: 'ACTIVE',
+    2: 'NOT_ACTIVE',
+    3: 'CONTACTED',
+    4: 'NEW',
+    5: 'BLOCKED',
+    6: 'AQUISITION_ADDRESS',
+    7: 'NEW_AUTO',
+    8: 'DELETION_REQUESTED',
+};
+function idToCustomerStatusName(id?: number | null): string | undefined {
+    if (id == null) return undefined;
+    return CustomerStatusNameById[id];
+}
+
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  DTO types (minimal but useful). Extend as needed.
+ *  ─────────────────────────────────────────────────────────────────────────── */
+export type CustomerDTO = {
     customerID?: number;
-    email?: string;
     externalID?: string;
-    fax?: string;
-    formOfAddress?: number;
     fullName?: string;
-    mobilePhone?: string;
     name1?: string;
     name2?: string;
-    opening?: string;
+    email?: string;
     phone?: string;
-    skypeID?: string;
-    status?: number;
-    userId?: number;
+    fax?: string;
+    mobilePhone?: string;
     website?: string;
-    /** any unknown fields are preserved here */
-    extra?: Record<string, unknown>;
+    currency?: string;
+    status?: string;          // enum name (mapped)
+    statusId?: number;        // original numeric id (optional)
+    accountID?: number;
+    projectManagerID?: number;
+    accountManagerID?: number;
+    formOfAddress?: number;
+    academicTitle?: string;
+    opening?: string;
+    skypeID?: string;
+    costCenter?: string;
+    dateOfInitialContact?: string;
+    sourceOfContact?: string;
+    dossier?: string;
+    [k: string]: unknown;
 };
 
-function mapCustomer(obj: Record<string, unknown>): Customer {
-    const c: Customer = {
-        academicTitle: asStr(obj.academicTitle),
-        costCenter: asStr(obj.costCenter),
-        currency: asStr(obj.currency),
-        customerID: asNum(obj.customerID),
-        email: asStr(obj.email),
-        externalID: asStr(obj.externalID),
-        fax: asStr(obj.fax),
-        formOfAddress: asNum(obj.formOfAddress),
-        fullName: asStr(obj.fullName),
-        mobilePhone: asStr(obj.mobilePhone),
-        name1: asStr(obj.name1),
-        name2: asStr(obj.name2),
-        opening: asStr(obj.opening),
-        phone: asStr(obj.phone),
-        skypeID: asStr(obj.skypeID),
-        status: asNum(obj.status),
-        userId: asNum(obj.userId),
-        website: asStr(obj.website),
-    };
-    // collect unknowns
-    const known = new Set(Object.keys(c).filter((k) => (c as any)[k] !== undefined));
-    const extra: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(obj)) {
-        if (!known.has(k)) extra[k] = v;
-    }
-    if (Object.keys(extra).length) c.extra = extra;
-    return c;
-}
-
-export function parseCustomerResult(xml: string): ResultBase & { customer?: Customer } {
-    const base = extractResultBase(xml);
-    const data = getDataNode(xml) as any;
-
-    const raw =
-        (data?.Customer as Record<string, unknown> | undefined) ??
-        (data as Record<string, unknown> | undefined);
-
-    const customer = raw && typeof raw === 'object' ? mapCustomer(raw) : undefined;
-    return { ...base, customer };
-}
-
-export function parseCustomerListResult(xml: string): ResultBase & { customers: Customer[] } {
-    const base = extractResultBase(xml);
-    const data = getDataNode(xml) as any;
-    const list = toArray<Record<string, unknown>>(data?.Customer ?? data);
-    const customers = list
-        .filter((x) => x && typeof x === 'object')
-        .map((x) => mapCustomer(x as Record<string, unknown>));
-    return { ...base, customers };
-}
-
-/** ------------ PaymentInfo DTO ------------ */
-export type PaymentInfo = {
+export type PaymentInfoDTO = {
     accountHolder?: string;
-    accountID?: number;
+    accountID?: string;
     BIC?: string;
     contractNumber?: string;
     debitAccount?: string;
     IBAN?: string;
     paymentMethodID?: number;
-    preselectedTaxID?: number;
+    preselectedTaxID?: string;
     salesTaxID?: string;
-    extra?: Record<string, unknown>;
+    [k: string]: unknown;
 };
 
-function mapPaymentInfo(obj: Record<string, unknown>): PaymentInfo {
-    const p: PaymentInfo = {
-        accountHolder: asStr(obj.accountHolder),
-        accountID: asNum(obj.accountID),
-        BIC: asStr(obj.BIC),
-        contractNumber: asStr(obj.contractNumber),
-        debitAccount: asStr(obj.debitAccount),
-        IBAN: asStr(obj.IBAN),
-        paymentMethodID: asNum(obj.paymentMethodID),
-        preselectedTaxID: asNum(obj.preselectedTaxID),
-        salesTaxID: asStr(obj.salesTaxID),
-    };
-    const known = new Set(Object.keys(p).filter((k) => (p as any)[k] !== undefined));
-    const extra: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(obj)) {
-        if (!known.has(k)) extra[k] = v;
-    }
-    if (Object.keys(extra).length) p.extra = extra;
-    return p;
-}
-
-export function parsePaymentInfoResult(xml: string): ResultBase & { paymentInfo?: PaymentInfo } {
-    const base = extractResultBase(xml);
-    const data = getDataNode(xml) as any;
-    const raw =
-        (data?.PaymentInfo as Record<string, unknown> | undefined) ??
-        (data as Record<string, unknown> | undefined);
-    const paymentInfo = raw && typeof raw === 'object' ? mapPaymentInfo(raw) : undefined;
-    return { ...base, paymentInfo };
-}
-
-/** ------------ Account DTO ------------ */
-export type Account = {
-    AccountID?: number;
-    accountHolder?: string;
-    IBAN?: string;
-    BIC?: string;
+export type AccountDTO = {
+    accountID?: number;
+    costCenter?: string;
     currency?: string;
-    extra?: Record<string, unknown>;
+    [k: string]: unknown;
 };
 
-function mapAccount(obj: Record<string, unknown>): Account {
-    const a: Account = {
-        AccountID: asNum(obj.AccountID ?? obj.accountID),
-        accountHolder: asStr(obj.accountHolder ?? obj.AccountHolder),
-        IBAN: asStr(obj.IBAN),
-        BIC: asStr(obj.BIC),
-        currency: asStr(obj.currency),
-    };
-    const known = new Set(Object.keys(a).filter((k) => (a as any)[k] !== undefined));
-    const extra: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(obj)) {
-        if (!known.has(k)) extra[k] = v;
-    }
-    if (Object.keys(extra).length) a.extra = extra;
-    return a;
-}
-
-export function parseAccountResult(xml: string): ResultBase & { account?: Account } {
-    const base = extractResultBase(xml);
-    const data = getDataNode(xml) as any;
-    const raw =
-        (data?.Account as Record<string, unknown> | undefined) ??
-        (data as Record<string, unknown> | undefined);
-    const account = raw && typeof raw === 'object' ? mapAccount(raw) : undefined;
-    return { ...base, account };
-}
-
-/** ------------ Workflow List DTO ------------ */
-export type Workflow = {
-    workflowID?: number;
-    workflowName?: string;
-    description?: string;
-    extra?: Record<string, unknown>;
+export type WorkflowDTO = {
+    id?: number;
+    name?: string;
+    [k: string]: unknown;
 };
 
-function mapWorkflow(obj: Record<string, unknown>): Workflow {
-    const w: Workflow = {
-        workflowID: asNum((obj as any).workflowID ?? (obj as any).id),
-        workflowName: asStr((obj as any).workflowName ?? (obj as any).name),
-        description: asStr((obj as any).description),
-    };
-    const known = new Set(Object.keys(w).filter((k) => (w as any)[k] !== undefined));
-    const extra: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(obj)) {
-        if (!known.has(k)) extra[k] = v;
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  Helpers
+ *  ─────────────────────────────────────────────────────────────────────────── */
+function firstNonEmptyKey(obj: Record<string, any>, keys: string[]) {
+    for (const k of keys) {
+        const v = obj[k];
+        if (v !== undefined && v !== null) return v;
     }
-    if (Object.keys(extra).length) w.extra = extra;
-    return w;
+    return undefined;
 }
 
-/** Handles both <WorkflowList><Workflow>...</Workflow></WorkflowList> and direct arrays */
-export function parseWorkflowListResult(xml: string): ResultBase & { workflows: Workflow[] } {
+function coerceCustomer(raw: any): CustomerDTO {
+    const c: CustomerDTO = {};
+    c.customerID = asNum(firstNonEmptyKey(raw, ['customerID', 'CustomerID', 'id', 'ID']));
+    c.externalID = asStr(firstNonEmptyKey(raw, ['externalID', 'ExternalID']));
+    c.fullName = asStr(firstNonEmptyKey(raw, ['fullName', 'FullName']));
+    c.name1 = asStr(firstNonEmptyKey(raw, ['name1', 'Name1']));
+    c.name2 = asStr(firstNonEmptyKey(raw, ['name2', 'Name2']));
+    c.email = asStr(firstNonEmptyKey(raw, ['email', 'EMail']));
+    c.phone = asStr(firstNonEmptyKey(raw, ['phone', 'Phone']));
+    c.fax = asStr(firstNonEmptyKey(raw, ['fax', 'Fax']));
+    c.mobilePhone = asStr(firstNonEmptyKey(raw, ['mobilePhone', 'MobilePhone']));
+    c.website = asStr(firstNonEmptyKey(raw, ['website', 'Website']));
+    c.currency = asStr(firstNonEmptyKey(raw, ['currency', 'Currency']));
+    c.accountID = asNum(firstNonEmptyKey(raw, ['accountID', 'AccountID']));
+    c.projectManagerID = asNum(firstNonEmptyKey(raw, ['projectManagerID', 'ProjectManagerID']));
+    c.accountManagerID = asNum(firstNonEmptyKey(raw, ['accountManagerID', 'AccountManagerID']));
+    c.formOfAddress = asNum(firstNonEmptyKey(raw, ['formOfAddress', 'FormOfAddress']));
+    c.academicTitle = asStr(firstNonEmptyKey(raw, ['academicTitle', 'AcademicTitle']));
+    c.opening = asStr(firstNonEmptyKey(raw, ['opening', 'Opening']));
+    c.skypeID = asStr(firstNonEmptyKey(raw, ['skypeID', 'SkypeID']));
+    c.costCenter = asStr(firstNonEmptyKey(raw, ['costCenter', 'CostCenter']));
+    c.dateOfInitialContact = asStr(firstNonEmptyKey(raw, ['dateOfInitialContact', 'DateOfInitialContact']));
+    c.sourceOfContact = asStr(firstNonEmptyKey(raw, ['sourceOfContact', 'SourceOfContact']));
+    c.dossier = asStr(firstNonEmptyKey(raw, ['dossier', 'Dossier']));
+
+    // status mapping: keep both
+    const statusId =
+        asNum(firstNonEmptyKey(raw, ['status', 'Status'])) ??
+        asNum(firstNonEmptyKey(raw, ['statusId', 'statusID', 'StatusID']));
+    if (statusId !== undefined) {
+        c.statusId = statusId;
+        const name = idToCustomerStatusName(statusId);
+        if (name) c.status = name;
+    } else {
+        // if it already came as string, keep it
+        const s = asStr(firstNonEmptyKey(raw, ['status', 'Status']));
+        if (s) c.status = s;
+    }
+
+    // copy any unknowns (non-destructive)
+    for (const [k, v] of Object.entries(raw)) {
+        if (!(k in c)) c[k] = v;
+    }
+    return c;
+}
+
+function pickCustomerNode(ret: any): any {
+    // Most common shapes
+    const direct = ret?.Customer ?? ret?.customer;
+    if (direct) return direct;
+
+    // Some results put it under <data>
+    const data = ret?.data;
+    const dataCustomer = data?.Customer ?? data?.customer;
+    if (dataCustomer) return dataCustomer;
+
+    // Fallback: if ret looks like a customer (has a telltale key), return ret
+    if ('customerID' in ret || 'CustomerID' in ret || 'fullName' in ret || 'FullName' in ret) {
+        return ret;
+    }
+
+    // Else undefined
+    return undefined;
+}
+
+function pickCustomerArray(ret: any): any[] {
+    // Typical list shapes
+    const arr1 = toArray<any>(ret?.data);
+    if (arr1.length) {
+        // Each element could be customer itself or { Customer: {...} }
+        return arr1.map((x) => (x?.Customer ?? x?.customer ?? x));
+    }
+
+    const arr2 = toArray<any>(ret?.Customers ?? ret?.customers);
+    if (arr2.length) return arr2;
+
+    // Fallback: if a single customer node is present, make single-item array
+    const single = pickCustomerNode(ret);
+    return single ? [single] : [];
+}
+
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  Parsers
+ *  ─────────────────────────────────────────────────────────────────────────── */
+export function parseCustomerResult(xml: string): ResultBase & { customer?: CustomerDTO } {
     const base = extractResultBase(xml);
-    const data = getDataNode(xml) as any;
+    const body = getBodyRoot(xml);
+    const ret = getReturnNode(body) as any;
+    const node = pickCustomerNode(ret);
 
-    const container =
-        data?.WorkflowList ??
-        data?.workflows ??
-        data;
+    const customer = node ? coerceCustomer(node) : undefined;
+    return { ...base, customer };
+}
 
-    const list =
-        toArray<Record<string, unknown>>(container?.Workflow) // nested list
-            .concat(toArray<Record<string, unknown>>(container)) // direct list
-            .filter(Boolean);
+export function parseCustomerListResult(xml: string): ResultBase & { customers: CustomerDTO[] } {
+    const base = extractResultBase(xml);
+    const body = getBodyRoot(xml);
+    const ret = getReturnNode(body) as any;
 
-    const workflows = list
-        .filter((x) => x && typeof x === 'object')
-        .map((x) => mapWorkflow(x as Record<string, unknown>));
+    const nodes = pickCustomerArray(ret);
+    const customers = nodes.map(coerceCustomer);
+    return { ...base, customers };
+}
+
+export function parsePaymentInfoResult(xml: string): ResultBase & { paymentInfo?: PaymentInfoDTO } {
+    const base = extractResultBase(xml);
+    const body = getBodyRoot(xml);
+    const ret = getReturnNode(body) as any;
+
+    const node =
+        ret?.PaymentInformation ??
+        ret?.paymentInformation ??
+        ret?.PaymentInfo ??
+        ret?.paymentInfo ??
+        ret?.data;
+
+    if (!node || typeof node !== 'object') return { ...base, paymentInfo: undefined };
+
+    const out: PaymentInfoDTO = {
+        accountHolder: asStr(node.accountHolder ?? node.AccountHolder),
+        accountID: asStr(node.accountID ?? node.AccountID),
+        BIC: asStr(node.BIC),
+        contractNumber: asStr(node.contractNumber ?? node.ContractNumber),
+        debitAccount: asStr(node.debitAccount ?? node.DebitAccount),
+        IBAN: asStr(node.IBAN),
+        paymentMethodID: asNum(node.paymentMethodID ?? node.PaymentMethodID),
+        preselectedTaxID: asStr(node.preselectedTaxID ?? node.PreselectedTaxID),
+        salesTaxID: asStr(node.salesTaxID ?? node.SalesTaxID),
+    };
+
+    // Include unknown fields too
+    for (const [k, v] of Object.entries(node)) {
+        if (!(k in out)) (out as any)[k] = v;
+    }
+
+    return { ...base, paymentInfo: out };
+}
+
+export function parseAccountResult(xml: string): ResultBase & { account?: AccountDTO } {
+    const base = extractResultBase(xml);
+    const body = getBodyRoot(xml);
+    const ret = getReturnNode(body) as any;
+
+    const node = ret?.Account ?? ret?.account ?? ret?.data;
+    if (!node || typeof node !== 'object') return { ...base, account: undefined };
+
+    const out: AccountDTO = {
+        accountID: asNum(node.accountID ?? node.AccountID),
+        costCenter: asStr(node.costCenter ?? node.CostCenter),
+        currency: asStr(node.currency ?? node.Currency),
+    };
+
+    for (const [k, v] of Object.entries(node)) {
+        if (!(k in out)) (out as any)[k] = v;
+    }
+
+    return { ...base, account: out };
+}
+
+export function parseWorkflowListResult(xml: string): ResultBase & { workflows: WorkflowDTO[] } {
+    const base = extractResultBase(xml);
+    const body = getBodyRoot(xml);
+    const ret = getReturnNode(body) as any;
+
+    // Common shapes: <data><Workflow>…</Workflow></data> (repeated) or direct list of <Workflow>
+    let items: any[] = [];
+
+    const dataArr = toArray<any>(ret?.data);
+    if (dataArr.length) {
+        for (const d of dataArr) {
+            const wf = d?.Workflow ?? d?.workflow ?? d;
+            items.push(wf);
+        }
+    } else {
+        const wfArr = toArray<any>(ret?.Workflow ?? ret?.workflow ?? []);
+        if (wfArr.length) items = wfArr;
+    }
+
+    const workflows: WorkflowDTO[] = items.map((x) => ({
+        id: asNum(x?.id ?? x?.ID),
+        name: asStr(x?.name ?? x?.Name),
+        ...x,
+    }));
 
     return { ...base, workflows };
 }

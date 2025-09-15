@@ -1,4 +1,10 @@
-import { IExecuteFunctions, IDataObject, INodeProperties, INodePropertyOptions, NodeOperationError } from 'n8n-workflow';
+import {
+    IExecuteFunctions,
+    IDataObject,
+    INodeProperties,
+    INodePropertyOptions,
+    NodeOperationError,
+} from 'n8n-workflow';
 import type { Creds, Service, NonEmptyArray } from '../core/types';
 import { escapeXml, sendSoapWithFallback } from '../core/soap';
 import { ensureSession } from '../core/session';
@@ -21,7 +27,57 @@ import {
 
 const RESOURCE = 'DataCustomer30';
 
-/** Arguments per operation (UUID injected automatically; register/deregister excluded) */
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  CustomerStatus enum (LOCAL copy)
+ *  ─────────────────────────────────────────────────────────────────────────── */
+type CustomerStatusName =
+    | 'ACTIVE'
+    | 'NOT_ACTIVE'
+    | 'CONTACTED'
+    | 'NEW'
+    | 'BLOCKED'
+    | 'AQUISITION_ADDRESS'
+    | 'NEW_AUTO'
+    | 'DELETION_REQUESTED';
+
+const CustomerStatusIdByName: Record<CustomerStatusName, number> = {
+    ACTIVE: 1,
+    NOT_ACTIVE: 2,
+    CONTACTED: 3,
+    NEW: 4,
+    BLOCKED: 5,
+    AQUISITION_ADDRESS: 6,
+    NEW_AUTO: 7,
+    DELETION_REQUESTED: 8,
+};
+const CustomerStatusNameById: Record<number, CustomerStatusName> = Object.fromEntries(
+    Object.entries(CustomerStatusIdByName).map(([k, v]) => [v, k as CustomerStatusName]),
+) as Record<number, CustomerStatusName>;
+
+function idToCustomerStatusName(id?: number | null): CustomerStatusName | undefined {
+    if (id == null) return undefined;
+    return CustomerStatusNameById[id];
+}
+function prettyStatusLabel(name: CustomerStatusName): string {
+    switch (name) {
+        case 'NOT_ACTIVE': return 'Not active';
+        case 'AQUISITION_ADDRESS': return 'Acquisition address';
+        case 'NEW_AUTO': return 'New (auto)';
+        case 'DELETION_REQUESTED': return 'Deletion requested';
+        default: return name.charAt(0) + name.slice(1).toLowerCase(); // Active, Contacted, New, Blocked
+    }
+}
+const CustomerStatusOptions: INodePropertyOptions[] = (Object.keys(CustomerStatusIdByName) as CustomerStatusName[])
+    .sort((a, b) => CustomerStatusIdByName[a] - CustomerStatusIdByName[b])
+    .map((name) => ({
+        name: `${prettyStatusLabel(name)} (${CustomerStatusIdByName[name]})`,
+        value: CustomerStatusIdByName[name],
+        description: name,
+    }));
+
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  Operation → parameters (order matters). UUID is auto-included.
+ *  ─────────────────────────────────────────────────────────────────────────── */
 const PARAM_ORDER: Record<string, string[]> = {
     delete: ['customerID'],
     getAcademicTitle: ['customerID'],
@@ -64,7 +120,7 @@ const PARAM_ORDER: Record<string, string[]> = {
         'academicTitle', 'costCenter', 'currency', 'customerID', 'email',
         'externalID', 'fax', 'formOfAddress', 'fullName',
         'mobilePhone', 'name1', 'name2', 'opening', 'phone', 'skypeID',
-        'status', 'userId', 'website', 'enableNullOrEmptyValues',
+        'status', 'userId', 'website', 'enableNullOrEmptyValues', // boolean UI
     ],
     search: ['SearchFilter'],
     seekByExternalID: ['ExternalID'],
@@ -92,7 +148,7 @@ const PARAM_ORDER: Record<string, string[]> = {
     setWebsite: ['customerID', 'website'],
 };
 
-/** Return shapes so we know which parser to apply */
+/** Return types (so we can dispatch to typed parsers) */
 type R =
     | 'Void' | 'String' | 'Integer' | 'IntegerArray'
     | 'Customer' | 'CustomerList' | 'PaymentInfo' | 'Account' | 'WorkflowList';
@@ -155,7 +211,9 @@ const RETURN_TYPE: Record<string, R> = {
     setWebsite: 'Void',
 };
 
-/** -------- UI wiring -------- */
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  UI wiring
+ *  ─────────────────────────────────────────────────────────────────────────── */
 function labelize(op: string): string {
     if (op.includes('_')) return op.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
     return op.replace(/([a-z])([A-Z0-9])/g, '$1 $2').replace(/\b\w/g, (m) => m.toUpperCase());
@@ -164,6 +222,9 @@ function asNonEmpty<T>(arr: T[], err = 'Expected non-empty array'): [T, ...T[]] 
     if (arr.length === 0) throw new Error(err);
     return arr as [T, ...T[]];
 }
+const isStatusParam = (p: string) => p.toLowerCase() === 'status';
+const isEnableEmptyParam = (op: string, p: string) =>
+    op === 'update' && p.toLowerCase() === 'enablenulloremptyvalues';
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
     Object.keys(PARAM_ORDER).sort().map((op) => ({
@@ -174,18 +235,51 @@ const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
     })),
 );
 
+// Make every `status`/`Status` param a dropdown,
+// and `update.enableNullOrEmptyValues` a boolean with a clear label.
 const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
-    params.map<INodeProperties>((p) => ({
-        displayName: p,
-        name: p,
-        type: 'string',
-        default: '',
-        description: `${p} parameter for ${op}`,
-        displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-    })),
+    params.map<INodeProperties>((p) => {
+        // 1) Status → dropdown
+        if (isStatusParam(p)) {
+            return {
+                displayName: 'Status',
+                name: p,
+                type: 'options',
+                options: CustomerStatusOptions,
+                default: 1, // ACTIVE
+                description: `${p} parameter for ${op} (CustomerStatus enum)`,
+                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+            };
+        }
+
+        // 2) enableNullOrEmptyValues → boolean
+        if (isEnableEmptyParam(op, p)) {
+            return {
+                displayName: 'Overwrite with Empty Values',
+                name: p, // must remain "enableNullOrEmptyValues" for SOAP tag
+                type: 'boolean',
+                default: false,
+                description:
+                    'If enabled, empty inputs overwrite existing values in Plunet. If disabled, empty inputs are ignored and existing values are preserved.',
+                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+            };
+        }
+
+        // 3) default: plain string
+        return {
+            displayName: p,
+            name: p,
+            type: 'string',
+            default: '',
+            description: `${p} parameter for ${op}`,
+            displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+        };
+    }),
 );
 
-/** -------- SOAP + dispatch -------- */
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  SOAP helpers and execution
+ *  ─────────────────────────────────────────────────────────────────────────── */
 function buildEnvelope(op: string, childrenXml: string): string {
     return `<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://API.Integration/">
@@ -198,10 +292,10 @@ ${childrenXml.split('\n').map((l) => (l ? '      ' + l : l)).join('\n')}
 </soapenv:Envelope>`;
 }
 
-/** Centralized error enforcement:
- * - SOAP Fault → throw
- * - statusMessage present and !== "OK" → throw
- * - statusCode present and !== 0 → throw
+/** Golden rule enforcement:
+ *  - SOAP Fault → throw
+ *  - statusMessage present and !== "OK" → throw
+ *  - statusCode present and !== 0 → throw
  */
 function throwIfSoapOrStatusError(
     ctx: IExecuteFunctions,
@@ -239,13 +333,20 @@ async function runOp(
     op: string,
     paramNames: string[],
 ): Promise<IDataObject> {
-    // UUID is always pulled from storage / auto-login
+    // UUID is always pulled from storage / auto-login (note the itemIndex for error context)
     const uuid = await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, itemIndex);
 
     const parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
     for (const name of paramNames) {
-        const valRaw = ctx.getNodeParameter(name, itemIndex, '') as string;
-        const val = typeof valRaw === 'string' ? valRaw.trim() : String(valRaw ?? '');
+        const valRaw = ctx.getNodeParameter(name, itemIndex, '') as string | number | boolean;
+        const val =
+            typeof valRaw === 'string'
+                ? valRaw.trim()
+                : typeof valRaw === 'number'
+                    ? String(valRaw)
+                    : typeof valRaw === 'boolean'
+                        ? (valRaw ? 'true' : 'false')
+                        : '';
         if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
     }
 
@@ -253,10 +354,10 @@ async function runOp(
     const soapAction = `http://API.Integration/${op}`;
     const body = await sendSoapWithFallback(ctx, url, env11, soapAction, timeoutMs);
 
-    // 🔴 Enforce all error paths before parsing
+    // Enforce error rules
     throwIfSoapOrStatusError(ctx, itemIndex, body, op);
 
-    // Dispatch to proper parser
+    // Dispatch to proper parser / shape
     const rt = RETURN_TYPE[op] as R | undefined;
     let payload: IDataObject;
 
@@ -293,7 +394,17 @@ async function runOp(
         }
         case 'Integer': {
             const r = parseIntegerResult(body);
-            payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            if (op === 'getStatus') {
+                const name = idToCustomerStatusName(r.value ?? undefined);
+                payload = {
+                    status: name ?? null,            // enum name like "ACTIVE"
+                    statusId: r.value ?? null,       // numeric id
+                    statusMessage: r.statusMessage,
+                    statusCode: r.statusCode,
+                };
+            } else {
+                payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            }
             break;
         }
         case 'IntegerArray': {
@@ -303,16 +414,20 @@ async function runOp(
         }
         case 'Void': {
             const r = parseVoidResult(body);
-            // Double-guard: even after global checks, ensure setters can't silently succeed
+            // Additional guard so setters can't silently pass
             if (!r.ok) {
                 const msg = r.statusMessage || 'Operation failed';
-                throw new NodeOperationError(ctx.getNode(), `${op}: ${msg}${r.statusCode !== undefined ? ` [${r.statusCode}]` : ''}`, { itemIndex });
+                throw new NodeOperationError(
+                    ctx.getNode(),
+                    `${op}: ${msg}${r.statusCode !== undefined ? ` [${r.statusCode}]` : ''}`,
+                    { itemIndex },
+                );
             }
             payload = { ok: r.ok, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
         default: {
-            // Fallback: still return something useful
+            // Fallback: still give status + raw
             payload = { statusMessage: extractStatusMessage(body), rawResponse: body };
         }
     }
@@ -320,6 +435,9 @@ async function runOp(
     return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
 }
 
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  Service export
+ *  ─────────────────────────────────────────────────────────────────────────── */
 export const DataCustomer30Service: Service = {
     resource: RESOURCE,
     resourceDisplayName: 'Customers (DataCustomer30)',
