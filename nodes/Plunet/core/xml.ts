@@ -46,11 +46,32 @@ export function getBodyRoot(xml: string): Record<string, unknown> {
 export function getReturnNode(body: Record<string, unknown>): Record<string, unknown> {
     const keys = Object.keys(body);
     if (!keys.length) return {};
-    // accept ...Response or ...Result (some stacks use "...Result")
+
+    // Pick the response/result wrapper (e.g., setFaxResponse, getFooResult, etc.)
     const respKey = (keys.find((k) => /(response|result)$/i.test(k)) ?? keys[0]) as string;
-    const wrapper = (body[respKey] ?? {}) as Record<string, unknown>;
-    const ret = (wrapper['return'] ?? wrapper) as Record<string, unknown>;
-    return typeof ret === 'object' && ret !== null ? ret : {};
+    const wrapperUnknown = (body as Record<string, unknown>)[respKey];
+    const wrapper =
+        wrapperUnknown && typeof wrapperUnknown === 'object'
+            ? (wrapperUnknown as Record<string, unknown>)
+            : {};
+
+    // 1) Explicit <return>
+    const returnKey = Object.keys(wrapper).find((k) => k.toLowerCase() === 'return');
+    if (returnKey) {
+        const ret = (wrapper as any)[returnKey];
+        if (ret && typeof ret === 'object') return ret as Record<string, unknown>;
+        // if it's a primitive (e.g., login UUID), keep parsing paths that expect objects
+    }
+
+    // 2) Nested <Result> or typed *Result (StringResult, IntegerArrayResult, etc.)
+    const resultKey = Object.keys(wrapper).find((k) => /(^result$|result$)/i.test(k));
+    if (resultKey) {
+        const ret = (wrapper as any)[resultKey];
+        if (ret && typeof ret === 'object') return ret as Record<string, unknown>;
+    }
+
+    // 3) Fallback: return the wrapper itself
+    return wrapper;
 }
 
 /** Some endpoints nest payload in <data> while others put it directly */
