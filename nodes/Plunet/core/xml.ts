@@ -86,6 +86,37 @@ function deepFind<T = unknown>(node: unknown, pred: (k: string, v: unknown) => T
     return undefined;
 }
 
+/** -------- SOAP Fault detection (1.1 and 1.2) -------- */
+export function extractSoapFault(xml: string): { message: string; code?: string } | null {
+    const body = getBodyRoot(xml) as Record<string, any>;
+
+    // Direct Fault node (common)
+    let fault: any = (body as any).Fault ?? (body as any).fault;
+
+    // Sometimes the Fault node is nested under a namespace key
+    if (!fault) {
+        const faultKey = Object.keys(body).find((k) => /fault$/i.test(k));
+        if (faultKey) fault = (body as any)[faultKey];
+    }
+    if (!fault) return null;
+
+    // SOAP 1.1 fields
+    const faultcode = asStr(fault.faultcode);
+    const faultstring = asStr(fault.faultstring);
+
+    // SOAP 1.2 fields
+    const codeVal = asStr(fault?.Code?.Value);
+    const reasonText =
+        asStr(fault?.Reason?.Text) ??
+        // Some servers embed reason in array of Texts
+        (Array.isArray(fault?.Reason?.Text) ? asStr(fault?.Reason?.Text[0]) : undefined);
+
+    const message = faultstring ?? reasonText ?? 'SOAP Fault';
+    const code = faultcode ?? codeVal ?? undefined;
+
+    return { message, code };
+}
+
 /** -------- Status extractors -------- */
 export function extractResultBase(xml: string): ResultBase {
     const ret = getReturnNode(getBodyRoot(xml));

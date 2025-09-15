@@ -5,6 +5,7 @@ import { ensureSession } from '../core/session';
 import {
     extractResultBase,
     extractStatusMessage,
+    extractSoapFault,
     parseStringResult,
     parseIntegerResult,
     parseIntegerArrayResult,
@@ -65,7 +66,7 @@ const PARAM_ORDER: Record<string, string[]> = {
         'mobilePhone', 'name1', 'name2', 'opening', 'phone', 'skypeID',
         'status', 'userId', 'website', 'enableNullOrEmptyValues',
     ],
-    search: ['SearchFilter'], // XML filter or criteria string
+    search: ['SearchFilter'],
     seekByExternalID: ['ExternalID'],
     setAcademicTitle: ['customerID', 'academicTitle'],
     setAccountManagerID: ['customerID', 'resourceID'],
@@ -197,6 +198,37 @@ ${childrenXml.split('\n').map((l) => (l ? '      ' + l : l)).join('\n')}
 </soapenv:Envelope>`;
 }
 
+/** Centralized error enforcement:
+ * - SOAP Fault → throw
+ * - statusMessage present and !== "OK" → throw
+ * - statusCode present and !== 0 → throw
+ */
+function throwIfSoapOrStatusError(
+    ctx: IExecuteFunctions,
+    itemIndex: number,
+    xml: string,
+    op?: string,
+) {
+    const fault = extractSoapFault(xml);
+    if (fault) {
+        const prefix = op ? `${op}: ` : '';
+        const code = fault.code ? ` [${fault.code}]` : '';
+        throw new NodeOperationError(ctx.getNode(), `${prefix}SOAP Fault: ${fault.message}${code}`, { itemIndex });
+    }
+
+    const base = extractResultBase(xml);
+    if (base.statusMessage && base.statusMessage !== 'OK') {
+        const prefix = op ? `${op}: ` : '';
+        const code = base.statusCode !== undefined ? ` [${base.statusCode}]` : '';
+        throw new NodeOperationError(ctx.getNode(), `${prefix}${base.statusMessage}${code}`, { itemIndex });
+    }
+    if (base.statusCode !== undefined && base.statusCode !== 0) {
+        const prefix = op ? `${op}: ` : '';
+        const msg = base.statusMessage || 'Plunet returned a non-zero status code';
+        throw new NodeOperationError(ctx.getNode(), `${prefix}${msg} [${base.statusCode}]`, { itemIndex });
+    }
+}
+
 async function runOp(
     ctx: IExecuteFunctions,
     creds: Creds,
@@ -221,15 +253,8 @@ async function runOp(
     const soapAction = `http://API.Integration/${op}`;
     const body = await sendSoapWithFallback(ctx, url, env11, soapAction, timeoutMs);
 
-    /** Enforce rule: any non-"OK" statusMessage is a hard error */
-    const base = extractResultBase(body);
-    if (base.statusMessage && base.statusMessage !== 'OK') {
-        throw new NodeOperationError(
-            ctx.getNode(),
-            `Plunet error (${op}): ${base.statusMessage}${base.statusCode !== undefined ? ` [${base.statusCode}]` : ''}`,
-            { itemIndex },
-        );
-    }
+    // 🔴 Enforce all error paths before parsing
+    throwIfSoapOrStatusError(ctx, itemIndex, body, op);
 
     // Dispatch to proper parser
     const rt = RETURN_TYPE[op] as R | undefined;
@@ -278,6 +303,11 @@ async function runOp(
         }
         case 'Void': {
             const r = parseVoidResult(body);
+            // Double-guard: even after global checks, ensure setters can't silently succeed
+            if (!r.ok) {
+                const msg = r.statusMessage || 'Operation failed';
+                throw new NodeOperationError(ctx.getNode(), `${op}: ${msg}${r.statusCode !== undefined ? ` [${r.statusCode}]` : ''}`, { itemIndex });
+            }
             payload = { ok: r.ok, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
