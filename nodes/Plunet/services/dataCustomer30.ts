@@ -79,6 +79,7 @@ const CustomerStatusOptions: INodePropertyOptions[] = (Object.keys(CustomerStatu
  *  Operation → parameters (order matters). UUID is auto-included.
  *  ─────────────────────────────────────────────────────────────────────────── */
 const PARAM_ORDER: Record<string, string[]> = {
+    // --- getters / finders (unchanged) ---
     delete: ['customerID'],
     getAcademicTitle: ['customerID'],
     getAccount: ['AccountID'],
@@ -110,6 +111,8 @@ const PARAM_ORDER: Record<string, string[]> = {
     getSourceOfContact: ['customerID'],
     getStatus: ['customerID'],
     getWebsite: ['customerID'],
+
+    // --- inserts/updates (unchanged except the boolean we added earlier) ---
     insert: [],
     insert2: [
         'academicTitle', 'costCenter', 'currency', 'customerID', 'email',
@@ -120,32 +123,36 @@ const PARAM_ORDER: Record<string, string[]> = {
         'academicTitle', 'costCenter', 'currency', 'customerID', 'email',
         'externalID', 'fax', 'formOfAddress', 'fullName',
         'mobilePhone', 'name1', 'name2', 'opening', 'phone', 'skypeID',
-        'status', 'userId', 'website', 'enableNullOrEmptyValues', // boolean UI
+        'status', 'userId', 'website', 'enableNullOrEmptyValues',
     ],
+
     search: ['SearchFilter'],
     seekByExternalID: ['ExternalID'],
-    setAcademicTitle: ['customerID', 'academicTitle'],
-    setAccountManagerID: ['customerID', 'resourceID'],
-    setDateOfInitialContact: ['customerID', 'dateInitialContact'],
-    setDossier: ['customerID', 'dossier'],
-    setEmail: ['customerID', 'EMail'],
-    setExternalID: ['customerID', 'ExternalID'],
-    setFax: ['customerID', 'Fax'],
+
+    // --- setters normalized: VALUE first, then customerID (and correct casing) ---
+    setAcademicTitle: ['academicTitle', 'customerID'],
+    setAccountManagerID: ['resourceID', 'customerID'],
+    setDateOfInitialContact: ['dateInitialContact', 'customerID'],
+    setDossier: ['dossier', 'customerID'],
+    setEmail: ['EMail', 'customerID'],            // EMail per API
+    setExternalID: ['ExternalID', 'customerID'],
+    setFax: ['Fax', 'customerID'],
     setFormOfAddress: ['FormOfAddress', 'customerID'],
-    setMobilePhone: ['PhoneNumber', 'customerID'],
+    setMobilePhone: ['PhoneNumber', 'customerID'],// PhoneNumber per API
     setName1: ['Name', 'customerID'],
     setName2: ['Name', 'customerID'],
     setOpening: ['Opening', 'customerID'],
     setPaymentInformation: [
+        // For this one the API expects customerID first; keep as-is unless your env needs otherwise.
         'customerID', 'accountHolder', 'accountID', 'BIC', 'contractNumber',
         'debitAccount', 'IBAN', 'paymentMethodID', 'preselectedTaxID', 'salesTaxID',
     ],
-    setPhone: ['customerID', 'phone'],
-    setProjectManagerID: ['customerID', 'resourceID'],
-    setSkypeID: ['customerID', 'skypeID'],
-    setSourceOfContact: ['customerID', 'sourceOfContact'],
-    setStatus: ['customerID', 'status'],
-    setWebsite: ['customerID', 'website'],
+    setPhone: ['PhoneNumber', 'customerID'],      // PhoneNumber per API
+    setProjectManagerID: ['resourceID', 'customerID'],
+    setSkypeID: ['skypeID', 'customerID'],
+    setSourceOfContact: ['sourceOfContact', 'customerID'],
+    setStatus: ['Status', 'customerID'],          // Status (capital S) before customerID
+    setWebsite: ['website', 'customerID'],
 };
 
 /** Return types (so we can dispatch to typed parsers) */
