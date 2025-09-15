@@ -10,10 +10,7 @@ import {
 
 /** ─────────────────────────────────────────────────────────────────────────────
  *  Customer status enum mapping (local to avoid extra imports)
- *  If you later factor enums, swap these helpers to your enums registry.
  *  https://apidoc.plunet.com/latest/BM/API/SOAP/Enum/CustomerStatus.html
- *  ACTIVE=1, NOT_ACTIVE=2, CONTACTED=3, NEW=4, BLOCKED=5, AQUISITION_ADDRESS=6,
- *  NEW_AUTO=7, DELETION_REQUESTED=8
  *  ─────────────────────────────────────────────────────────────────────────── */
 const CustomerStatusNameById: Record<number, string> = {
     1: 'ACTIVE',
@@ -90,12 +87,27 @@ export type WorkflowDTO = {
 /** ─────────────────────────────────────────────────────────────────────────────
  *  Helpers
  *  ─────────────────────────────────────────────────────────────────────────── */
+
 function firstNonEmptyKey(obj: Record<string, any>, keys: string[]) {
     for (const k of keys) {
         const v = obj[k];
         if (v !== undefined && v !== null) return v;
     }
     return undefined;
+}
+
+function isLikelyCustomer(x: any): boolean {
+    if (!x || typeof x !== 'object') return false;
+    return (
+        'customerID' in x ||
+        'CustomerID' in x ||
+        'fullName' in x ||
+        'FullName' in x ||
+        'name1' in x ||
+        'Name1' in x ||
+        'email' in x ||
+        'EMail' in x
+    );
 }
 
 function coerceCustomer(raw: any): CustomerDTO {
@@ -144,39 +156,82 @@ function coerceCustomer(raw: any): CustomerDTO {
     return c;
 }
 
-function pickCustomerNode(ret: any): any {
-    // Most common shapes
-    const direct = ret?.Customer ?? ret?.customer;
-    if (direct) return direct;
+/** Deeply find the first object that looks like a Customer or is under a Customer key. */
+function findCustomerDeep(node: any): any | undefined {
+    if (!node || typeof node !== 'object') return undefined;
 
-    // Some results put it under <data>
-    const data = ret?.data;
-    const dataCustomer = data?.Customer ?? data?.customer;
-    if (dataCustomer) return dataCustomer;
+    // Direct named container
+    if (node.Customer && typeof node.Customer === 'object') return node.Customer;
+    if (node.customer && typeof node.customer === 'object') return node.customer;
 
-    // Fallback: if ret looks like a customer (has a telltale key), return ret
-    if ('customerID' in ret || 'CustomerID' in ret || 'fullName' in ret || 'FullName' in ret) {
-        return ret;
+    // If this very node looks like a customer, take it
+    if (isLikelyCustomer(node)) return node;
+
+    // Common wrappers: return, Result/*Result, data (object or array)
+    const candidates: any[] = [];
+    if (node.return) candidates.push(node.return);
+    // pick any key that ends with 'Result' (CustomerResult, StringResult, etc.)
+    for (const [k, v] of Object.entries(node)) {
+        if (/result$/i.test(k) && v && typeof v === 'object') candidates.push(v);
+    }
+    if (node.data !== undefined) candidates.push(node.data);
+
+    // If data is array, inspect elements
+    for (const c of candidates) {
+        if (Array.isArray(c)) {
+            for (const el of c) {
+                const hit = findCustomerDeep(el);
+                if (hit) return hit;
+            }
+        } else {
+            const hit = findCustomerDeep(c);
+            if (hit) return hit;
+        }
     }
 
-    // Else undefined
+    // Explore all object properties as a last resort
+    for (const v of Object.values(node)) {
+        if (v && typeof v === 'object') {
+            const hit = findCustomerDeep(v);
+            if (hit) return hit;
+        }
+    }
+
     return undefined;
 }
 
 function pickCustomerArray(ret: any): any[] {
     // Typical list shapes
-    const arr1 = toArray<any>(ret?.data);
-    if (arr1.length) {
-        // Each element could be customer itself or { Customer: {...} }
-        return arr1.map((x) => (x?.Customer ?? x?.customer ?? x));
+    const out: any[] = [];
+
+    // 1) <data> can be array or object
+    const data = ret?.data;
+    if (Array.isArray(data)) {
+        for (const d of data) {
+            const maybe = findCustomerDeep(d);
+            if (maybe) out.push(maybe);
+        }
+    } else if (data && typeof data === 'object') {
+        const maybe = findCustomerDeep(data);
+        if (maybe) out.push(maybe);
     }
 
-    const arr2 = toArray<any>(ret?.Customers ?? ret?.customers);
-    if (arr2.length) return arr2;
+    // 2) Direct plural containers
+    const customers = ret?.Customers ?? ret?.customers;
+    if (Array.isArray(customers)) {
+        for (const c of customers) {
+            const maybe = findCustomerDeep(c);
+            if (maybe) out.push(maybe);
+        }
+    }
 
-    // Fallback: if a single customer node is present, make single-item array
-    const single = pickCustomerNode(ret);
-    return single ? [single] : [];
+    // 3) Fallback: a single customer somewhere inside ret
+    if (out.length === 0) {
+        const single = findCustomerDeep(ret);
+        if (single) out.push(single);
+    }
+
+    return out;
 }
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -186,7 +241,9 @@ export function parseCustomerResult(xml: string): ResultBase & { customer?: Cust
     const base = extractResultBase(xml);
     const body = getBodyRoot(xml);
     const ret = getReturnNode(body) as any;
-    const node = pickCustomerNode(ret);
+
+    // Be generous in what we accept
+    const node = findCustomerDeep(ret) ?? findCustomerDeep(body);
 
     const customer = node ? coerceCustomer(node) : undefined;
     return { ...base, customer };
@@ -228,7 +285,6 @@ export function parsePaymentInfoResult(xml: string): ResultBase & { paymentInfo?
         salesTaxID: asStr(node.salesTaxID ?? node.SalesTaxID),
     };
 
-    // Include unknown fields too
     for (const [k, v] of Object.entries(node)) {
         if (!(k in out)) (out as any)[k] = v;
     }
@@ -262,7 +318,6 @@ export function parseWorkflowListResult(xml: string): ResultBase & { workflows: 
     const body = getBodyRoot(xml);
     const ret = getReturnNode(body) as any;
 
-    // Common shapes: <data><Workflow>…</Workflow></data> (repeated) or direct list of <Workflow>
     let items: any[] = [];
 
     const dataArr = toArray<any>(ret?.data);
