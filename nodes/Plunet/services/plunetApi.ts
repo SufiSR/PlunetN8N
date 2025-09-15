@@ -8,8 +8,10 @@ import {
 
 import type { Creds, Service, NonEmptyArray } from '../core/types';
 import { escapeXml, sendSoapWithFallback } from '../core/soap';
-import { extractResultBase, extractStatusMessage, extractUuid, parseValidate } from '../core/xml';
+import { extractResultBase, extractStatusMessage, extractUuid, parseValidate, xmlParser } from '../core/xml';
 import { ensureSession, getSession, saveSession, clearSession } from '../core/session';
+
+
 
 const RESOURCE = 'PlunetAPI';
 
@@ -31,6 +33,32 @@ const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
         { name: labelize('logout'), value: 'logout', action: 'Logout', description: 'End a session UUID' },
     ],
 );
+
+function extractLoginReturnString(xml: string): string | undefined {
+    try {
+        const parsed = xmlParser.parse(xml) as Record<string, any>;
+        const env = (parsed?.Envelope ?? {}) as Record<string, any>;
+        const bodyObj = (env?.Body ?? {}) as Record<string, any>;
+
+        const keys: string[] = Object.keys(bodyObj);
+        if (keys.length === 0) return undefined;
+
+        const respKey = (keys.find((k) => /loginresponse/i.test(k)) ?? keys[0]) as string;
+        const wrapperUnknown = bodyObj[respKey];
+        const wrapper =
+            wrapperUnknown && typeof wrapperUnknown === 'object'
+                ? (wrapperUnknown as Record<string, any>)
+                : {};
+
+        const ret = (wrapper as any)['return'] ?? wrapper;
+        if (typeof ret === 'string' || typeof ret === 'number') {
+            return String(ret).trim();
+        }
+        return undefined;
+    } catch {
+        return undefined;
+    }
+}
 
 /** ---- UI fields ---- */
 const extraProperties: INodeProperties[] = [
@@ -87,20 +115,26 @@ async function doLogin(
 
     const body = await sendSoapWithFallback(ctx, url, env11, 'http://API.Integration/login', timeoutMs);
 
-    /** Enforce rule: non-OK => hard error */
-    const base = extractResultBase(body);
+    // Read raw <return> (UUID on success, "refused" on failure)
+    const ret = extractLoginReturnString(body);
+    if (ret && ret.toLowerCase() === 'refused') {
+        throw new NodeOperationError(ctx.getNode(), 'Login refused');
+    }
 
+    // Accept only a real UUID as success
     const uuid = extractUuid(body);
-    if (!uuid) throw new Error('Login succeeded but UUID not found in SOAP response');
+    if (!uuid) {
+        const msg = ret ? `Login failed: ${ret}` : 'Login failed: UUID not found in response';
+        throw new NodeOperationError(ctx.getNode(), msg);
+    }
 
     // Cache for subsequent calls
     saveSession(ctx, creds, uuid);
 
-    const out: IDataObject = { success: true, resource: RESOURCE, operation: 'login', uuid };
-    if (base.statusMessage) out.statusMessage = base.statusMessage;
-    if (base.statusCode !== undefined) out.statusCode = base.statusCode;
-    return out;
+    return { success: true, resource: RESOURCE, operation: 'login', uuid };
 }
+
+
 
 async function doValidate(
     ctx: IExecuteFunctions,
