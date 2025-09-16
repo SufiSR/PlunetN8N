@@ -233,12 +233,20 @@ const FRIENDLY_LABEL: Record<string, string> = {
     seekByExternalID: 'Search by External ID',
     getAvailableAccountIDList: 'Get Available Account IDs',
     getAvailablePaymentMethodList: 'Get Available Payment Methods',
-    getAllCustomerObjects: 'Get All Customer Objects For Defined Status'
+    getAllCustomerObjects: 'Get All Customer Objects For Defined Status',
 };
 
+const OP_ORDER: string[] = [
+    'insert2',
+    'update',
+    'delete',
+    'search',
+    'seekByExternalID',
+];
+
 const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
-    Object.keys(PARAM_ORDER)
-        .sort()
+    [...new Set([...OP_ORDER, ...Object.keys(PARAM_ORDER)])] // de-dupe while keeping order
+        .filter((op) => op in PARAM_ORDER)                     // guard against typos
         .map((op) => {
             const label = FRIENDLY_LABEL[op] ?? labelize(op);
             return {
