@@ -28,7 +28,7 @@ function idToCustomerStatusName(id?: number | null): string | undefined {
 }
 
 /** ─────────────────────────────────────────────────────────────────────────────
- *  DTO types (minimal but useful). Extend as needed.
+ *  DTO types (extend as needed)
  *  ─────────────────────────────────────────────────────────────────────────── */
 export type CustomerDTO = {
     customerID?: number;
@@ -84,10 +84,46 @@ export type WorkflowDTO = {
     [k: string]: unknown;
 };
 
-/** ─────────────────────────────────────────────────────────────────────────────
- *  Helpers
- *  ─────────────────────────────────────────────────────────────────────────── */
+export type ResourceDTO = {
+    resourceID?: number;
+    externalID?: string;
+    fullName?: string;
+    name1?: string;
+    name2?: string;
+    email?: string;
+    phone?: string;
+    fax?: string;
+    mobilePhone?: string;
+    website?: string;
+    currency?: string;
+    costCenter?: string;
+    formOfAddress?: number;
+    academicTitle?: string;
+    opening?: string;
+    skypeID?: string;
+    userId?: number;
+    statusId?: number;          // numeric ResourceStatus
+    workingStatusId?: number;   // numeric WorkingStatus (1=INTERNAL, 2=EXTERNAL)
+    resourceTypeId?: number;    // numeric ResourceType
+    supervisor1?: string;
+    supervisor2?: string;
+    [k: string]: unknown;
+};
 
+export type PricelistDTO = {
+    adminPriceListId?: number;
+    adminPriceListPartnerType?: number;
+    currency?: string;
+    isWithWhiteSpace?: boolean;
+    memo?: string;
+    pricelistNameEN?: string;
+    resourcePriceListID?: number; // deprecated in docs, still present in some installs
+    [k: string]: unknown;
+};
+
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  Generic helpers
+ *  ─────────────────────────────────────────────────────────────────────────── */
 function firstNonEmptyKey(obj: Record<string, any>, keys: string[]) {
     for (const k of keys) {
         const v = obj[k];
@@ -96,6 +132,7 @@ function firstNonEmptyKey(obj: Record<string, any>, keys: string[]) {
     return undefined;
 }
 
+/** ---------------------- CUSTOMERS ---------------------- */
 function isLikelyCustomer(x: any): boolean {
     if (!x || typeof x !== 'object') return false;
     return (
@@ -160,23 +197,18 @@ function coerceCustomer(raw: any): CustomerDTO {
 function findCustomerDeep(node: any): any | undefined {
     if (!node || typeof node !== 'object') return undefined;
 
-    // Direct named container
     if (node.Customer && typeof node.Customer === 'object') return node.Customer;
     if (node.customer && typeof node.customer === 'object') return node.customer;
 
-    // If this very node looks like a customer, take it
     if (isLikelyCustomer(node)) return node;
 
-    // Common wrappers: return, Result/*Result, data (object or array)
     const candidates: any[] = [];
     if (node.return) candidates.push(node.return);
-    // pick any key that ends with 'Result' (CustomerResult, StringResult, etc.)
     for (const [k, v] of Object.entries(node)) {
         if (/result$/i.test(k) && v && typeof v === 'object') candidates.push(v);
     }
     if (node.data !== undefined) candidates.push(node.data);
 
-    // If data is array, inspect elements
     for (const c of candidates) {
         if (Array.isArray(c)) {
             for (const el of c) {
@@ -189,22 +221,18 @@ function findCustomerDeep(node: any): any | undefined {
         }
     }
 
-    // Explore all object properties as a last resort
     for (const v of Object.values(node)) {
         if (v && typeof v === 'object') {
             const hit = findCustomerDeep(v);
             if (hit) return hit;
         }
     }
-
     return undefined;
 }
 
 function pickCustomerArray(ret: any): any[] {
-    // Typical list shapes
     const out: any[] = [];
 
-    // 1) <data> can be array or object
     const data = ret?.data;
     if (Array.isArray(data)) {
         for (const d of data) {
@@ -216,7 +244,6 @@ function pickCustomerArray(ret: any): any[] {
         if (maybe) out.push(maybe);
     }
 
-    // 2) Direct plural containers
     const customers = ret?.Customers ?? ret?.customers;
     if (Array.isArray(customers)) {
         for (const c of customers) {
@@ -225,9 +252,215 @@ function pickCustomerArray(ret: any): any[] {
         }
     }
 
-    // 3) Fallback: a single customer somewhere inside ret
     if (out.length === 0) {
         const single = findCustomerDeep(ret);
+        if (single) out.push(single);
+    }
+
+    return out;
+}
+
+/** ---------------------- RESOURCES ---------------------- */
+function isLikelyResource(x: any): boolean {
+    if (!x || typeof x !== 'object') return false;
+    return (
+        'resourceID' in x || 'ResourceID' in x ||
+        'fullName' in x || 'FullName' in x ||
+        'name1' in x || 'Name1' in x ||
+        'email' in x || 'EMail' in x
+    );
+}
+
+function coerceResource(raw: any): ResourceDTO {
+    const r: ResourceDTO = {};
+    r.resourceID = asNum(firstNonEmptyKey(raw, ['resourceID', 'ResourceID', 'id', 'ID']));
+    r.externalID = asStr(firstNonEmptyKey(raw, ['externalID', 'ExternalID']));
+    r.fullName  = asStr(firstNonEmptyKey(raw, ['fullName', 'FullName']));
+    r.name1     = asStr(firstNonEmptyKey(raw, ['name1', 'Name1']));
+    r.name2     = asStr(firstNonEmptyKey(raw, ['name2', 'Name2']));
+    r.email     = asStr(firstNonEmptyKey(raw, ['email', 'EMail']));
+    r.phone     = asStr(firstNonEmptyKey(raw, ['phone', 'Phone']));
+    r.fax       = asStr(firstNonEmptyKey(raw, ['fax', 'Fax']));
+    r.mobilePhone = asStr(firstNonEmptyKey(raw, ['mobilePhone', 'MobilePhone']));
+    r.website   = asStr(firstNonEmptyKey(raw, ['website', 'Website']));
+    r.currency  = asStr(firstNonEmptyKey(raw, ['currency', 'Currency']));
+    r.costCenter = asStr(firstNonEmptyKey(raw, ['costCenter', 'CostCenter']));
+    r.formOfAddress = asNum(firstNonEmptyKey(raw, ['formOfAddress', 'FormOfAddress']));
+    r.academicTitle = asStr(firstNonEmptyKey(raw, ['academicTitle', 'AcademicTitle']));
+    r.opening   = asStr(firstNonEmptyKey(raw, ['opening', 'Opening']));
+    r.skypeID   = asStr(firstNonEmptyKey(raw, ['skypeID', 'SkypeID']));
+    r.userId    = asNum(firstNonEmptyKey(raw, ['userId', 'UserId']));
+
+    // enum-like numeric fields (names kept as *Id to avoid implying string names)
+    r.statusId        = asNum(firstNonEmptyKey(raw, ['status', 'Status', 'statusId', 'statusID', 'StatusID']));
+    r.workingStatusId = asNum(firstNonEmptyKey(raw, ['workingStatus', 'WorkingStatus', 'workingStatusId', 'WorkingStatusID']));
+    r.resourceTypeId  = asNum(firstNonEmptyKey(raw, ['resourceType', 'ResourceType', 'resourceTypeId', 'ResourceTypeID']));
+
+    r.supervisor1 = asStr(firstNonEmptyKey(raw, ['supervisor1', 'Supervisor1']));
+    r.supervisor2 = asStr(firstNonEmptyKey(raw, ['supervisor2', 'Supervisor2']));
+
+    for (const [k, v] of Object.entries(raw)) {
+        if (!(k in r)) (r as any)[k] = v;
+    }
+    return r;
+}
+
+function findResourceDeep(node: any): any | undefined {
+    if (!node || typeof node !== 'object') return undefined;
+
+    if (node.Resource && typeof node.Resource === 'object') return node.Resource;
+    if (node.resource && typeof node.resource === 'object') return node.resource;
+
+    if (isLikelyResource(node)) return node;
+
+    const candidates: any[] = [];
+    if (node.return) candidates.push(node.return);
+    for (const [k, v] of Object.entries(node)) {
+        if (/result$/i.test(k) && v && typeof v === 'object') candidates.push(v);
+    }
+    if (node.data !== undefined) candidates.push(node.data);
+
+    for (const c of candidates) {
+        if (Array.isArray(c)) {
+            for (const el of c) {
+                const hit = findResourceDeep(el);
+                if (hit) return hit;
+            }
+        } else {
+            const hit = findResourceDeep(c);
+            if (hit) return hit;
+        }
+    }
+
+    for (const v of Object.values(node)) {
+        if (v && typeof v === 'object') {
+            const hit = findResourceDeep(v);
+            if (hit) return hit;
+        }
+    }
+    return undefined;
+}
+
+function pickResourceArray(ret: any): any[] {
+    const out: any[] = [];
+
+    const data = ret?.data;
+    if (Array.isArray(data)) {
+        for (const d of data) {
+            const maybe = findResourceDeep(d);
+            if (maybe) out.push(maybe);
+        }
+    } else if (data && typeof data === 'object') {
+        const maybe = findResourceDeep(data);
+        if (maybe) out.push(maybe);
+    }
+
+    const resources = ret?.Resources ?? ret?.resources;
+    if (Array.isArray(resources)) {
+        for (const r of resources) {
+            const maybe = findResourceDeep(r);
+            if (maybe) out.push(maybe);
+        }
+    }
+
+    if (out.length === 0) {
+        const single = findResourceDeep(ret);
+        if (single) out.push(single);
+    }
+
+    return out;
+}
+
+/** ---------------------- PRICELISTS ---------------------- */
+function isLikelyPricelist(x: any): boolean {
+    if (!x || typeof x !== 'object') return false;
+    return (
+        'adminPriceListId' in x || 'AdminPriceListId' in x ||
+        'pricelistNameEN' in x || 'PricelistNameEN' in x ||
+        'currency' in x || 'Currency' in x
+    );
+}
+function coercePricelist(raw: any): PricelistDTO {
+    const p: PricelistDTO = {
+        adminPriceListId: asNum(firstNonEmptyKey(raw, ['adminPriceListId', 'AdminPriceListId'])),
+        adminPriceListPartnerType: asNum(firstNonEmptyKey(raw, ['adminPriceListPartnerType', 'AdminPriceListPartnerType'])),
+        currency: asStr(firstNonEmptyKey(raw, ['currency', 'Currency'])),
+        isWithWhiteSpace: (() => {
+            const v = firstNonEmptyKey(raw, ['isWithWhiteSpace', 'IsWithWhiteSpace', 'withWhiteSpace']);
+            if (typeof v === 'boolean') return v;
+            if (typeof v === 'string') return v.toLowerCase() === 'true' || v === '1';
+            if (typeof v === 'number') return v !== 0;
+            return undefined;
+        })(),
+        memo: asStr(firstNonEmptyKey(raw, ['memo', 'Memo'])),
+        pricelistNameEN: asStr(firstNonEmptyKey(raw, ['pricelistNameEN', 'PricelistNameEN'])),
+        resourcePriceListID: asNum(firstNonEmptyKey(raw, ['resourcePriceListID', 'ResourcePriceListID'])),
+    };
+
+    for (const [k, v] of Object.entries(raw)) {
+        if (!(k in p)) (p as any)[k] = v;
+    }
+    return p;
+}
+function findPricelistDeep(node: any): any | undefined {
+    if (!node || typeof node !== 'object') return undefined;
+
+    if (node.Pricelist && typeof node.Pricelist === 'object') return node.Pricelist;
+    if (node.pricelist && typeof node.pricelist === 'object') return node.pricelist;
+
+    if (isLikelyPricelist(node)) return node;
+
+    const candidates: any[] = [];
+    if (node.return) candidates.push(node.return);
+    for (const [k, v] of Object.entries(node)) {
+        if (/result$/i.test(k) && v && typeof v === 'object') candidates.push(v);
+    }
+    if (node.data !== undefined) candidates.push(node.data);
+
+    for (const c of candidates) {
+        if (Array.isArray(c)) {
+            for (const el of c) {
+                const hit = findPricelistDeep(el);
+                if (hit) return hit;
+            }
+        } else {
+            const hit = findPricelistDeep(c);
+            if (hit) return hit;
+        }
+    }
+
+    for (const v of Object.values(node)) {
+        if (v && typeof v === 'object') {
+            const hit = findPricelistDeep(v);
+            if (hit) return hit;
+        }
+    }
+    return undefined;
+}
+function pickPricelistArray(ret: any): any[] {
+    const out: any[] = [];
+
+    const data = ret?.data;
+    if (Array.isArray(data)) {
+        for (const d of data) {
+            const maybe = findPricelistDeep(d);
+            if (maybe) out.push(maybe);
+        }
+    } else if (data && typeof data === 'object') {
+        const maybe = findPricelistDeep(data);
+        if (maybe) out.push(maybe);
+    }
+
+    const list = ret?.Pricelists ?? ret?.pricelists;
+    if (Array.isArray(list)) {
+        for (const p of list) {
+            const maybe = findPricelistDeep(p);
+            if (maybe) out.push(maybe);
+        }
+    }
+
+    if (out.length === 0) {
+        const single = findPricelistDeep(ret);
         if (single) out.push(single);
     }
 
@@ -242,9 +475,7 @@ export function parseCustomerResult(xml: string): ResultBase & { customer?: Cust
     const body = getBodyRoot(xml);
     const ret = getReturnNode(body) as any;
 
-    // Be generous in what we accept
     const node = findCustomerDeep(ret) ?? findCustomerDeep(body);
-
     const customer = node ? coerceCustomer(node) : undefined;
     return { ...base, customer };
 }
@@ -340,71 +571,34 @@ export function parseWorkflowListResult(xml: string): ResultBase & { workflows: 
     return { ...base, workflows };
 }
 
-
-function xmlToObject(xml: string): any {
-    // very small “good enough” XML → JS converter for simple DTOs
-    // collapses repeated tags into arrays; trims text nodes
-    const stack: any[] = [];
-    const root: any = {};
-    let current = root;
-
-    const tagRe = /<([^!?/>\s]+)([^>]*)>|<\/([^>]+)>|([^<]+)/g;
-    let m: RegExpExecArray | null;
-    const push = (name: string) => {
-        const node: any = {};
-        if (current[name]) {
-            if (Array.isArray(current[name])) current[name].push(node);
-            else current[name] = [current[name], node];
-        } else current[name] = node;
-        stack.push(current);
-        current = node;
-    };
-    const pop = () => { current = stack.pop() || root; };
-    const addText = (txt: string) => {
-        const t = txt.trim();
-        if (!t) return;
-        if (current._text) current._text += t;
-        else current._text = t;
-    };
-
-    while ((m = tagRe.exec(xml))) {
-        if (m[1]) push(m[1]);
-        else if (m[3]) pop();
-        else if (m[4]) addText(m[4]);
-    }
-    return root;
-}
-
-export function parseResourceResult(xml: string) {
+/** -------- Resources -------- */
+export function parseResourceResult(xml: string): ResultBase & { resource?: ResourceDTO } {
     const base = extractResultBase(xml);
-    // take the first <resource>…</resource> block if present
-    const m = xml.match(/<resource>([\s\S]*?)<\/resource>/i);
-    const resource = m ? xmlToObject(m[0]).resource : null;
-    return { resource, statusMessage: base.statusMessage, statusCode: base.statusCode };
+    const body = getBodyRoot(xml);
+    const ret = getReturnNode(body) as any;
+
+    const node = findResourceDeep(ret) ?? findResourceDeep(body);
+    const resource = node ? coerceResource(node) : undefined;
+    return { ...base, resource };
 }
 
-export function parseResourceListResult(xml: string) {
+export function parseResourceListResult(xml: string): ResultBase & { resources: ResourceDTO[] } {
     const base = extractResultBase(xml);
-    // collect all <resource> nodes
-    const resources: any[] = [];
-    const re = /<resource>([\s\S]*?)<\/resource>/gi;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(xml))) {
-        const obj = xmlToObject(m[0]).resource;
-        resources.push(obj);
-    }
-    return { resources, statusMessage: base.statusMessage, statusCode: base.statusCode };
+    const body = getBodyRoot(xml);
+    const ret = getReturnNode(body) as any;
+
+    const nodes = pickResourceArray(ret);
+    const resources = nodes.map(coerceResource);
+    return { ...base, resources };
 }
 
-export function parsePricelistListResult(xml: string) {
+/** -------- Pricelists -------- */
+export function parsePricelistListResult(xml: string): ResultBase & { pricelists: PricelistDTO[] } {
     const base = extractResultBase(xml);
-    const pricelists: any[] = [];
-    const re = /<Pricelist>([\s\S]*?)<\/Pricelist>/gi;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(xml))) {
-        const obj = xmlToObject(m[0]).Pricelist;
-        pricelists.push(obj);
-    }
-    return { pricelists, statusMessage: base.statusMessage, statusCode: base.statusCode };
-}
+    const body = getBodyRoot(xml);
+    const ret = getReturnNode(body) as any;
 
+    const nodes = pickPricelistArray(ret);
+    const pricelists = nodes.map(coercePricelist);
+    return { ...base, pricelists };
+}

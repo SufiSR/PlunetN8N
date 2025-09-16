@@ -8,6 +8,9 @@ export type ResultBase = {
     warningStatusCodeList?: number[];
 };
 
+/** Single, shared parser config for the whole project.
+ *  NOTE: Downstream parsers (parsers.ts) should NOT import fast-xml-parser directly.
+ */
 export const xmlParser = new XMLParser({
     ignoreAttributes: false,
     removeNSPrefix: true,
@@ -129,7 +132,6 @@ export function extractSoapFault(xml: string): { message: string; code?: string 
     const codeVal = asStr(fault?.Code?.Value);
     const reasonText =
         asStr(fault?.Reason?.Text) ??
-        // Some servers embed reason in array of Texts
         (Array.isArray(fault?.Reason?.Text) ? asStr(fault?.Reason?.Text[0]) : undefined);
 
     const message = faultstring ?? reasonText ?? 'SOAP Fault';
@@ -216,12 +218,24 @@ export function parseIntegerResult(xml: string): ResultBase & { value?: number }
     if (direct !== undefined) return { ...base, value: direct };
 
     // Fallback: deep search under data for the first numeric at known keys
-    const found = deepFind<number>(data, (k, v) => {
-        const num = asNum(v);
-        if (num === undefined) return;
-        if (/^(value|int|data|status|Status|statusId|statusID|id|Id|ID)$/i.test(k)) return num;
-        return;
-    });
+    const found = (function deepFindNum(node: unknown): number | undefined {
+        const seen = new Set<unknown>();
+        const stack: unknown[] = [node];
+        const re = /^(value|int|data|status|Status|statusId|statusID|id|Id|ID)$/i;
+        while (stack.length) {
+            const cur = stack.pop();
+            if (cur && typeof cur === 'object') {
+                if (seen.has(cur)) continue;
+                seen.add(cur);
+                for (const [k, v] of Object.entries(cur as Record<string, unknown>)) {
+                    const n = asNum(v);
+                    if (n !== undefined && re.test(k)) return n;
+                    if (v && typeof v === 'object') stack.push(v);
+                }
+            }
+        }
+        return undefined;
+    })(data);
 
     return { ...base, value: found };
 }
@@ -252,12 +266,16 @@ export function parseIntegerArrayResult(xml: string): ResultBase & { data: numbe
     // 3) Deep fallback: find all numbers under any of the list keys above
     if (arr.length === 0) {
         const acc: any[] = [];
-        deepFind<void>(ret, (k, v) => {
-            if (/^(data|int|ids|idList|integerList|Integers)$/i.test(k)) {
-                acc.push(...toArray<any>(v));
+        (function deepCollect(node: unknown) {
+            if (!node || typeof node !== 'object') return;
+            for (const [k, v] of Object.entries(node as Record<string, unknown>)) {
+                if (/^(data|int|ids|idList|integerList|Integers)$/i.test(k)) {
+                    acc.push(...toArray<any>(v));
+                } else if (v && typeof v === 'object') {
+                    deepCollect(v);
+                }
             }
-            return;
-        });
+        })(ret);
         arr = acc;
     }
 
@@ -282,28 +300,63 @@ export function extractUuid(xml: string): string | null {
     const body = getBodyRoot(xml);
 
     // 1) Preferred: common fields anywhere under Body
-    const viaKey = deepFind<string>(body, (k, v) => {
-        if (typeof v !== 'string') return;
-        if (/^(uuid|UUID|token|sessionId|sessionID|value)$/i.test(k) && isUuid(v)) return v;
-        return;
-    });
+    const viaKey = (function deepFindString(node: unknown): string | undefined {
+        const re = /^(uuid|UUID|token|sessionId|sessionID|value)$/i;
+        const seen = new Set<unknown>();
+        const stack: unknown[] = [node];
+        while (stack.length) {
+            const cur = stack.pop();
+            if (cur && typeof cur === 'object') {
+                if (seen.has(cur)) continue;
+                seen.add(cur);
+                for (const [k, v] of Object.entries(cur as Record<string, unknown>)) {
+                    if (typeof v === 'string' && re.test(k) && isUuid(v)) return v;
+                    if (v && typeof v === 'object') stack.push(v);
+                }
+            }
+        }
+        return undefined;
+    })(body);
     if (viaKey) return viaKey;
 
     // 2) Any string value that LOOKS like a UUID anywhere under Body
-    const anyString = deepFind<string>(body, (_k, v) => {
-        if (typeof v === 'string' && isUuid(v)) return v;
-        return;
-    });
+    const anyString = (function deepFindUuid(node: unknown): string | undefined {
+        const seen = new Set<unknown>();
+        const stack: unknown[] = [node];
+        while (stack.length) {
+            const cur = stack.pop();
+            if (typeof cur === 'string' && isUuid(cur)) return cur;
+            if (cur && typeof cur === 'object') {
+                if (seen.has(cur)) continue;
+                seen.add(cur);
+                for (const v of Object.values(cur as Record<string, unknown>)) {
+                    stack.push(v);
+                }
+            }
+        }
+        return undefined;
+    })(body);
     if (anyString) return anyString;
 
     // 3) Fallback: look inside the conventional <return> object too
     const ret = getReturnNode(body) as unknown;
-    const fromReturn = deepFind<string>(ret, (k, v) => {
-        if (typeof v !== 'string') return;
-        if (/^(uuid|UUID|token|sessionId|sessionID|value)$/i.test(k) && isUuid(v)) return v;
-        if (isUuid(v)) return v;
-        return;
-    });
+    const fromReturn = (function deepFindString(node: unknown): string | undefined {
+        const re = /^(uuid|UUID|token|sessionId|sessionID|value)$/i;
+        const seen = new Set<unknown>();
+        const stack: unknown[] = [node];
+        while (stack.length) {
+            const cur = stack.pop();
+            if (cur && typeof cur === 'object') {
+                if (seen.has(cur)) continue;
+                seen.add(cur);
+                for (const [k, v] of Object.entries(cur as Record<string, unknown>)) {
+                    if (typeof v === 'string' && (re.test(k) || isUuid(v))) return v;
+                    if (v && typeof v === 'object') stack.push(v);
+                }
+            }
+        }
+        return undefined;
+    })(ret);
     return fromReturn ?? null;
 }
 
@@ -312,37 +365,75 @@ export function parseValidate(xml: string): boolean {
     const body = getBodyRoot(xml);
 
     // Look for canonical flags first
-    const viaKey = deepFind<boolean>(body, (k, v) => {
-        if (/^(valid|isValid)$/i.test(k)) {
-            if (typeof v === 'boolean') return v;
-            if (typeof v === 'string') return v.toLowerCase() === 'true';
-            if (typeof v === 'number') return v !== 0;
+    const viaKey = (function deepFindBool(node: unknown): boolean | undefined {
+        const re = /^(valid|isValid)$/i;
+        const seen = new Set<unknown>();
+        const stack: unknown[] = [node];
+        while (stack.length) {
+            const cur = stack.pop();
+            if (cur && typeof cur === 'object') {
+                if (seen.has(cur)) continue;
+                seen.add(cur);
+                for (const [k, v] of Object.entries(cur as Record<string, unknown>)) {
+                    if (re.test(k)) {
+                        if (typeof v === 'boolean') return v;
+                        if (typeof v === 'string') return v.toLowerCase() === 'true';
+                        if (typeof v === 'number') return v !== 0;
+                    }
+                    if (v && typeof v === 'object') stack.push(v);
+                }
+            }
         }
-        return;
-    });
+        return undefined;
+    })(body);
     if (viaKey !== undefined) return viaKey;
 
     // Accept generic truthy/falsey values under "value"/"return"
-    const generic = deepFind<boolean>(body, (k, v) => {
-        if (/^(value|return)$/i.test(k)) {
-            if (typeof v === 'boolean') return v;
-            if (typeof v === 'string') return v.toLowerCase() === 'true';
-            if (typeof v === 'number') return v !== 0;
+    const generic = (function deepFindGeneric(node: unknown): boolean | undefined {
+        const re = /^(value|return)$/i;
+        const seen = new Set<unknown>();
+        const stack: unknown[] = [node];
+        while (stack.length) {
+            const cur = stack.pop();
+            if (cur && typeof cur === 'object') {
+                if (seen.has(cur)) continue;
+                seen.add(cur);
+                for (const [k, v] of Object.entries(cur as Record<string, unknown>)) {
+                    if (re.test(k)) {
+                        if (typeof v === 'boolean') return v;
+                        if (typeof v === 'string') return v.toLowerCase() === 'true';
+                        if (typeof v === 'number') return v !== 0;
+                    }
+                    if (v && typeof v === 'object') stack.push(v);
+                }
+            }
         }
-        return;
-    });
+        return undefined;
+    })(body);
     if (generic !== undefined) return generic;
 
     // Last resort: any boolean-looking string/number anywhere
-    const anyBool = deepFind<boolean>(body, (_k, v) => {
-        if (typeof v === 'boolean') return v;
-        if (typeof v === 'string') {
-            const s = v.trim().toLowerCase();
-            if (s === 'true' || s === 'false') return s === 'true';
-            if (s === '1' || s === '0') return s === '1';
+    const anyBool = (function deepFindAny(node: unknown): boolean | undefined {
+        const seen = new Set<unknown>();
+        const stack: unknown[] = [node];
+        while (stack.length) {
+            const cur = stack.pop();
+            if (typeof cur === 'boolean') return cur;
+            if (typeof cur === 'string') {
+                const s = cur.trim().toLowerCase();
+                if (s === 'true' || s === 'false') return s === 'true';
+                if (s === '1' || s === '0') return s === '1';
+            }
+            if (typeof cur === 'number') return cur !== 0;
+            if (cur && typeof cur === 'object') {
+                if (seen.has(cur)) continue;
+                seen.add(cur);
+                for (const v of Object.values(cur as Record<string, unknown>)) {
+                    stack.push(v);
+                }
+            }
         }
-        if (typeof v === 'number') return v !== 0;
-        return;
-    });
+        return undefined;
+    })(body);
     return anyBool ?? false;
 }
