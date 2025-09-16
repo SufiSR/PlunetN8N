@@ -10,10 +10,12 @@ import { description } from './description';
 import { Creds, Service } from './core/types';
 import { PlunetApiService } from './services/plunetApi';
 import { DataCustomer30Service } from './services/dataCustomer30';
+import { DataResource30Service } from './services/dataResource30'; // ← ADD
 
 const registry: Record<string, Service> = {
     [PlunetApiService.resource]: PlunetApiService,
     [DataCustomer30Service.resource]: DataCustomer30Service,
+    [DataResource30Service.resource]: DataResource30Service, // ← ADD
 };
 
 export class Plunet implements INodeType {
@@ -38,7 +40,9 @@ export class Plunet implements INodeType {
                 const timeoutMs = creds.timeout ?? 30000;
 
                 const payload = await svc.execute(operation, this, creds, url, baseUrl, timeoutMs, i);
-                out.push({ json: { success: true, resource, operation, ...payload } as IDataObject });
+
+                // Services already include success/resource/operation; forward as-is.
+                out.push({ json: payload as IDataObject });
             } catch (err) {
                 if (this.continueOnFail()) {
                     out.push({ json: { success: false, error: (err as Error).message } });
