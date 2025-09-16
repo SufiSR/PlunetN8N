@@ -1,9 +1,10 @@
 import { INodeTypeDescription, NodeConnectionType } from 'n8n-workflow';
 import { PlunetApiService } from './services/plunetApi';
 import { DataCustomer30Service } from './services/dataCustomer30';
+import { DataResource30Service } from './services/dataResource30';
 import type { Service, NonEmptyArray } from './core/types';
 
-const services: NonEmptyArray<Service> = [PlunetApiService, DataCustomer30Service];
+const services: NonEmptyArray<Service> = [PlunetApiService, DataCustomer30Service, DataResource30Service];
 
 const resourceOptions = services.map((s) => ({
     name: s.resourceDisplayName,

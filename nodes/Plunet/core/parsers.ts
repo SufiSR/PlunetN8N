@@ -339,3 +339,72 @@ export function parseWorkflowListResult(xml: string): ResultBase & { workflows: 
 
     return { ...base, workflows };
 }
+
+
+function xmlToObject(xml: string): any {
+    // very small “good enough” XML → JS converter for simple DTOs
+    // collapses repeated tags into arrays; trims text nodes
+    const stack: any[] = [];
+    const root: any = {};
+    let current = root;
+
+    const tagRe = /<([^!?/>\s]+)([^>]*)>|<\/([^>]+)>|([^<]+)/g;
+    let m: RegExpExecArray | null;
+    const push = (name: string) => {
+        const node: any = {};
+        if (current[name]) {
+            if (Array.isArray(current[name])) current[name].push(node);
+            else current[name] = [current[name], node];
+        } else current[name] = node;
+        stack.push(current);
+        current = node;
+    };
+    const pop = () => { current = stack.pop() || root; };
+    const addText = (txt: string) => {
+        const t = txt.trim();
+        if (!t) return;
+        if (current._text) current._text += t;
+        else current._text = t;
+    };
+
+    while ((m = tagRe.exec(xml))) {
+        if (m[1]) push(m[1]);
+        else if (m[3]) pop();
+        else if (m[4]) addText(m[4]);
+    }
+    return root;
+}
+
+export function parseResourceResult(xml: string) {
+    const base = extractResultBase(xml);
+    // take the first <resource>…</resource> block if present
+    const m = xml.match(/<resource>([\s\S]*?)<\/resource>/i);
+    const resource = m ? xmlToObject(m[0]).resource : null;
+    return { resource, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
+export function parseResourceListResult(xml: string) {
+    const base = extractResultBase(xml);
+    // collect all <resource> nodes
+    const resources: any[] = [];
+    const re = /<resource>([\s\S]*?)<\/resource>/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(xml))) {
+        const obj = xmlToObject(m[0]).resource;
+        resources.push(obj);
+    }
+    return { resources, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
+export function parsePricelistListResult(xml: string) {
+    const base = extractResultBase(xml);
+    const pricelists: any[] = [];
+    const re = /<Pricelist>([\s\S]*?)<\/Pricelist>/gi;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(xml))) {
+        const obj = xmlToObject(m[0]).Pricelist;
+        pricelists.push(obj);
+    }
+    return { pricelists, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
