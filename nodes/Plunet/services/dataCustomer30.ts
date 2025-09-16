@@ -79,13 +79,13 @@ const CustomerStatusOptions: INodePropertyOptions[] = (Object.keys(CustomerStatu
  *  Operation → parameters (order matters). UUID is auto-included.
  *  ─────────────────────────────────────────────────────────────────────────── */
 const PARAM_ORDER: Record<string, string[]> = {
-    // --- getters / finders (unchanged) ---
+    // --- getters / finders ---
     delete: ['customerID'],
     getAcademicTitle: ['customerID'],
     getAccount: ['AccountID'],
     getAccountManagerID: ['customerID'],
     getAllCustomerObjects: ['Status'],
-    getAllCustomerObjects2: ['integerList'],
+    // getAllCustomerObjects2: removed
     getAvailableAccountIDList: [],
     getAvailablePaymentMethodList: [],
     getAvailableWorkflows: ['customerID'],
@@ -112,8 +112,7 @@ const PARAM_ORDER: Record<string, string[]> = {
     getStatus: ['customerID'],
     getWebsite: ['customerID'],
 
-    // --- inserts/updates (unchanged except the boolean we added earlier) ---
-    insert: [],
+    // --- create/update (insert removed) ---
     insert2: [
         'academicTitle', 'costCenter', 'currency', 'customerID', 'email',
         'externalID', 'fax', 'formOfAddress', 'fullName', 'mobilePhone',
@@ -166,7 +165,7 @@ const RETURN_TYPE: Record<string, R> = {
     getAccount: 'Account',
     getAccountManagerID: 'Integer',
     getAllCustomerObjects: 'CustomerList',
-    getAllCustomerObjects2: 'CustomerList',
+    // getAllCustomerObjects2: removed
     getAvailableAccountIDList: 'IntegerArray',
     getAvailablePaymentMethodList: 'IntegerArray',
     getAvailableWorkflows: 'WorkflowList',
@@ -192,7 +191,7 @@ const RETURN_TYPE: Record<string, R> = {
     getSourceOfContact: 'String',
     getStatus: 'Integer',
     getWebsite: 'String',
-    insert: 'Integer',
+    // insert: removed
     insert2: 'Integer',
     update: 'Void',
     search: 'IntegerArray',
@@ -233,13 +232,25 @@ const isStatusParam = (p: string) => p.toLowerCase() === 'status';
 const isEnableEmptyParam = (op: string, p: string) =>
     op === 'update' && p.toLowerCase() === 'enablenulloremptyvalues';
 
+// Friendly labels for the UI without changing internal op values
+const FRIENDLY_LABEL: Record<string, string> = {
+    insert2: 'Create Customer',
+    update: 'Update Customer',
+    seekByExternalID: 'Search by External ID',
+};
+
 const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
-    Object.keys(PARAM_ORDER).sort().map((op) => ({
-        name: labelize(op),
-        value: op,
-        action: labelize(op),
-        description: `Call ${op} on ${RESOURCE}`,
-    })),
+    Object.keys(PARAM_ORDER)
+        .sort()
+        .map((op) => {
+            const label = FRIENDLY_LABEL[op] ?? labelize(op);
+            return {
+                name: label,
+                value: op,
+                action: label,
+                description: `Call ${label} on ${RESOURCE}`,
+            };
+        }),
 );
 
 // Make every `status`/`Status` param a dropdown,
