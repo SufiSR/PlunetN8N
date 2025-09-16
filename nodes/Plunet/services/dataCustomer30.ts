@@ -24,6 +24,7 @@ import {
     parseAccountResult,
     parseWorkflowListResult,
 } from '../core/parsers';
+import { TaxTypeOptions, idToTaxTypeName } from '../enums/tax-type'; // ← NEW
 
 const RESOURCE = 'DataCustomer30';
 
@@ -64,7 +65,7 @@ function prettyStatusLabel(name: CustomerStatusName): string {
         case 'AQUISITION_ADDRESS': return 'Acquisition address';
         case 'NEW_AUTO': return 'New (auto)';
         case 'DELETION_REQUESTED': return 'Deletion requested';
-        default: return name.charAt(0) + name.slice(1).toLowerCase(); // Active, Contacted, New, Blocked
+        default: return name.charAt(0) + name.slice(1).toLowerCase();
     }
 }
 const CustomerStatusOptions: INodePropertyOptions[] = (Object.keys(CustomerStatusIdByName) as CustomerStatusName[])
@@ -79,7 +80,6 @@ const CustomerStatusOptions: INodePropertyOptions[] = (Object.keys(CustomerStatu
  *  Operation → parameters (order matters). UUID is auto-included.
  *  ─────────────────────────────────────────────────────────────────────────── */
 const PARAM_ORDER: Record<string, string[]> = {
-    // --- getters / finders ---
     insert2: [
         'academicTitle', 'costCenter', 'currency', 'customerID', 'email',
         'externalID', 'fax', 'formOfAddress', 'fullName', 'mobilePhone',
@@ -94,6 +94,8 @@ const PARAM_ORDER: Record<string, string[]> = {
     delete: ['customerID'],
     search: ['SearchFilter'],
     seekByExternalID: ['ExternalID'],
+
+    // getters / lists
     getAccount: ['AccountID'],
     getAccountManagerID: ['customerID'],
     getAllCustomerObjects: ['Status'],
@@ -109,46 +111,18 @@ const PARAM_ORDER: Record<string, string[]> = {
     getProjectManagerID: ['customerID'],
     getSourceOfContact: ['customerID'],
     getStatus: ['customerID'],
+
+    // setters
     setAccountManagerID: ['resourceID', 'customerID'],
     setDateOfInitialContact: ['dateInitialContact', 'customerID'],
     setDossier: ['dossier', 'customerID'],
     setPaymentInformation: [
-        // For this one the API expects customerID first; keep as-is unless your env needs otherwise.
         'customerID', 'accountHolder', 'accountID', 'BIC', 'contractNumber',
         'debitAccount', 'IBAN', 'paymentMethodID', 'preselectedTaxID', 'salesTaxID',
     ],
     setProjectManagerID: ['resourceID', 'customerID'],
     setSourceOfContact: ['sourceOfContact', 'customerID'],
-    setStatus: ['Status', 'customerID'],          // Status (capital S) before customerID
-    // getAcademicTitle: ['customerID'],
-    // getAllCustomerObjects2: removed
-    // getCurrency: ['customerID'],
-    // getEmail: ['customerID'],
-    // getExternalID: ['customerID'],
-    // getFax: ['customerID'],
-    // getFormOfAddress: ['customerID'],
-    // getFullName: ['customerID'],
-    // getMobilePhone: ['customerID'],
-    // getName1: ['customerID'],
-    // getName2: ['customerID'],
-    // getOpening: ['customerID'],
-    // getPhone: ['customerID'],
-    // getSkypeID: ['customerID'],
-
-    // getWebsite: ['customerID'],
-    // setAcademicTitle: ['academicTitle', 'customerID'],
-    // setEmail: ['EMail', 'customerID'],            // EMail per API
-    // setExternalID: ['ExternalID', 'customerID'],
-    // setFax: ['Fax', 'customerID'],
-    // setFormOfAddress: ['FormOfAddress', 'customerID'],
-    // setMobilePhone: ['PhoneNumber', 'customerID'],// PhoneNumber per API
-    // setName1: ['Name', 'customerID'],
-    // setName2: ['Name', 'customerID'],
-    // setOpening: ['Opening', 'customerID'],
-    // setPhone: ['PhoneNumber', 'customerID'],      // PhoneNumber per API
-    // setSkypeID: ['skypeID', 'customerID'],
-
-    // setWebsite: ['website', 'customerID'],
+    setStatus: ['Status', 'customerID'],
 };
 
 /** Return types (so we can dispatch to typed parsers) */
@@ -162,7 +136,6 @@ const RETURN_TYPE: Record<string, R> = {
     delete: 'Void',
     search: 'IntegerArray',
     seekByExternalID: 'Integer',
-    getAcademicTitle: 'String',
     getAccount: 'Account',
     getAccountManagerID: 'Integer',
     getAllCustomerObjects: 'CustomerList',
@@ -185,31 +158,6 @@ const RETURN_TYPE: Record<string, R> = {
     setProjectManagerID: 'Void',
     setSourceOfContact: 'Void',
     setStatus: 'Void',
-    // getCurrency: 'String',
-    // getEmail: 'String',
-    // getExternalID: 'String',
-    // getFax: 'String',
-    // getFormOfAddress: 'Integer',
-    // getFullName: 'String',
-    // getMobilePhone: 'String',
-    // getName1: 'String',
-    // getName2: 'String',
-    // getOpening: 'String',
-    // getPhone: 'String',
-    // getSkypeID: 'String',
-    // getWebsite: 'String',
-    // setAcademicTitle: 'Void',
-    // setEmail: 'Void',
-    // setExternalID: 'Void',
-    // setFax: 'Void',
-    // setFormOfAddress: 'Void',
-    // setMobilePhone: 'Void',
-    // setName1: 'Void',
-    // setName2: 'Void',
-    // setOpening: 'Void',
-    // setPhone: 'Void',
-    // setSkypeID: 'Void',
-    // setWebsite: 'Void',
 };
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -226,8 +174,9 @@ function asNonEmpty<T>(arr: T[], err = 'Expected non-empty array'): [T, ...T[]] 
 const isStatusParam = (p: string) => p.toLowerCase() === 'status';
 const isEnableEmptyParam = (op: string, p: string) =>
     op === 'update' && p.toLowerCase() === 'enablenulloremptyvalues';
+const isPreselectedTaxIdParam = (op: string, p: string) =>
+    op === 'setPaymentInformation' && p === 'preselectedTaxID'; // exact match (case-sensitive like SOAP)
 
-// Friendly labels for the UI without changing internal op values
 const FRIENDLY_LABEL: Record<string, string> = {
     insert2: 'Create Customer',
     update: 'Update Customer',
@@ -238,30 +187,20 @@ const FRIENDLY_LABEL: Record<string, string> = {
     getAllCustomerObjects: 'Get All Customer Objects For Defined Status',
 };
 
-const OP_ORDER: string[] = [
-    'insert2',
-    'update',
-    'delete',
-    'search',
-    'seekByExternalID',
-];
+const OP_ORDER: string[] = ['insert2', 'update', 'delete', 'search', 'seekByExternalID'];
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
-    [...new Set([...OP_ORDER, ...Object.keys(PARAM_ORDER)])] // de-dupe while keeping order
-        .filter((op) => op in PARAM_ORDER)                     // guard against typos
+    [...new Set([...OP_ORDER, ...Object.keys(PARAM_ORDER)])]
+        .filter((op) => op in PARAM_ORDER)
         .map((op) => {
             const label = FRIENDLY_LABEL[op] ?? labelize(op);
-            return {
-                name: label,
-                value: op,
-                action: label,
-                description: `Call ${label} on ${RESOURCE}`,
-            };
+            return { name: label, value: op, action: label, description: `Call ${label} on ${RESOURCE}` };
         }),
 );
 
 // Make every `status`/`Status` param a dropdown,
-// and `update.enableNullOrEmptyValues` a boolean with a clear label.
+// `update.enableNullOrEmptyValues` a boolean,
+// and `setPaymentInformation.preselectedTaxID` a dropdown (TaxType).
 const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
     params.map<INodeProperties>((p) => {
         // 1) Status → dropdown
@@ -277,11 +216,24 @@ const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap((
             };
         }
 
-        // 2) enableNullOrEmptyValues → boolean
+        // 2) preselectedTaxID → TaxType dropdown
+        if (isPreselectedTaxIdParam(op, p)) {
+            return {
+                displayName: 'Preselected Tax Type',
+                name: p,
+                type: 'options',
+                options: TaxTypeOptions,
+                default: 2, // WITHOUT_TAX by convention; adjust if your BM defaults differ
+                description: `${p} parameter for ${op} (TaxType enum)`,
+                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+            };
+        }
+
+        // 3) enableNullOrEmptyValues → boolean
         if (isEnableEmptyParam(op, p)) {
             return {
                 displayName: 'Overwrite with Empty Values',
-                name: p, // must remain "enableNullOrEmptyValues" for SOAP tag
+                name: p,
                 type: 'boolean',
                 default: false,
                 description:
@@ -290,7 +242,7 @@ const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap((
             };
         }
 
-        // 3) default: plain string
+        // 4) default: plain string
         return {
             displayName: p,
             name: p,
@@ -317,11 +269,7 @@ ${childrenXml.split('\n').map((l) => (l ? '      ' + l : l)).join('\n')}
 </soapenv:Envelope>`;
 }
 
-/** Golden rule enforcement:
- *  - SOAP Fault → throw
- *  - statusMessage present and !== "OK" → throw
- *  - statusCode present and !== 0 → throw
- */
+/** Golden rule enforcement */
 function throwIfSoapOrStatusError(
     ctx: IExecuteFunctions,
     itemIndex: number,
@@ -358,19 +306,15 @@ async function runOp(
     op: string,
     paramNames: string[],
 ): Promise<IDataObject> {
-    // UUID is always pulled from storage / auto-login (note the itemIndex for error context)
     const uuid = await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, itemIndex);
 
     const parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
     for (const name of paramNames) {
         const valRaw = ctx.getNodeParameter(name, itemIndex, '') as string | number | boolean;
         const val =
-            typeof valRaw === 'string'
-                ? valRaw.trim()
-                : typeof valRaw === 'number'
-                    ? String(valRaw)
-                    : typeof valRaw === 'boolean'
-                        ? (valRaw ? 'true' : 'false')
+            typeof valRaw === 'string' ? valRaw.trim()
+                : typeof valRaw === 'number' ? String(valRaw)
+                    : typeof valRaw === 'boolean' ? (valRaw ? 'true' : 'false')
                         : '';
         if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
     }
@@ -399,7 +343,13 @@ async function runOp(
         }
         case 'PaymentInfo': {
             const r = parsePaymentInfoResult(body);
-            payload = { paymentInfo: r.paymentInfo, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            const pi = r.paymentInfo ?? {};
+            const taxName = idToTaxTypeName((pi as any).preselectedTaxID);
+            payload = {
+                paymentInfo: taxName ? { ...pi, preselectedTaxType: taxName } : pi,
+                statusMessage: r.statusMessage,
+                statusCode: r.statusCode,
+            };
             break;
         }
         case 'Account': {
@@ -422,8 +372,8 @@ async function runOp(
             if (op === 'getStatus') {
                 const name = idToCustomerStatusName(r.value ?? undefined);
                 payload = {
-                    status: name ?? null,            // enum name like "ACTIVE"
-                    statusId: r.value ?? null,       // numeric id
+                    status: name ?? null,
+                    statusId: r.value ?? null,
                     statusMessage: r.statusMessage,
                     statusCode: r.statusCode,
                 };
@@ -439,7 +389,6 @@ async function runOp(
         }
         case 'Void': {
             const r = parseVoidResult(body);
-            // Additional guard so setters can't silently pass
             if (!r.ok) {
                 const msg = r.statusMessage || 'Operation failed';
                 throw new NodeOperationError(
@@ -452,7 +401,6 @@ async function runOp(
             break;
         }
         default: {
-            // Fallback: still give status + raw
             payload = { statusMessage: extractStatusMessage(body), rawResponse: body };
         }
     }
