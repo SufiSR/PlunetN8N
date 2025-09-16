@@ -80,7 +80,20 @@ const CustomerStatusOptions: INodePropertyOptions[] = (Object.keys(CustomerStatu
  *  ─────────────────────────────────────────────────────────────────────────── */
 const PARAM_ORDER: Record<string, string[]> = {
     // --- getters / finders ---
+    insert2: [
+        'academicTitle', 'costCenter', 'currency', 'customerID', 'email',
+        'externalID', 'fax', 'formOfAddress', 'fullName', 'mobilePhone',
+        'name1', 'name2', 'opening', 'phone', 'skypeID', 'status', 'userId', 'website',
+    ],
+    update: [
+        'academicTitle', 'costCenter', 'currency', 'customerID', 'email',
+        'externalID', 'fax', 'formOfAddress', 'fullName',
+        'mobilePhone', 'name1', 'name2', 'opening', 'phone', 'skypeID',
+        'status', 'userId', 'website', 'enableNullOrEmptyValues',
+    ],
     delete: ['customerID'],
+    search: ['SearchFilter'],
+    seekByExternalID: ['ExternalID'],
     getAcademicTitle: ['customerID'],
     getAccount: ['AccountID'],
     getAccountManagerID: ['customerID'],
@@ -111,24 +124,6 @@ const PARAM_ORDER: Record<string, string[]> = {
     getSourceOfContact: ['customerID'],
     getStatus: ['customerID'],
     getWebsite: ['customerID'],
-
-    // --- create/update (insert removed) ---
-    insert2: [
-        'academicTitle', 'costCenter', 'currency', 'customerID', 'email',
-        'externalID', 'fax', 'formOfAddress', 'fullName', 'mobilePhone',
-        'name1', 'name2', 'opening', 'phone', 'skypeID', 'status', 'userId', 'website',
-    ],
-    update: [
-        'academicTitle', 'costCenter', 'currency', 'customerID', 'email',
-        'externalID', 'fax', 'formOfAddress', 'fullName',
-        'mobilePhone', 'name1', 'name2', 'opening', 'phone', 'skypeID',
-        'status', 'userId', 'website', 'enableNullOrEmptyValues',
-    ],
-
-    search: ['SearchFilter'],
-    seekByExternalID: ['ExternalID'],
-
-    // --- setters normalized: VALUE first, then customerID (and correct casing) ---
     setAcademicTitle: ['academicTitle', 'customerID'],
     setAccountManagerID: ['resourceID', 'customerID'],
     setDateOfInitialContact: ['dateInitialContact', 'customerID'],
@@ -160,12 +155,15 @@ type R =
     | 'Customer' | 'CustomerList' | 'PaymentInfo' | 'Account' | 'WorkflowList';
 
 const RETURN_TYPE: Record<string, R> = {
+    insert2: 'Integer',
+    update: 'Void',
     delete: 'Void',
+    search: 'IntegerArray',
+    seekByExternalID: 'Integer',
     getAcademicTitle: 'String',
     getAccount: 'Account',
     getAccountManagerID: 'Integer',
     getAllCustomerObjects: 'CustomerList',
-    // getAllCustomerObjects2: removed
     getAvailableAccountIDList: 'IntegerArray',
     getAvailablePaymentMethodList: 'IntegerArray',
     getAvailableWorkflows: 'WorkflowList',
@@ -191,11 +189,6 @@ const RETURN_TYPE: Record<string, R> = {
     getSourceOfContact: 'String',
     getStatus: 'Integer',
     getWebsite: 'String',
-    // insert: removed
-    insert2: 'Integer',
-    update: 'Void',
-    search: 'IntegerArray',
-    seekByExternalID: 'Integer',
     setAcademicTitle: 'Void',
     setAccountManagerID: 'Void',
     setDateOfInitialContact: 'Void',
@@ -236,7 +229,11 @@ const isEnableEmptyParam = (op: string, p: string) =>
 const FRIENDLY_LABEL: Record<string, string> = {
     insert2: 'Create Customer',
     update: 'Update Customer',
+    delete: 'Delete Customer',
     seekByExternalID: 'Search by External ID',
+    getAvailableAccountIDList: 'Get Available Account IDs',
+    getAvailablePaymentMethodList: 'Get Available Payment Methods',
+    getAllCustomerObjects: 'Get All Customer Objects For Defined Status'
 };
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
