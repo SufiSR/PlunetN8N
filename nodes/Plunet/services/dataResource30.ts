@@ -17,7 +17,7 @@ import {
     parseIntegerResult,
     parseIntegerArrayResult,
     parseVoidResult,
-    asNum, // <-- use to coerce numbers safely
+    asNum,
 } from '../core/xml';
 import {
     parseResourceResult,
@@ -26,78 +26,35 @@ import {
     parsePaymentInfoResult,
 } from '../core/parsers';
 
-// Import your existing enum modules (filenames as you have them)
-import * as ResourceStatusNS from '../enums/resource-status';
-import * as ResourceTypeNS from '../enums/resource-type';
+// ✅ use your actual enum files/exports
+import { idToResourceStatusName, ResourceStatusOptions } from '../enums/resource-status';
+import { idToResourceTypeName, ResourceTypeOptions } from '../enums/resource-type';
 
 const RESOURCE = 'DataResource30';
 
 /** ─────────────────────────────────────────────────────────────────────────────
- *  Minimal enum for WorkingStatus (docs: 1=INTERNAL, 2=EXTERNAL)
+ *  WorkingStatus (local): 1=INTERNAL, 2=EXTERNAL
  *  ─────────────────────────────────────────────────────────────────────────── */
 const WorkingStatusOptions: INodePropertyOptions[] = [
     { name: 'Internal (1)', value: 1, description: 'INTERNAL' },
     { name: 'External (2)', value: 2, description: 'EXTERNAL' },
 ];
 
-// Local name map for working status
-const WorkingStatusNameById: Record<number, 'INTERNAL' | 'EXTERNAL'> = {
-    1: 'INTERNAL',
-    2: 'EXTERNAL',
-};
-
-/** ─────────────────────────────────────────────────────────────────────────────
- *  Helpers to read name-by-id maps from your enum modules (robust to export names)
- *  ─────────────────────────────────────────────────────────────────────────── */
-function getNameFromEnumNS(
-    ns: any,
-    candidateMapKeys: string[],
-    id?: number | null,
-): string | undefined {
-    if (id == null) return undefined;
-    for (const key of candidateMapKeys) {
-        const map =
-            ns?.[key] ??
-            ns?.default?.[key];
-        if (map && typeof map === 'object' && map[id] !== undefined) {
-            return String(map[id]);
-        }
-    }
-    return undefined;
-}
-
-function nameOfResourceStatus(id?: number | null) {
-    // try multiple likely export names from your resource-status.ts
-    return getNameFromEnumNS(
-        ResourceStatusNS,
-        ['ResourceStatusNameById', 'NameById', 'nameById', 'RESOURCE_STATUS_NAME_BY_ID'],
-        id,
-    );
-}
-
+/** Small helper to stringify SOAP scalars (kills the boolean typeof warning) */
 function toSoapScalar(v: unknown): string {
     if (v === null || v === undefined) return '';
     return typeof v === 'string' ? v.trim() : String(v);
 }
 
-function nameOfResourceType(id?: number | null) {
-    // try multiple likely export names from your resource-type.ts
-    return getNameFromEnumNS(
-        ResourceTypeNS,
-        ['ResourceTypeNameById', 'NameById', 'nameById', 'RESOURCE_TYPE_NAME_BY_ID'],
-        id,
-    );
-}
-
-/** Decorate a resource DTO with enum *names* next to the numeric ids */
+/** Map IDs → enum names on resource-like objects */
 function decorateResourceEnums(r: any) {
     const statusId        = asNum(r.statusId ?? r.Status ?? r.status);
     const workingStatusId = asNum(r.workingStatusId ?? r.WorkingStatus ?? r.workingStatus);
     const resourceTypeId  = asNum(r.resourceTypeId ?? r.ResourceType ?? r.resourceType);
 
-    const statusName        = nameOfResourceStatus(statusId);
-    const workingStatusName = workingStatusId != null ? WorkingStatusNameById[workingStatusId] : undefined;
-    const resourceTypeName  = nameOfResourceType(resourceTypeId);
+    const statusName        = idToResourceStatusName(statusId);
+    const workingStatusName = workingStatusId != null ? (workingStatusId === 1 ? 'INTERNAL' : workingStatusId === 2 ? 'EXTERNAL' : undefined) : undefined;
+    const resourceTypeName  = idToResourceTypeName(resourceTypeId);
 
     return {
         ...r,
@@ -111,17 +68,17 @@ function decorateResourceEnums(r: any) {
 }
 
 /** ─────────────────────────────────────────────────────────────────────────────
- *  Operation → parameters (UUID is auto-included)
+ *  Operation → parameters (UUID auto-included)
  *  ─────────────────────────────────────────────────────────────────────────── */
 const PARAM_ORDER: Record<string, string[]> = {
     // Core object ops
-    insertObject: ['ResourceIN'],                                  // pass-through XML for now
-    update: ['ResourceIN', 'enableNullOrEmptyValues'],             // ResourceIN contains the ID
+    insertObject: ['ResourceIN'],
+    update: ['ResourceIN', 'enableNullOrEmptyValues'],
     delete: ['resourceID'],
     search: ['SearchFilterResource'],
     seekByExternalID: ['ExternalID'],
     getResourceObject: ['resourceID'],
-    getAllResourceObjects: ['WorkingStatus', 'Status'],            // filter by working/status
+    getAllResourceObjects: ['WorkingStatus', 'Status'],
 
     // Pricelists
     getPricelists: ['resourceID'],
@@ -134,7 +91,6 @@ const PARAM_ORDER: Record<string, string[]> = {
     // Status / Type
     getStatus: ['resourceID'],
     setStatus: ['Status', 'resourceID'],
-    // (you chose to keep these commented in the UI; outputs still support mapping when used)
     // getWorkingStatus: ['resourceID'],
     // setWorkingStatus: ['WorkingStatus', 'resourceID'],
     // getResourceType: ['resourceID'],
@@ -200,7 +156,6 @@ const FRIENDLY_LABEL: Record<string, string> = {
     getPricelists2: 'Get Pricelists (Language Pair)',
     getResourceObject: 'Get Resource',
 };
-
 const OP_ORDER = [
     'getResourceObject',
     'getAllResourceObjects',
@@ -223,6 +178,7 @@ const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
 
 const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
     params.map<INodeProperties>((p) => {
+        // WorkingStatus → dropdown
         if (p === 'WorkingStatus') {
             return {
                 displayName: 'Working Status',
@@ -234,6 +190,30 @@ const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap((
                 displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
             };
         }
+        // Status (resource status) → dropdown from your enum file
+        if (p === 'Status') {
+            return {
+                displayName: 'Status',
+                name: p,
+                type: 'options',
+                options: ResourceStatusOptions,
+                default: 1, // ACTIVE
+                description: `${p} parameter for ${op} (ResourceStatus enum)`,
+                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+            };
+        }
+        if (p === 'ResourceType') {
+            return {
+                displayName: 'Resource Type',
+                name: p,
+                type: 'options',
+                options: ResourceTypeOptions,
+                default: 0, // RESOURCES
+                description: `${p} parameter for ${op} (ResourceType enum)`,
+                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+            };
+        }
+        // enableNullOrEmptyValues → boolean
         if (op === 'update' && p === 'enableNullOrEmptyValues') {
             return {
                 displayName: 'Overwrite with Empty Values',
@@ -245,6 +225,7 @@ const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap((
                 displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
             };
         }
+        // default: string
         return {
             displayName: p,
             name: p,
@@ -313,7 +294,6 @@ async function runOp(
         const valRaw = ctx.getNodeParameter(name, itemIndex, '') as unknown;
         const val = toSoapScalar(valRaw);
         if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
-        if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
     }
 
     const env11 = buildEnvelope(op, parts.join('\n'));
@@ -356,29 +336,14 @@ async function runOp(
         case 'Integer': {
             const r = parseIntegerResult(body);
             if (op === 'getWorkingStatus') {
-                const name = r.value != null ? WorkingStatusNameById[r.value] : undefined;
-                payload = {
-                    workingStatusId: r.value ?? null,
-                    workingStatus: name ?? null,
-                    statusMessage: r.statusMessage,
-                    statusCode: r.statusCode,
-                };
+                const name = r.value === 1 ? 'INTERNAL' : r.value === 2 ? 'EXTERNAL' : undefined;
+                payload = { workingStatusId: r.value ?? null, workingStatus: name ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
             } else if (op === 'getStatus') {
-                const name = nameOfResourceStatus(r.value ?? undefined);
-                payload = {
-                    statusId: r.value ?? null,
-                    status: name ?? null,
-                    statusMessage: r.statusMessage,
-                    statusCode: r.statusCode,
-                };
+                const name = idToResourceStatusName(r.value ?? undefined);
+                payload = { statusId: r.value ?? null, status: name ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
             } else if (op === 'getResourceType') {
-                const name = nameOfResourceType(r.value ?? undefined);
-                payload = {
-                    resourceTypeId: r.value ?? null,
-                    resourceType: name ?? null,
-                    statusMessage: r.statusMessage,
-                    statusCode: r.statusCode,
-                };
+                const name = idToResourceTypeName(r.value ?? undefined);
+                payload = { resourceTypeId: r.value ?? null, resourceType: name ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
             } else {
                 payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
             }
