@@ -1,4 +1,4 @@
-// nodes/Plunet/services/dataResource30.ts
+// src/nodes/Plunet/services/dataResource30.ts
 import {
     IExecuteFunctions,
     IDataObject,
@@ -19,97 +19,93 @@ import {
     parseVoidResult,
 } from '../core/xml';
 import {
-    parseAccountResult,
-    parsePaymentInfoResult,
     parseResourceResult,
     parseResourceListResult,
     parsePricelistListResult,
+    parsePaymentInfoResult,
 } from '../core/parsers';
-
-import {
-    ResourceStatusOptions,
-    idToResourceStatusName,
-} from '../enums/resource-status';
-import {
-    WorkingStatusOptions,
-    idToWorkingStatusName,
-} from '../enums/working-status';
-import {
-    ResourceTypeOptions,
-    idToResourceTypeName,
-} from '../enums/resource-type';
 
 const RESOURCE = 'DataResource30';
 
 /** ─────────────────────────────────────────────────────────────────────────────
- *  Operation → parameters (order matters). UUID is auto-included.
- *  (Trimmed to the non-redundant, “Customer-like” surface)
+ *  Minimal enum for WorkingStatus (docs: 1=INTERNAL, 2=EXTERNAL)
+ *  ─────────────────────────────────────────────────────────────────────────── */
+const WorkingStatusOptions: INodePropertyOptions[] = [
+    { name: 'Internal (1)', value: 1, description: 'INTERNAL' },
+    { name: 'External (2)', value: 2, description: 'EXTERNAL' },
+];
+
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  Operation → parameters (UUID is auto-included)
+ *  Keep this small to avoid overwhelming the UI.
  *  ─────────────────────────────────────────────────────────────────────────── */
 const PARAM_ORDER: Record<string, string[]> = {
-    // CRUD / search
-    insertObject: ['ResourceIN'],
-    update: ['ResourceIN', 'enableNullOrEmptyValues'],
+    // Core object ops
+    insertObject: ['ResourceIN'],                                  // pass-through XML for now
+    update: ['ResourceIN', 'enableNullOrEmptyValues'],             // ResourceIN contains the ID
     delete: ['resourceID'],
     search: ['SearchFilterResource'],
     seekByExternalID: ['ExternalID'],
-
-    // Getters
     getResourceObject: ['resourceID'],
-    getAllResourceObjects: ['WorkingStatus', 'Status'],
-    getAvailableAccountIDList: [],
-    getAvailablePaymentMethodList: [],
-    getPaymentMethodDescription: ['paymentMethodID', 'systemLanguageCode'],
-    getPaymentInformation: ['resourceID'],
-    getAccount: ['AccountID'],
+    getAllResourceObjects: ['WorkingStatus', 'Status'],            // filter by working/status
+
+    // Pricelists
     getPricelists: ['resourceID'],
     getPricelists2: ['sourcelanguage', 'targetlanguage', 'resourceID'],
 
-    // Setters (enums normalized first)
-    setStatus: ['Status', 'resourceID'],
-    getStatus: ['resourceID'],
-    setWorkingStatus: ['WorkingStatus', 'resourceID'],
-    getWorkingStatus: ['resourceID'],
-    setResourceType: ['ResourceType', 'resourceID'],
-    getResourceType: ['resourceID'],
+    // Payment info
+    getPaymentInformation: ['resourceID'],
     setPaymentInformation: ['resourceID', 'paymentInfo'],
+
+    // Status / Type
+    getStatus: ['resourceID'],
+    setStatus: ['Status', 'resourceID'],
+    // getWorkingStatus: ['resourceID'],
+    // setWorkingStatus: ['WorkingStatus', 'resourceID'],
+    // getResourceType: ['resourceID'],
+    // setResourceType: ['ResourceType', 'resourceID'],
+
+    // Lookups
+    getAvailableAccountIDList: [],
+    getAvailablePaymentMethodList: [],
+    getPaymentMethodDescription: ['paymentMethodID', 'systemLanguageCode'],
 };
 
+/** Return types */
 type R =
     | 'Void' | 'String' | 'Integer' | 'IntegerArray'
-    | 'Resource' | 'ResourceList' | 'PricelistList'
-    | 'PaymentInfo' | 'Account';
+    | 'Resource' | 'ResourceList' | 'PricelistList' | 'PaymentInfo';
 
 const RETURN_TYPE: Record<string, R> = {
-    // CRUD / search
     insertObject: 'Integer',
     update: 'Void',
     delete: 'Void',
     search: 'IntegerArray',
     seekByExternalID: 'Integer',
 
-    // Getters
     getResourceObject: 'Resource',
     getAllResourceObjects: 'ResourceList',
-    getAvailableAccountIDList: 'IntegerArray',
-    getAvailablePaymentMethodList: 'IntegerArray',
-    getPaymentMethodDescription: 'String',
-    getPaymentInformation: 'PaymentInfo',
-    getAccount: 'Account',
+
     getPricelists: 'PricelistList',
     getPricelists2: 'PricelistList',
 
-    // Setters / enum getters
-    setStatus: 'Void',
-    getStatus: 'Integer',
-    setWorkingStatus: 'Void',
-    getWorkingStatus: 'Integer',
-    setResourceType: 'Void',
-    getResourceType: 'Integer',
+    getPaymentInformation: 'PaymentInfo',
     setPaymentInformation: 'Void',
+
+    getStatus: 'Integer',
+    setStatus: 'Void',
+    // getWorkingStatus: 'Integer',
+    // setWorkingStatus: 'Void',
+    // getResourceType: 'Integer',
+    // setResourceType: 'Void',
+
+    getAvailableAccountIDList: 'IntegerArray',
+    getAvailablePaymentMethodList: 'IntegerArray',
+    getPaymentMethodDescription: 'String',
 };
 
 /** ─────────────────────────────────────────────────────────────────────────────
- *  UI wiring
+ *  UI wiring (friendly labels + a single dropdown for WorkingStatus)
  *  ─────────────────────────────────────────────────────────────────────────── */
 function labelize(op: string): string {
     if (op.includes('_')) return op.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
@@ -119,26 +115,27 @@ function asNonEmpty<T>(arr: T[], err = 'Expected non-empty array'): [T, ...T[]] 
     if (arr.length === 0) throw new Error(err);
     return arr as [T, ...T[]];
 }
-
 const FRIENDLY_LABEL: Record<string, string> = {
     insertObject: 'Create Resource',
     update: 'Update Resource',
     delete: 'Delete Resource',
     seekByExternalID: 'Search by External ID',
-    getAllResourceObjects: 'Get All Resource Objects (by filters)',
-    getAvailableAccountIDList: 'Get Available Account IDs',
-    getAvailablePaymentMethodList: 'Get Available Payment Methods',
-    getPaymentMethodDescription: 'Get Payment Method Description',
-    getPricelists2: 'Get Pricelists (by language pair)',
+    getAllResourceObjects: 'Get All Resources (by status)',
+    getPricelists: 'Get Pricelists',
+    getPricelists2: 'Get Pricelists (Language Pair)',
+    getResourceObject: 'Get Resource'
 };
 
 const OP_ORDER = [
+    'getResourceObject',
+    'getAllResourceObjects',
     'insertObject',
     'update',
     'delete',
     'search',
     'seekByExternalID',
-];
+    'getPricelists2',
+] as const;
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
     [...new Set([...OP_ORDER, ...Object.keys(PARAM_ORDER)])]
@@ -149,40 +146,17 @@ const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
         }),
 );
 
-// turn Status / WorkingStatus / ResourceType into dropdowns;
-// update.enableNullOrEmptyValues as boolean.
+// “WorkingStatus” dropdown + “enableNullOrEmptyValues” bool; rest are strings
 const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
     params.map<INodeProperties>((p) => {
-        if (p === 'Status') {
-            return {
-                displayName: 'Status',
-                name: p,
-                type: 'options',
-                options: ResourceStatusOptions,
-                default: 1, // ACTIVE
-                description: `${p} parameter for ${op} (ResourceStatus enum)`,
-                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-            };
-        }
         if (p === 'WorkingStatus') {
             return {
                 displayName: 'Working Status',
                 name: p,
                 type: 'options',
                 options: WorkingStatusOptions,
-                default: 1, // INTERNAL
-                description: `${p} parameter for ${op} (WorkingStatus enum)`,
-                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-            };
-        }
-        if (p === 'ResourceType') {
-            return {
-                displayName: 'Resource Type',
-                name: p,
-                type: 'options',
-                options: ResourceTypeOptions,
-                default: 0, // RESOURCES
-                description: `${p} parameter for ${op} (ResourceType enum)`,
+                default: 1,
+                description: `${p} parameter for ${op} (1=INTERNAL, 2=EXTERNAL)`,
                 displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
             };
         }
@@ -193,11 +167,10 @@ const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap((
                 type: 'boolean',
                 default: false,
                 description:
-                    'If enabled, empty inputs overwrite existing values in Plunet. If disabled, empty inputs are ignored and existing values are preserved.',
+                    'If enabled, empty inputs overwrite existing values in Plunet. If disabled, empty inputs are ignored.',
                 displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
             };
         }
-        // default: free text
         return {
             displayName: p,
             name: p,
@@ -210,7 +183,7 @@ const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap((
 );
 
 /** ─────────────────────────────────────────────────────────────────────────────
- *  SOAP helpers and execution
+ *  SOAP helpers + execution
  *  ─────────────────────────────────────────────────────────────────────────── */
 function buildEnvelope(op: string, childrenXml: string): string {
     return `<?xml version="1.0" encoding="utf-8"?>
@@ -295,19 +268,14 @@ async function runOp(
             payload = { resources: r.resources, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
-        case 'PaymentInfo': {
-            const r = parsePaymentInfoResult(body);
-            payload = { paymentInfo: r.paymentInfo, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'Account': {
-            const r = parseAccountResult(body);
-            payload = { account: r.account, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
         case 'PricelistList': {
             const r = parsePricelistListResult(body);
             payload = { pricelists: r.pricelists, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            break;
+        }
+        case 'PaymentInfo': {
+            const r = parsePaymentInfoResult(body);
+            payload = { paymentInfo: r.paymentInfo, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
         case 'String': {
@@ -317,15 +285,14 @@ async function runOp(
         }
         case 'Integer': {
             const r = parseIntegerResult(body);
-            if (op === 'getStatus') {
-                const name = idToResourceStatusName(r.value ?? undefined);
-                payload = { status: name ?? null, statusId: r.value ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            } else if (op === 'getWorkingStatus') {
-                const name = idToWorkingStatusName(r.value ?? undefined);
+            // Expand a few enum-like getters to friendlier fields
+            if (op === 'getWorkingStatus') {
+                const name = r.value === 1 ? 'INTERNAL' : r.value === 2 ? 'EXTERNAL' : undefined;
                 payload = { workingStatus: name ?? null, workingStatusId: r.value ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            } else if (op === 'getStatus') {
+                payload = { statusId: r.value ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
             } else if (op === 'getResourceType') {
-                const name = idToResourceTypeName(r.value ?? undefined);
-                payload = { resourceType: name ?? null, resourceTypeId: r.value ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                payload = { resourceTypeId: r.value ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
             } else {
                 payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
             }
