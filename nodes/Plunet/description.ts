@@ -8,8 +8,8 @@ import { DataResource30MiscService } from './services/dataResource30.misc';
 const services = [
     PlunetApiService,
     DataCustomer30CoreService,
-    DataCustomer30MiscService,
     DataResource30CoreService,
+    DataCustomer30MiscService,
     DataResource30MiscService,
 ] as const;
 
