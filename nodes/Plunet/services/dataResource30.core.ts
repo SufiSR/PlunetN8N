@@ -5,8 +5,12 @@ import type { Creds, Service, NonEmptyArray } from '../core/types';
 import { escapeXml, sendSoapWithFallback } from '../core/soap';
 import { ensureSession } from '../core/session';
 import {
-    extractResultBase, extractStatusMessage, extractSoapFault,
-    parseStringResult, parseIntegerResult, parseIntegerArrayResult, parseVoidResult,
+    extractResultBase,
+    extractStatusMessage,
+    extractSoapFault,
+    parseIntegerResult,
+    parseIntegerArrayResult,
+    parseVoidResult,
 } from '../core/xml';
 import { parseResourceResult } from '../core/parsers';
 

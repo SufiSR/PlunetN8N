@@ -10,6 +10,110 @@ import {
 import type { FormOfAddressName } from '../enums/form-of-address';
 import { idToFormOfAddressName } from '../enums/form-of-address';
 
+/** Namespace-agnostic tag scanners */
+function findFirstTag(xml: string, tag: string): string | undefined {
+    const rx = new RegExp(`<(?:\\w+:)?${tag}\\b[^>]*>([\\s\\S]*?)<\\/(?:\\w+:)?${tag}>`, 'i');
+    const m = rx.exec(xml);
+    return m ? m[1] : undefined;
+}
+function findFirstTagBlock(xml: string, tag: string): string | undefined {
+    const rx = new RegExp(`<(?:\\w+:)?${tag}\\b[^>]*>[\\s\\S]*?<\\/(?:\\w+:)?${tag}>`, 'i');
+    const m = rx.exec(xml);
+    return m ? m[0] : undefined;
+}
+function findAllTagBlocks(xml: string, tag: string): string[] {
+    const rx = new RegExp(`<(?:\\w+:)?${tag}\\b[^>]*>[\\s\\S]*?<\\/(?:\\w+:)?${tag}>`, 'gi');
+    const out: string[] = [];
+    let m: RegExpExecArray | null;
+    while ((m = rx.exec(xml))) out.push(m[0]);
+    return out;
+}
+
+function coerceScalar(s: string): any {
+    const raw = s.trim();
+    if (raw === '') return '';
+    const t = raw.toLowerCase();
+    if (t === 'true') return true;
+    if (t === 'false') return false;
+
+    // .NET-style /Date(1694544000000)/ → ISO
+    const dotnet = /\/Date\((-?\d+)\)\//.exec(raw);
+    if (dotnet?.[1]) {
+        const ms = Number(dotnet[1]);
+        if (!Number.isNaN(ms)) return new Date(ms).toISOString();
+    }
+
+    // number?
+    if (/^-?\d+$/.test(raw)) return Number(raw);
+    if (/^-?\d+\.\d+$/.test(raw)) return Number(raw);
+
+    return raw;
+}
+
+function objectify(xmlFragment: string): Record<string, any> {
+    const obj: Record<string, any> = {};
+    const rx = /<(?:\w+:)?([A-Za-z0-9_]+)\b[^>]*>([\s\S]*?)<\/(?:\w+:)?\1>/g;
+
+    let m: RegExpExecArray | null;
+    while ((m = rx.exec(xmlFragment)) !== null) {
+        // Safely coerce captures to string
+        const key = typeof m[1] === 'string' ? m[1].trim() : '';
+        if (!key) continue; // avoid indexing with undefined/empty key
+
+        const inner = typeof m[2] === 'string' ? m[2].trim() : '';
+
+        // If nested tags appear, keep the raw inner XML (caller will parse deeply if needed)
+        if (/<(?:\w+:)?[A-Za-z0-9_]+\b[^>]*>/.test(inner)) {
+            obj[key] = inner;
+        } else {
+            obj[key] = coerceScalar(inner);
+        }
+    }
+    return obj;
+}
+
+function deepObjectify(xmlBlock: string): any {
+    // Extract direct children (one level) and recurse if the child itself has children.
+    const childRx = /<(?:\w+:)?([A-Za-z0-9_]+)\b[^>]*>([\s\S]*?)<\/(?:\w+:)?\1>/g;
+
+    const out: Record<string, any> = {};
+    for (let m: RegExpExecArray | null; (m = childRx.exec(xmlBlock)); ) {
+        const key = typeof m[1] === 'string' ? m[1].trim() : '';
+        if (!key) continue;
+
+        const innerRaw = typeof m[2] === 'string' ? m[2] : '';
+        const hasChildTag = /<(?:\w+:)?[A-Za-z0-9_]+\b[^>]*>/.test(innerRaw);
+
+        const value = hasChildTag ? deepObjectify(innerRaw) : coerceScalar(innerRaw.trim());
+
+        // If the same child name appears multiple times => array
+        if (Object.prototype.hasOwnProperty.call(out, key)) {
+            const prev = out[key];
+            if (Array.isArray(prev)) {
+                prev.push(value);
+            } else {
+                out[key] = [prev, value];
+            }
+        } else {
+            out[key] = value;
+        }
+    }
+
+    // If we didn’t match any children, treat the whole block as scalar text.
+    if (Object.keys(out).length === 0) {
+        return coerceScalar(xmlBlock.replace(/<[^>]*>/g, '').trim());
+    }
+
+    return out;
+}
+
+
+/** Helpers to prefer <Result><data>…</data></Result> scope but fall back to the whole XML */
+function scopeToData(xml: string, wrapperTag: string): string {
+    const wrapper = findFirstTagBlock(xml, wrapperTag) ?? xml;
+    return findFirstTag(wrapper, 'data') ?? wrapper;
+}
+
 /** ─────────────────────────────────────────────────────────────────────────────
  *  Customer status enum mapping (local to avoid extra imports)
  *  https://apidoc.plunet.com/latest/BM/API/SOAP/Enum/CustomerStatus.html
@@ -28,6 +132,8 @@ function idToCustomerStatusName(id?: number | null): string | undefined {
     if (id == null) return undefined;
     return CustomerStatusNameById[id];
 }
+
+
 
 /** ─────────────────────────────────────────────────────────────────────────────
  *  DTO types (extend as needed)
@@ -120,7 +226,7 @@ export type PricelistDTO = {
     isWithWhiteSpace?: boolean;
     memo?: string;
     pricelistNameEN?: string;
-    resourcePriceListID?: number; // deprecated in docs, still present in some installs
+    resourcePriceListID?: number;
     [k: string]: unknown;
 };
 
@@ -182,7 +288,7 @@ function coerceCustomer(raw: any): CustomerDTO {
         const foaName = idToFormOfAddressName(foaId);
         if (foaName) c.formOfAddressName = foaName;
     } else {
-        // If server already returned a string name (rare), keep it
+        // If the server already returned a string name (rare), keep it
         const foaName = typeof foaRaw === 'string' ? foaRaw : undefined;
         if (foaName) c.formOfAddressName = foaName as FormOfAddressName;
     }
@@ -322,7 +428,7 @@ function coerceResource(raw: any): ResourceDTO {
         const foaName = idToFormOfAddressName(foaId);
         if (foaName) r.formOfAddressName = foaName;
     } else {
-        // If server already returned a string name (rare), keep it
+        // If the server already returned a string name (rare), keep it
         const foaName = typeof foaRaw === 'string' ? foaRaw : undefined;
         if (foaName) r.formOfAddressName = foaName as FormOfAddressName;
     }
@@ -629,4 +735,214 @@ export function parsePricelistListResult(xml: string): ResultBase & { pricelists
     const nodes = pickPricelistArray(ret);
     const pricelists = nodes.map(coercePricelist);
     return { ...base, pricelists };
+}
+
+/* =========================  Job  ========================= */
+/** Deep map of a single <Job> */
+function mapJob(jobXml: string) {
+    // Known fields per API docs (IDs, types, dates, names). We keep the SOAP tag casing.
+    // Job fields: JobID, ProjectID, ResourceID, ProjectType, Status, JobTypeFull, JobTypeShort,
+    // CountSourceFiles, ItemID, StartDate, DueDate. :contentReference[oaicite:0]{index=0}
+    const o = objectify(jobXml);
+    return {
+        JobID: o.JobID ?? o.jobID ?? undefined,
+        ProjectID: o.ProjectID ?? o.projectID ?? undefined,
+        ResourceID: o.ResourceID ?? o.resourceID ?? undefined,
+        ProjectType: o.ProjectType ?? o.projectType ?? undefined,
+        Status: o.Status ?? o.status ?? undefined,
+        JobTypeFull: o.JobTypeFull ?? o.jobTypeFull ?? undefined,
+        JobTypeShort: o.JobTypeShort ?? o.jobTypeShort ?? undefined,
+        CountSourceFiles: o.CountSourceFiles ?? o.countSourceFiles ?? undefined,
+        ItemID: o.ItemID ?? o.itemID ?? undefined,
+        StartDate: o.StartDate ?? o.startDate ?? undefined,
+        DueDate: o.DueDate ?? o.dueDate ?? undefined,
+    };
+}
+
+export function parseJobResult(xml: string) {
+    const base = extractResultBase(xml);
+    const scope = scopeToData(xml, 'JobResult');
+    const jobXml = findFirstTagBlock(scope, 'Job');
+    const job = jobXml ? mapJob(jobXml) : undefined;
+    return { job, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
+export function parseJobListResult(xml: string) {
+    const base = extractResultBase(xml);
+    const scope = scopeToData(xml, 'JobListResult');
+    const list = findAllTagBlocks(scope, 'Job').map(mapJob);
+    return { jobs: list, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
+/* =========================  JobMetric (+ Amount)  ========================= */
+function mapAmount(amountXml: string) {
+    // Amount fields: baseUnitName, grossQuantity, netQuantity, serviceType. :contentReference[oaicite:1]{index=1}
+    const o = objectify(amountXml);
+    return {
+        baseUnitName: o.baseUnitName ?? o.BaseUnitName ?? undefined,
+        grossQuantity: o.grossQuantity ?? o.GrossQuantity ?? undefined,
+        netQuantity: o.netQuantity ?? o.NetQuantity ?? undefined,
+        serviceType: o.serviceType ?? o.ServiceType ?? undefined,
+    };
+}
+
+function mapJobMetric(metricXml: string) {
+    // JobMetric: totalPrice, totalPriceJobCurrency, amounts[]. :contentReference[oaicite:2]{index=2}
+    const o = objectify(metricXml);
+    const amountsScope = findFirstTagBlock(metricXml, 'amounts') ?? metricXml;
+    const amounts = findAllTagBlocks(amountsScope, 'Amount').map(mapAmount);
+    return {
+        totalPrice: o.totalPrice ?? o.TotalPrice ?? undefined,
+        totalPriceJobCurrency: o.totalPriceJobCurrency ?? o.TotalPriceJobCurrency ?? undefined,
+        amounts,
+    };
+}
+
+export function parseJobMetricResult(xml: string) {
+    const base = extractResultBase(xml);
+    const scope = scopeToData(xml, 'JobMetricResult');
+    const metricXml = findFirstTagBlock(scope, 'JobMetric');
+    const jobMetric = metricXml ? mapJobMetric(metricXml) : undefined;
+    return { jobMetric, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
+/* =========================  PriceUnit (+ List)  ========================= */
+function mapPriceUnit(unitXml: string) {
+    // PriceUnit fields per docs: PriceUnitID, Description, Memo, ArticleNumber, Service, isActive, BaseUnit. :contentReference[oaicite:3]{index=3}
+    const o = objectify(unitXml);
+    return {
+        PriceUnitID: o.PriceUnitID ?? o.priceUnitID ?? undefined,
+        Description: o.Description ?? o.description ?? undefined,
+        Memo: o.Memo ?? o.memo ?? undefined,
+        ArticleNumber: o.ArticleNumber ?? o.articleNumber ?? undefined,
+        Service: o.Service ?? o.service ?? undefined,
+        isActive: o.isActive ?? o.Active ?? o.active ?? undefined,
+        BaseUnit: o.BaseUnit ?? o.baseUnit ?? undefined,
+    };
+}
+
+export function parsePriceUnitResult(xml: string) {
+    const base = extractResultBase(xml);
+    const scope = scopeToData(xml, 'PriceUnitResult');
+    const unitXml = findFirstTagBlock(scope, 'PriceUnit');
+    const priceUnit = unitXml ? mapPriceUnit(unitXml) : undefined;
+    return { priceUnit, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
+export function parsePriceUnitListResult(xml: string) {
+    const base = extractResultBase(xml);
+    const scope = scopeToData(xml, 'PriceUnitListResult');
+    const list = findAllTagBlocks(scope, 'PriceUnit').map(mapPriceUnit);
+    return { priceUnits: list, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
+/* =========================  PriceLine (+ List)  ========================= */
+function mapPriceLine(lineXml: string) {
+    // PriceLine fields per docs: PriceUnitID, PriceLineID, Memo, Amount, Amount_perUnit, Time_perUnit, Unit_price, TaxType, Sequence. :contentReference[oaicite:4]{index=4}
+    const o = objectify(lineXml);
+    return {
+        PriceUnitID: o.PriceUnitID ?? o.priceUnitID ?? undefined,
+        PriceLineID: o.PriceLineID ?? o.priceLineID ?? undefined,
+        Memo: o.Memo ?? o.memo ?? undefined,
+        Amount: o.Amount ?? o.amount ?? undefined,
+        Amount_perUnit: o.Amount_perUnit ?? o.amount_perUnit ?? undefined,
+        Time_perUnit: o.Time_perUnit ?? o.time_perUnit ?? undefined,
+        Unit_price: o.Unit_price ?? o.unit_price ?? undefined,
+        TaxType: o.TaxType ?? o.taxType ?? undefined,
+        Sequence: o.Sequence ?? o.sequence ?? undefined,
+    };
+}
+
+export function parsePriceLineResult(xml: string) {
+    const base = extractResultBase(xml);
+    const scope = scopeToData(xml, 'PriceLineResult');
+    const lineXml = findFirstTagBlock(scope, 'PriceLine');
+    const priceLine = lineXml ? mapPriceLine(lineXml) : undefined;
+    return { priceLine, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
+export function parsePriceLineListResult(xml: string) {
+    const base = extractResultBase(xml);
+    const scope = scopeToData(xml, 'PriceLineListResult');
+    const list = findAllTagBlocks(scope, 'PriceLine').map(mapPriceLine);
+    return { priceLines: list, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
+/* =========================  Tracking time list  ========================= */
+function mapJobTrackingTime(ttXml: string) {
+    // Result fields: ResourceID, Comment, DateFrom, DateTo. (input also has Completed). :contentReference[oaicite:5]{index=5}
+    const o = objectify(ttXml);
+    return {
+        ResourceID: o.ResourceID ?? o.resourceID ?? undefined,
+        Comment: o.Comment ?? o.comment ?? undefined,
+        DateFrom: o.DateFrom ?? o.dateFrom ?? undefined,
+        DateTo: o.DateTo ?? o.dateTo ?? undefined,
+    };
+}
+
+export function parseJobTrackingTimeListResult(xml: string) {
+    const base = extractResultBase(xml);
+
+    // Some builds return <JobTrackingTimeListResult><data><TrackingTimeList>…</TrackingTimeList></data>
+    // Others may embed <TrackingTimeList> directly.
+    let scope = scopeToData(xml, 'JobTrackingTimeListResult');
+    if (!/<(?:\w+:)?TrackingTimeList\b/i.test(scope)) {
+        // fallback: scope to any <TrackingTimeList> in the XML
+        scope = findFirstTagBlock(xml, 'TrackingTimeList') ?? scope;
+    }
+
+    const listContainer = findFirstTagBlock(scope, 'TrackingTimeList') ?? scope;
+    const itemsScope = findFirstTagBlock(listContainer, 'trackingTimeList') ?? listContainer;
+    const times = findAllTagBlocks(itemsScope, 'JobTrackingTime').map(mapJobTrackingTime);
+
+    // completed may be present on TrackingTimeList
+    const completedRaw = findFirstTag(listContainer, 'Completed') ?? findFirstTag(listContainer, 'completed');
+    const completed = completedRaw != null ? coerceScalar(completedRaw) : undefined;
+
+    return { times, completed, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
+/* =========================  Pricelist (single)  ========================= */
+/**
+ * Maps <PricelistResult><data><Pricelist>…</Pricelist></data> to:
+ * { pricelist: {...deep...}, statusMessage, statusCode }
+ */
+export function parsePricelistResult(xml: string) {
+    const base = extractResultBase(xml);
+    const scope = scopeToData(xml, 'PricelistResult');
+    const block = findFirstTagBlock(scope, 'Pricelist');
+    const pricelist = block ? deepObjectify(block) : undefined;
+
+    return { pricelist, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
+/* =========================  PricelistEntry list  ========================= */
+/**
+ * Maps <PricelistEntryListResult>… to:
+ * { entries: Array<deep>, statusMessage, statusCode }
+ *
+ * Accepts both <PricelistEntry>…</PricelistEntry> and other `*Entry` fallbacks,
+ * since some installations vary on tag casing/naming.
+ */
+export function parsePricelistEntryListResult(xml: string) {
+    const base = extractResultBase(xml);
+    const scope = scopeToData(xml, 'PricelistEntryListResult');
+
+    // Preferred: <PricelistEntry> items
+    let blocks = findAllTagBlocks(scope, 'PricelistEntry');
+
+    // Fallback: any tag that ends with "Entry" if the above returns nothing
+    if (blocks.length === 0) {
+        const fallback: string[] = [];
+        const anyEntryRx = /<(?:\w+:)?([A-Za-z0-9_]*Entry)\b[^>]*>[\s\S]*?<\/(?:\w+:)?\1>/gi;
+        let m: RegExpExecArray | null;
+        while ((m = anyEntryRx.exec(scope))) {
+            fallback.push(m[0]);
+        }
+        blocks = fallback;
+    }
+
+    const entries = blocks.map(deepObjectify);
+
+    return { entries, statusMessage: base.statusMessage, statusCode: base.statusCode };
 }

@@ -4,6 +4,8 @@ import { DataCustomer30CoreService } from './services/dataCustomer30.core';
 import { DataCustomer30MiscService } from './services/dataCustomer30.misc';
 import { DataResource30CoreService } from './services/dataResource30.core';
 import { DataResource30MiscService } from './services/dataResource30.misc';
+import { DataJob30Service } from './services/dataJob30';
+
 
 const services = [
     PlunetApiService,
@@ -11,6 +13,7 @@ const services = [
     DataResource30CoreService,
     DataCustomer30MiscService,
     DataResource30MiscService,
+    DataJob30Service,
 ] as const;
 
 const resourceOptions = services.map((s) => ({

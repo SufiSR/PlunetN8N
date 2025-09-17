@@ -293,6 +293,69 @@ export function parseVoidResult(xml: string): ResultBase & { ok: boolean } {
     return { ...base, ok };
 }
 
+export function parseDateResult(xml: string): {
+    date?: string;
+    statusMessage?: string;
+    statusCode?: number;
+} {
+    const base = extractResultBase(xml);
+
+    // Grab the inner <data> inside <DateResult>, namespace-agnostic
+    const m = /<(?:\w+:)?DateResult\b[\s\S]*?<(?:\w+:)?data\b[^>]*>([\s\S]*?)<\/(?:\w+:)?data>[\s\S]*?<\/(?:\w+:)?DateResult>/i
+        .exec(xml);
+
+    const raw = m?.[1]?.trim();
+    let date: string | undefined;
+
+    if (raw) {
+        // 1) .NET-style /Date(1694544000000)/ → ISO
+        const dotnet = /\/Date\((-?\d+)\)\//.exec(raw);
+        if (dotnet?.[1]) {
+            const ms = Number(dotnet[1]);
+            if (!Number.isNaN(ms)) date = new Date(ms).toISOString();
+        }
+
+        // 2) plain millis → ISO
+        if (!date && /^-?\d{10,}$/.test(raw)) {
+            const ms = Number(raw);
+            if (!Number.isNaN(ms)) date = new Date(ms).toISOString();
+        }
+
+        // 3) otherwise, assume xsd:dateTime / ISO-ish string and pass through
+        if (!date) date = raw;
+    }
+
+    return { date, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
+export function parseStringArrayResult(xml: string): { data: string[]; statusMessage?: string; statusCode?: number } {
+    const base = extractResultBase(xml);
+
+    // 1) Prefer <StringArrayResult>…<data>…<string>… OR <item>…</item>
+    const body =
+        xml.match(/<(?:\w+:)?StringArrayResult[\s\S]*?<(?:\w+:)?data>([\s\S]*?)<\/(?:\w+:)?data>[\s\S]*?<\/(?:\w+:)?StringArrayResult>/i)?.[1] ??
+        xml;
+
+    const items: string[] = [];
+    // common SOAP array item shapes
+    const regexes = [
+        /<(?:\w+:)?string>([\s\S]*?)<\/(?:\w+:)?string>/gi,
+        /<(?:\w+:)?item>([\s\S]*?)<\/(?:\w+:)?item>/gi,
+        /<(?:\w+:)?entry>([\s\S]*?)<\/(?:\w+:)?entry>/gi,
+    ];
+
+    for (const rx of regexes) {
+        let m: RegExpExecArray | null;
+        while ((m = rx.exec(body))) {
+            const val = (m[1] ?? '').trim();
+            if (val !== '') items.push(val);
+        }
+        if (items.length) break; // stop at first matching shape
+    }
+
+    return { data: items, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
 /** -------- Back-compat helpers used by session/plunetApi -------- */
 
 /** Extracts a UUID from typical & atypical Plunet login responses */
