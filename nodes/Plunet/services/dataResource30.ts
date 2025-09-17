@@ -1,4 +1,3 @@
-// src/nodes/Plunet/services/dataResource30.ts
 import {
     IExecuteFunctions,
     IDataObject,
@@ -17,7 +16,6 @@ import {
     parseIntegerResult,
     parseIntegerArrayResult,
     parseVoidResult,
-    asNum,
 } from '../core/xml';
 import {
     parseResourceResult,
@@ -26,55 +24,63 @@ import {
     parsePaymentInfoResult,
 } from '../core/parsers';
 
-// ✅ use your actual enum files/exports
-import { idToResourceStatusName, ResourceStatusOptions } from '../enums/resource-status';
-import { idToResourceTypeName, ResourceTypeOptions } from '../enums/resource-type';
-import { FormOfAddressOptions } from '../enums/form-of-address';
+// NEW: enums
+import { ResourceStatusOptions, idToResourceStatusName } from '../enums/resource-status';
+import { ResourceTypeOptions, idToResourceTypeName } from '../enums/resource-type';
+import { FormOfAddressOptions, idToFormOfAddressName } from '../enums/form-of-address';
+import { TaxTypeOptions, idToTaxTypeName } from '../enums/tax-type';
 
 const RESOURCE = 'DataResource30';
 
 /** ─────────────────────────────────────────────────────────────────────────────
- *  WorkingStatus (local): 1=INTERNAL, 2=EXTERNAL
+ *  WorkingStatus (1=INTERNAL, 2=EXTERNAL)
  *  ─────────────────────────────────────────────────────────────────────────── */
 const WorkingStatusOptions: INodePropertyOptions[] = [
     { name: 'Internal (1)', value: 1, description: 'INTERNAL' },
     { name: 'External (2)', value: 2, description: 'EXTERNAL' },
 ];
 
-/** Small helper to stringify SOAP scalars (kills the boolean typeof warning) */
-function toSoapScalar(v: unknown): string {
-    if (v === null || v === undefined) return '';
-    return typeof v === 'string' ? v.trim() : String(v);
-}
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  ResourceIN fields (from API docs)
+ *  https://apidoc.plunet.com/latest/BM/Partner/API/SOAP/DTO/Input/ResourceIN.html
+ *  ─────────────────────────────────────────────────────────────────────────── */
+const RESOURCE_IN_FIELDS_CREATE = [
+    'academicTitle',
+    'costCenter',
+    'currency',
+    'email',
+    'externalID',
+    'fax',
+    'formOfAddress',   // enum (int)
+    'fullName',
+    'mobilePhone',
+    'name1',
+    'name2',
+    'opening',
+    'phone',
+    'resourceType',    // enum (int)
+    'skypeID',
+    'status',          // enum (int)
+    'supervisor1',
+    'supervisor2',
+    'userId',
+    'website',
+    'workingStatus',   // enum (int)
+] as const;
 
-/** Map IDs → enum names on resource-like objects */
-function decorateResourceEnums(r: any) {
-    const statusId        = asNum(r.statusId ?? r.Status ?? r.status);
-    const workingStatusId = asNum(r.workingStatusId ?? r.WorkingStatus ?? r.workingStatus);
-    const resourceTypeId  = asNum(r.resourceTypeId ?? r.ResourceType ?? r.resourceType);
-
-    const statusName        = idToResourceStatusName(statusId);
-    const workingStatusName = workingStatusId != null ? (workingStatusId === 1 ? 'INTERNAL' : workingStatusId === 2 ? 'EXTERNAL' : undefined) : undefined;
-    const resourceTypeName  = idToResourceTypeName(resourceTypeId);
-
-    return {
-        ...r,
-        ...(statusId !== undefined ? { statusId } : {}),
-        ...(statusName ? { status: statusName } : {}),
-        ...(workingStatusId !== undefined ? { workingStatusId } : {}),
-        ...(workingStatusName ? { workingStatus: workingStatusName } : {}),
-        ...(resourceTypeId !== undefined ? { resourceTypeId } : {}),
-        ...(resourceTypeName ? { resourceType: resourceTypeName } : {}),
-    };
-}
+const RESOURCE_IN_FIELDS_UPDATE = [
+    'resourceID',      // required to target the resource
+    ...RESOURCE_IN_FIELDS_CREATE,
+] as const;
 
 /** ─────────────────────────────────────────────────────────────────────────────
- *  Operation → parameters (UUID auto-included)
+ *  Operation → parameters (UUID is auto-included)
  *  ─────────────────────────────────────────────────────────────────────────── */
 const PARAM_ORDER: Record<string, string[]> = {
-    // Core object ops
-    insertObject: ['ResourceIN'],
-    update: ['ResourceIN', 'enableNullOrEmptyValues'],
+    // Object ops (now expanded into individual fields)
+    insertObject: [...RESOURCE_IN_FIELDS_CREATE],
+    update: [...RESOURCE_IN_FIELDS_UPDATE, 'enableNullOrEmptyValues'],
+
     delete: ['resourceID'],
     search: ['SearchFilterResource'],
     seekByExternalID: ['ExternalID'],
@@ -87,15 +93,26 @@ const PARAM_ORDER: Record<string, string[]> = {
 
     // Payment info
     getPaymentInformation: ['resourceID'],
-    setPaymentInformation: ['resourceID', 'paymentInfo'],
+    setPaymentInformation: [
+        'resourceID',
+        'accountHolder',
+        'accountID',
+        'BIC',
+        'contractNumber',
+        'debitAccount',
+        'IBAN',
+        'paymentMethodID',
+        'preselectedTaxID',   // dropdown
+        'salesTaxID',
+    ],
 
     // Status / Type
     getStatus: ['resourceID'],
     setStatus: ['Status', 'resourceID'],
-    // getWorkingStatus: ['resourceID'],
-    // setWorkingStatus: ['WorkingStatus', 'resourceID'],
-    // getResourceType: ['resourceID'],
-    // setResourceType: ['ResourceType', 'resourceID'],
+    getWorkingStatus: ['resourceID'],
+    setWorkingStatus: ['WorkingStatus', 'resourceID'],
+    getResourceType: ['resourceID'],
+    setResourceType: ['ResourceType', 'resourceID'],
 
     // Lookups
     getAvailableAccountIDList: [],
@@ -126,10 +143,10 @@ const RETURN_TYPE: Record<string, R> = {
 
     getStatus: 'Integer',
     setStatus: 'Void',
-    // getWorkingStatus: 'Integer',
-    // setWorkingStatus: 'Void',
-    // getResourceType: 'Integer',
-    // setResourceType: 'Void',
+    getWorkingStatus: 'Integer',
+    setWorkingStatus: 'Void',
+    getResourceType: 'Integer',
+    setResourceType: 'Void',
 
     getAvailableAccountIDList: 'IntegerArray',
     getAvailablePaymentMethodList: 'IntegerArray',
@@ -137,7 +154,7 @@ const RETURN_TYPE: Record<string, R> = {
 };
 
 /** ─────────────────────────────────────────────────────────────────────────────
- *  UI wiring
+ *  UI wiring (friendly labels, dropdowns for enums)
  *  ─────────────────────────────────────────────────────────────────────────── */
 function labelize(op: string): string {
     if (op.includes('_')) return op.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
@@ -147,6 +164,7 @@ function asNonEmpty<T>(arr: T[], err = 'Expected non-empty array'): [T, ...T[]] 
     if (arr.length === 0) throw new Error(err);
     return arr as [T, ...T[]];
 }
+
 const FRIENDLY_LABEL: Record<string, string> = {
     insertObject: 'Create Resource',
     update: 'Update Resource',
@@ -157,6 +175,7 @@ const FRIENDLY_LABEL: Record<string, string> = {
     getPricelists2: 'Get Pricelists (Language Pair)',
     getResourceObject: 'Get Resource',
 };
+
 const OP_ORDER = [
     'getResourceObject',
     'getAllResourceObjects',
@@ -177,22 +196,16 @@ const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
         }),
 );
 
+// Helpers to detect enum-y params in both top-level ops and ResourceIN
+const isStatusParam = (p: string) => p === 'Status' || p === 'status';
+const isWorkingStatusParam = (p: string) => p === 'WorkingStatus' || p === 'workingStatus';
+const isResourceTypeParam = (p: string) => p === 'ResourceType' || p === 'resourceType';
+const isFormOfAddressParam = (p: string) => p === 'FormOfAddress' || p === 'formOfAddress';
+
 const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
     params.map<INodeProperties>((p) => {
-        // WorkingStatus → dropdown
-        if (p === 'WorkingStatus') {
-            return {
-                displayName: 'Working Status',
-                name: p,
-                type: 'options',
-                options: WorkingStatusOptions,
-                default: 1,
-                description: `${p} parameter for ${op} (1=INTERNAL, 2=EXTERNAL)`,
-                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-            };
-        }
-        // Status (resource status) → dropdown from your enum file
-        if (p === 'Status') {
+        // Dropdowns for enums
+        if (isStatusParam(p)) {
             return {
                 displayName: 'Status',
                 name: p,
@@ -203,7 +216,18 @@ const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap((
                 displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
             };
         }
-        if (p === 'ResourceType') {
+        if (isWorkingStatusParam(p)) {
+            return {
+                displayName: 'Working Status',
+                name: p,
+                type: 'options',
+                options: WorkingStatusOptions,
+                default: 1, // INTERNAL
+                description: `${p} parameter for ${op} (1=INTERNAL, 2=EXTERNAL)`,
+                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+            };
+        }
+        if (isResourceTypeParam(p)) {
             return {
                 displayName: 'Resource Type',
                 name: p,
@@ -214,7 +238,7 @@ const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap((
                 displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
             };
         }
-        if (p === 'FormOfAddress') {
+        if (isFormOfAddressParam(p)) {
             return {
                 displayName: 'Form of Address',
                 name: p,
@@ -225,7 +249,19 @@ const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap((
                 displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
             };
         }
-        // enableNullOrEmptyValues → boolean
+        if (p === 'preselectedTaxID') {
+            return {
+                displayName: 'Preselected Tax',
+                name: p,
+                type: 'options',
+                options: TaxTypeOptions,
+                default: 0, // TAX_1 (pick a sensible default)
+                description: `${p} parameter for ${op} (TaxType enum)`,
+                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+            };
+        }
+
+        // Overwrite with Empty Values toggle on update
         if (op === 'update' && p === 'enableNullOrEmptyValues') {
             return {
                 displayName: 'Overwrite with Empty Values',
@@ -237,7 +273,8 @@ const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap((
                 displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
             };
         }
-        // default: string
+
+        // Default: plain string inputs (we keep them as strings for consistency with DataCustomer30)
         return {
             displayName: p,
             name: p,
@@ -289,6 +326,23 @@ function throwIfSoapOrStatusError(
     }
 }
 
+/** Build <ResourceIN>...</ResourceIN> from provided UI fields */
+function buildResourceINXml(ctx: IExecuteFunctions, itemIndex: number, fieldNames: readonly string[]): string {
+    const parts: string[] = [];
+    for (const name of fieldNames) {
+        const raw = ctx.getNodeParameter(name, itemIndex, '') as string | number | boolean;
+        let val: string;
+        switch (typeof raw) {
+            case 'string': val = raw.trim(); break;
+            case 'number': val = String(raw); break;
+            case 'boolean': val = raw ? 'true' : 'false'; break;
+            default: val = '';
+        }
+        if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
+    }
+    return `<ResourceIN>\n${parts.map((l) => '  ' + l).join('\n')}\n</ResourceIN>`;
+}
+
 async function runOp(
     ctx: IExecuteFunctions,
     creds: Creds,
@@ -301,11 +355,31 @@ async function runOp(
 ): Promise<IDataObject> {
     const uuid = await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, itemIndex);
 
-    const parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
-    for (const name of paramNames) {
-        const valRaw = ctx.getNodeParameter(name, itemIndex, '') as unknown;
-        const val = toSoapScalar(valRaw);
-        if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
+    let parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
+
+    if (op === 'insertObject') {
+        // All params are ResourceIN subfields
+        const resourceIn = buildResourceINXml(ctx, itemIndex, RESOURCE_IN_FIELDS_CREATE);
+        parts.push(resourceIn);
+    } else if (op === 'update') {
+        // Build ResourceIN from subfields, but keep enableNullOrEmptyValues outside
+        const resourceIn = buildResourceINXml(ctx, itemIndex, RESOURCE_IN_FIELDS_UPDATE);
+        parts.push(resourceIn);
+
+        const en = ctx.getNodeParameter('enableNullOrEmptyValues', itemIndex, false) as boolean;
+        parts.push(`<enableNullOrEmptyValues>${en ? 'true' : 'false'}</enableNullOrEmptyValues>`);
+    } else {
+        // default behavior: each param is a top-level tag
+        for (const name of paramNames) {
+            const valRaw = ctx.getNodeParameter(name, itemIndex, '') as string | number | boolean;
+            const val =
+                typeof valRaw === 'string'
+                    ? valRaw.trim()
+                    : typeof valRaw === 'number'
+                        ? String(valRaw)
+                        : (valRaw ? 'true' : 'false');
+            if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
+        }
     }
 
     const env11 = buildEnvelope(op, parts.join('\n'));
@@ -320,13 +394,40 @@ async function runOp(
     switch (rt) {
         case 'Resource': {
             const r = parseResourceResult(body);
-            const resource = r.resource ? decorateResourceEnums(r.resource) : r.resource;
+            // decorate enum fields if present
+            const statusName = idToResourceStatusName((r as any)?.resource?.status ?? (r as any)?.resource?.Status);
+            const typeName = idToResourceTypeName((r as any)?.resource?.resourceType ?? (r as any)?.resource?.ResourceType);
+            const wsId = (r as any)?.resource?.workingStatus ?? (r as any)?.resource?.WorkingStatus;
+            const wsName = wsId === 1 ? 'INTERNAL' : wsId === 2 ? 'EXTERNAL' : undefined;
+            const foaName = idToFormOfAddressName((r as any)?.resource?.formOfAddress ?? (r as any)?.resource?.FormOfAddress);
+
+            const resource = r.resource ? {
+                ...r.resource,
+                ...(statusName ? { status: statusName } : {}),
+                ...(typeName ? { resourceType: typeName } : {}),
+                ...(wsName ? { workingStatus: wsName } : {}),
+                ...(foaName ? { formOfAddressName: foaName } : {}),
+            } : undefined;
+
             payload = { resource, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
         case 'ResourceList': {
             const r = parseResourceListResult(body);
-            const resources = (r.resources || []).map(decorateResourceEnums);
+            const resources = (r.resources || []).map((res: any) => {
+                const statusName = idToResourceStatusName(res?.status ?? res?.Status);
+                const typeName = idToResourceTypeName(res?.resourceType ?? res?.ResourceType);
+                const wsId = res?.workingStatus ?? res?.WorkingStatus;
+                const wsName = wsId === 1 ? 'INTERNAL' : wsId === 2 ? 'EXTERNAL' : undefined;
+                const foaName = idToFormOfAddressName(res?.formOfAddress ?? res?.FormOfAddress);
+                return {
+                    ...res,
+                    ...(statusName ? { status: statusName } : {}),
+                    ...(typeName ? { resourceType: typeName } : {}),
+                    ...(wsName ? { workingStatus: wsName } : {}),
+                    ...(foaName ? { formOfAddressName: foaName } : {}),
+                };
+            });
             payload = { resources, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
@@ -337,7 +438,20 @@ async function runOp(
         }
         case 'PaymentInfo': {
             const r = parsePaymentInfoResult(body);
-            payload = { paymentInfo: r.paymentInfo, statusMessage: r.statusMessage, statusCode: r.statusCode };
+
+            // add a friendly name next to the id if present
+            const idNum = r.paymentInfo?.preselectedTaxID != null
+                ? Number(r.paymentInfo.preselectedTaxID)
+                : undefined;
+            const taxName = Number.isFinite(idNum as number)
+                ? idToTaxTypeName(idNum as number)
+                : undefined;
+
+            const paymentInfo = r.paymentInfo
+                ? { ...r.paymentInfo, ...(taxName ? { preselectedTaxName: taxName } : {}) }
+                : undefined;
+
+            payload = { paymentInfo, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
         case 'String': {
@@ -356,6 +470,9 @@ async function runOp(
             } else if (op === 'getResourceType') {
                 const name = idToResourceTypeName(r.value ?? undefined);
                 payload = { resourceTypeId: r.value ?? null, resourceType: name ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            } else if (op === 'getFormOfAddress') {
+                const name = idToFormOfAddressName(r.value ?? undefined);
+                payload = { formOfAddressId: r.value ?? null, formOfAddress: name ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
             } else {
                 payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
             }
