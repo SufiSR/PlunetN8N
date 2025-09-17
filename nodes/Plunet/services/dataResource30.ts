@@ -17,6 +17,7 @@ import {
     parseIntegerResult,
     parseIntegerArrayResult,
     parseVoidResult,
+    asNum, // <-- use to coerce numbers safely
 } from '../core/xml';
 import {
     parseResourceResult,
@@ -24,6 +25,10 @@ import {
     parsePricelistListResult,
     parsePaymentInfoResult,
 } from '../core/parsers';
+
+// Import your existing enum modules (filenames as you have them)
+import * as ResourceStatusNS from '../enums/resource-status';
+import * as ResourceTypeNS from '../enums/resource-type';
 
 const RESOURCE = 'DataResource30';
 
@@ -35,9 +40,78 @@ const WorkingStatusOptions: INodePropertyOptions[] = [
     { name: 'External (2)', value: 2, description: 'EXTERNAL' },
 ];
 
+// Local name map for working status
+const WorkingStatusNameById: Record<number, 'INTERNAL' | 'EXTERNAL'> = {
+    1: 'INTERNAL',
+    2: 'EXTERNAL',
+};
+
+/** ─────────────────────────────────────────────────────────────────────────────
+ *  Helpers to read name-by-id maps from your enum modules (robust to export names)
+ *  ─────────────────────────────────────────────────────────────────────────── */
+function getNameFromEnumNS(
+    ns: any,
+    candidateMapKeys: string[],
+    id?: number | null,
+): string | undefined {
+    if (id == null) return undefined;
+    for (const key of candidateMapKeys) {
+        const map =
+            ns?.[key] ??
+            ns?.default?.[key];
+        if (map && typeof map === 'object' && map[id] !== undefined) {
+            return String(map[id]);
+        }
+    }
+    return undefined;
+}
+
+function nameOfResourceStatus(id?: number | null) {
+    // try multiple likely export names from your resource-status.ts
+    return getNameFromEnumNS(
+        ResourceStatusNS,
+        ['ResourceStatusNameById', 'NameById', 'nameById', 'RESOURCE_STATUS_NAME_BY_ID'],
+        id,
+    );
+}
+
+function toSoapScalar(v: unknown): string {
+    if (v === null || v === undefined) return '';
+    return typeof v === 'string' ? v.trim() : String(v);
+}
+
+function nameOfResourceType(id?: number | null) {
+    // try multiple likely export names from your resource-type.ts
+    return getNameFromEnumNS(
+        ResourceTypeNS,
+        ['ResourceTypeNameById', 'NameById', 'nameById', 'RESOURCE_TYPE_NAME_BY_ID'],
+        id,
+    );
+}
+
+/** Decorate a resource DTO with enum *names* next to the numeric ids */
+function decorateResourceEnums(r: any) {
+    const statusId        = asNum(r.statusId ?? r.Status ?? r.status);
+    const workingStatusId = asNum(r.workingStatusId ?? r.WorkingStatus ?? r.workingStatus);
+    const resourceTypeId  = asNum(r.resourceTypeId ?? r.ResourceType ?? r.resourceType);
+
+    const statusName        = nameOfResourceStatus(statusId);
+    const workingStatusName = workingStatusId != null ? WorkingStatusNameById[workingStatusId] : undefined;
+    const resourceTypeName  = nameOfResourceType(resourceTypeId);
+
+    return {
+        ...r,
+        ...(statusId !== undefined ? { statusId } : {}),
+        ...(statusName ? { status: statusName } : {}),
+        ...(workingStatusId !== undefined ? { workingStatusId } : {}),
+        ...(workingStatusName ? { workingStatus: workingStatusName } : {}),
+        ...(resourceTypeId !== undefined ? { resourceTypeId } : {}),
+        ...(resourceTypeName ? { resourceType: resourceTypeName } : {}),
+    };
+}
+
 /** ─────────────────────────────────────────────────────────────────────────────
  *  Operation → parameters (UUID is auto-included)
- *  Keep this small to avoid overwhelming the UI.
  *  ─────────────────────────────────────────────────────────────────────────── */
 const PARAM_ORDER: Record<string, string[]> = {
     // Core object ops
@@ -60,6 +134,7 @@ const PARAM_ORDER: Record<string, string[]> = {
     // Status / Type
     getStatus: ['resourceID'],
     setStatus: ['Status', 'resourceID'],
+    // (you chose to keep these commented in the UI; outputs still support mapping when used)
     // getWorkingStatus: ['resourceID'],
     // setWorkingStatus: ['WorkingStatus', 'resourceID'],
     // getResourceType: ['resourceID'],
@@ -105,7 +180,7 @@ const RETURN_TYPE: Record<string, R> = {
 };
 
 /** ─────────────────────────────────────────────────────────────────────────────
- *  UI wiring (friendly labels + a single dropdown for WorkingStatus)
+ *  UI wiring
  *  ─────────────────────────────────────────────────────────────────────────── */
 function labelize(op: string): string {
     if (op.includes('_')) return op.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
@@ -123,7 +198,7 @@ const FRIENDLY_LABEL: Record<string, string> = {
     getAllResourceObjects: 'Get All Resources (by status)',
     getPricelists: 'Get Pricelists',
     getPricelists2: 'Get Pricelists (Language Pair)',
-    getResourceObject: 'Get Resource'
+    getResourceObject: 'Get Resource',
 };
 
 const OP_ORDER = [
@@ -146,7 +221,6 @@ const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
         }),
 );
 
-// “WorkingStatus” dropdown + “enableNullOrEmptyValues” bool; rest are strings
 const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
     params.map<INodeProperties>((p) => {
         if (p === 'WorkingStatus') {
@@ -236,15 +310,9 @@ async function runOp(
 
     const parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
     for (const name of paramNames) {
-        const valRaw = ctx.getNodeParameter(name, itemIndex, '') as string | number | boolean;
-        const val =
-            typeof valRaw === 'string'
-                ? valRaw.trim()
-                : typeof valRaw === 'number'
-                    ? String(valRaw)
-                    : typeof valRaw === 'boolean'
-                        ? (valRaw ? 'true' : 'false')
-                        : '';
+        const valRaw = ctx.getNodeParameter(name, itemIndex, '') as unknown;
+        const val = toSoapScalar(valRaw);
+        if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
         if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
     }
 
@@ -260,12 +328,14 @@ async function runOp(
     switch (rt) {
         case 'Resource': {
             const r = parseResourceResult(body);
-            payload = { resource: r.resource, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            const resource = r.resource ? decorateResourceEnums(r.resource) : r.resource;
+            payload = { resource, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
         case 'ResourceList': {
             const r = parseResourceListResult(body);
-            payload = { resources: r.resources, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            const resources = (r.resources || []).map(decorateResourceEnums);
+            payload = { resources, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
         case 'PricelistList': {
@@ -285,14 +355,30 @@ async function runOp(
         }
         case 'Integer': {
             const r = parseIntegerResult(body);
-            // Expand a few enum-like getters to friendlier fields
             if (op === 'getWorkingStatus') {
-                const name = r.value === 1 ? 'INTERNAL' : r.value === 2 ? 'EXTERNAL' : undefined;
-                payload = { workingStatus: name ?? null, workingStatusId: r.value ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                const name = r.value != null ? WorkingStatusNameById[r.value] : undefined;
+                payload = {
+                    workingStatusId: r.value ?? null,
+                    workingStatus: name ?? null,
+                    statusMessage: r.statusMessage,
+                    statusCode: r.statusCode,
+                };
             } else if (op === 'getStatus') {
-                payload = { statusId: r.value ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                const name = nameOfResourceStatus(r.value ?? undefined);
+                payload = {
+                    statusId: r.value ?? null,
+                    status: name ?? null,
+                    statusMessage: r.statusMessage,
+                    statusCode: r.statusCode,
+                };
             } else if (op === 'getResourceType') {
-                payload = { resourceTypeId: r.value ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                const name = nameOfResourceType(r.value ?? undefined);
+                payload = {
+                    resourceTypeId: r.value ?? null,
+                    resourceType: name ?? null,
+                    statusMessage: r.statusMessage,
+                    statusCode: r.statusCode,
+                };
             } else {
                 payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
             }

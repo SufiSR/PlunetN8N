@@ -55,6 +55,11 @@ const CustomerStatusNameById: Record<number, CustomerStatusName> = Object.fromEn
     Object.entries(CustomerStatusIdByName).map(([k, v]) => [v, k as CustomerStatusName]),
 ) as Record<number, CustomerStatusName>;
 
+function toSoapScalar(v: unknown): string {
+    if (v === null || v === undefined) return '';
+    return typeof v === 'string' ? v.trim() : String(v);
+}
+
 function idToCustomerStatusName(id?: number | null): CustomerStatusName | undefined {
     if (id == null) return undefined;
     return CustomerStatusNameById[id];
@@ -310,12 +315,9 @@ async function runOp(
 
     const parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
     for (const name of paramNames) {
-        const valRaw = ctx.getNodeParameter(name, itemIndex, '') as string | number | boolean;
-        const val =
-            typeof valRaw === 'string' ? valRaw.trim()
-                : typeof valRaw === 'number' ? String(valRaw)
-                    : typeof valRaw === 'boolean' ? (valRaw ? 'true' : 'false')
-                        : '';
+        const valRaw = ctx.getNodeParameter(name, itemIndex, '') as unknown;
+        const val = toSoapScalar(valRaw);
+        if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
         if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
     }
 
