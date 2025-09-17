@@ -1,8 +1,8 @@
 import type { EnumRegistry } from './types';
-import { CustomerStatus } from './customer';
+import { CustomerStatus } from './customer-status';
 
 export * from './types';
-export * from './customer';
+export * from './customer-status';
 // export * from './order';   // later
 // export * from './common';  // later
 

@@ -300,7 +300,7 @@ function coerceResource(raw: any): ResourceDTO {
     r.website   = asStr(firstNonEmptyKey(raw, ['website', 'Website']));
     r.currency  = asStr(firstNonEmptyKey(raw, ['currency', 'Currency']));
     r.costCenter = asStr(firstNonEmptyKey(raw, ['costCenter', 'CostCenter']));
-    r.formOfAddress = asNum(firstNonEmptyKey(raw, ['formOfAddress', 'FormOfAddress']));
+    // r.formOfAddress = asNum(firstNonEmptyKey(raw, ['formOfAddress', 'FormOfAddress']));
     r.academicTitle = asStr(firstNonEmptyKey(raw, ['academicTitle', 'AcademicTitle']));
     r.opening   = asStr(firstNonEmptyKey(raw, ['opening', 'Opening']));
     r.skypeID   = asStr(firstNonEmptyKey(raw, ['skypeID', 'SkypeID']));
@@ -313,6 +313,19 @@ function coerceResource(raw: any): ResourceDTO {
 
     r.supervisor1 = asStr(firstNonEmptyKey(raw, ['supervisor1', 'Supervisor1']));
     r.supervisor2 = asStr(firstNonEmptyKey(raw, ['supervisor2', 'Supervisor2']));
+
+    const foaRaw =
+        firstNonEmptyKey(raw, ['formOfAddress', 'FormOfAddress', 'formOfAddressId', 'FormOfAddressId']);
+    const foaId = asNum(foaRaw);
+    if (foaId !== undefined) {
+        r.formOfAddress = foaId;
+        const foaName = idToFormOfAddressName(foaId);
+        if (foaName) r.formOfAddressName = foaName;
+    } else {
+        // If server already returned a string name (rare), keep it
+        const foaName = typeof foaRaw === 'string' ? foaRaw : undefined;
+        if (foaName) r.formOfAddressName = foaName as FormOfAddressName;
+    }
 
     for (const [k, v] of Object.entries(raw)) {
         if (!(k in r)) (r as any)[k] = v;
