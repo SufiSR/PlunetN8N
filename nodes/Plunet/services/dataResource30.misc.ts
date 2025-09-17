@@ -28,8 +28,9 @@ const WorkingStatusOptions: INodePropertyOptions[] = [
 
 /** Operations → parameters */
 const PARAM_ORDER: Record<string,string[]> = {
-    // lookups / search
+    // search / lookups
     seekByExternalID: ['ExternalID'],
+    getAllResourceObjects: ['WorkingStatus','Status'],
 
     // pricelists
     getPricelists: ['resourceID'],
@@ -49,6 +50,7 @@ const PARAM_ORDER: Record<string,string[]> = {
 type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Resource'|'ResourceList'|'PricelistList'|'PaymentInfo';
 const RETURN_TYPE: Record<string,R> = {
     seekByExternalID: 'Integer',
+    getAllResourceObjects: 'ResourceList',
     getPricelists: 'PricelistList',
     getPricelists2: 'PricelistList',
     getPaymentInformation: 'PaymentInfo',
@@ -67,6 +69,7 @@ function asNonEmpty<T>(arr: T[]): [T,...T[]] { if(!arr.length) throw new Error('
 
 const FRIENDLY_LABEL: Record<string,string> = {
     seekByExternalID: 'Search by External ID',
+    getAllResourceObjects: 'Get All Resources (By Status)',
     getPricelists2: 'Get Pricelists (Language Pair)',
 };
 

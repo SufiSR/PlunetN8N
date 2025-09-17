@@ -92,7 +92,7 @@ function asNonEmpty<T>(arr: T[]): [T,...T[]] { if(!arr.length) throw new Error('
 
 const FRIENDLY_LABEL: Record<string,string> = {
     seekByExternalID: 'Search by External ID',
-    getAllCustomerObjects: 'Get All Customer Objects For Defined Status',
+    getAllCustomerObjects: 'Get All Customers (By Status))',
     getAvailableAccountIDList: 'Get Available Account IDs',
     getAvailablePaymentMethodList: 'Get Available Payment Methods',
 };

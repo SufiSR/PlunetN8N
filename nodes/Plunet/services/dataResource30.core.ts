@@ -8,7 +8,7 @@ import {
     extractResultBase, extractStatusMessage, extractSoapFault,
     parseStringResult, parseIntegerResult, parseIntegerArrayResult, parseVoidResult,
 } from '../core/xml';
-import { parseResourceResult, parseResourceListResult } from '../core/parsers';
+import { parseResourceResult } from '../core/parsers';
 
 import { ResourceStatusOptions, idToResourceStatusName } from '../enums/resource-status';
 import { ResourceTypeOptions, idToResourceTypeName } from '../enums/resource-type';
@@ -34,20 +34,18 @@ const RESOURCE_IN_FIELDS_UPDATE = [
     'resourceID', ...RESOURCE_IN_FIELDS_CREATE,
 ] as const;
 
-/** Operations → parameters (UUID is auto-included) */
+/** Operations → parameters (UUID auto-included) */
 const PARAM_ORDER: Record<string,string[]> = {
     getResourceObject: ['resourceID'],
-    getAllResourceObjects: ['WorkingStatus','Status'],
     insertObject: [...RESOURCE_IN_FIELDS_CREATE],
     update: [...RESOURCE_IN_FIELDS_UPDATE, 'enableNullOrEmptyValues'],
     delete: ['resourceID'],
     search: ['SearchFilterResource'],
 };
 
-type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Resource'|'ResourceList';
+type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Resource';
 const RETURN_TYPE: Record<string,R> = {
     getResourceObject: 'Resource',
-    getAllResourceObjects: 'ResourceList',
     insertObject: 'Integer',
     update: 'Void',
     delete: 'Void',
@@ -63,14 +61,13 @@ function asNonEmpty<T>(arr: T[]): [T,...T[]] { if(!arr.length) throw new Error('
 
 const FRIENDLY_LABEL: Record<string,string> = {
     getResourceObject: 'Get Resource',
-    getAllResourceObjects: 'Get All Resources (by status)',
     insertObject: 'Create Resource',
     update: 'Update Resource',
     delete: 'Delete Resource',
     search: 'Search',
 };
 
-const OP_ORDER = ['getResourceObject','getAllResourceObjects','insertObject','update','delete','search'] as const;
+const OP_ORDER = ['getResourceObject','insertObject','update','delete','search'] as const;
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
     [...OP_ORDER].map((op) => {
@@ -182,7 +179,8 @@ async function runOp(
     if (op === 'insertObject') {
         parts.push(buildResourceINXml(ctx, itemIndex, RESOURCE_IN_FIELDS_CREATE));
     } else if (op === 'update') {
-        parts.push(buildResourceINXml(ctx, itemIndex, RESOURCE_IN_FIELDS_UPDATE));
+        const resourceIn = buildResourceINXml(ctx, itemIndex, RESOURCE_IN_FIELDS_UPDATE);
+        parts.push(resourceIn);
         const en = ctx.getNodeParameter('enableNullOrEmptyValues', itemIndex, false) as boolean;
         parts.push(`<enableNullOrEmptyValues>${en ? 'true' : 'false'}</enableNullOrEmptyValues>`);
     } else {
@@ -218,25 +216,6 @@ async function runOp(
                 ...(foaName ? { formOfAddressName: foaName } : {}),
             } : undefined;
             payload = { resource, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'ResourceList': {
-            const r = parseResourceListResult(body);
-            const resources = (r.resources || []).map((res: any) => {
-                const statusName = idToResourceStatusName(res?.status ?? res?.Status);
-                const typeName = idToResourceTypeName(res?.resourceType ?? res?.ResourceType);
-                const wsId = res?.workingStatus ?? res?.WorkingStatus;
-                const wsName = wsId === 1 ? 'INTERNAL' : wsId === 2 ? 'EXTERNAL' : undefined;
-                const foaName = idToFormOfAddressName(res?.formOfAddress ?? res?.FormOfAddress);
-                return {
-                    ...res,
-                    ...(statusName ? { status: statusName } : {}),
-                    ...(typeName ? { resourceType: typeName } : {}),
-                    ...(wsName ? { workingStatus: wsName } : {}),
-                    ...(foaName ? { formOfAddressName: foaName } : {}),
-                };
-            });
-            payload = { resources, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
         case 'Integer': {
