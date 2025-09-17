@@ -10,12 +10,15 @@ import { description } from './description';
 import { Creds, Service } from './core/types';
 import { PlunetApiService } from './services/plunetApi';
 import { DataCustomer30Service } from './services/dataCustomer30';
+import { DataCustomer30CoreService } from './services/dataCustomer30.core';
+import { DataCustomer30MiscService } from './services/dataCustomer30.misc';
 import { DataResource30Service } from './services/dataResource30'; // ← ADD
 
 const registry: Record<string, Service> = {
     [PlunetApiService.resource]: PlunetApiService,
-    [DataCustomer30Service.resource]: DataCustomer30Service,
-    [DataResource30Service.resource]: DataResource30Service, // ← ADD
+    [DataCustomer30CoreService.resource]: DataCustomer30CoreService,
+    [DataCustomer30MiscService.resource]: DataCustomer30MiscService,
+    [DataResource30Service.resource]: DataResource30Service, // if used
 };
 
 export class Plunet implements INodeType {
