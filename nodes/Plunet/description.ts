@@ -2,13 +2,15 @@ import { INodeTypeDescription, NodeConnectionType } from 'n8n-workflow';
 import { PlunetApiService } from './services/plunetApi';
 import { DataCustomer30CoreService } from './services/dataCustomer30.core';
 import { DataCustomer30MiscService } from './services/dataCustomer30.misc';
-import { DataResource30Service } from './services/dataResource30'; // if you already added it
+import { DataResource30CoreService } from './services/dataResource30.core';
+import { DataResource30MiscService } from './services/dataResource30.misc';
 
 const services = [
     PlunetApiService,
     DataCustomer30CoreService,
     DataCustomer30MiscService,
-    DataResource30Service, // keep if present
+    DataResource30CoreService,
+    DataResource30MiscService,
 ] as const;
 
 const resourceOptions = services.map((s) => ({

@@ -9,81 +9,56 @@ import {
     parseStringResult, parseIntegerResult, parseIntegerArrayResult, parseVoidResult,
 } from '../core/xml';
 import {
-    parseCustomerResult, parseCustomerListResult, parsePaymentInfoResult, parseAccountResult, parseWorkflowListResult,
+    parseResourceResult, parseResourceListResult, parsePricelistListResult, parsePaymentInfoResult,
 } from '../core/parsers';
+
+import { ResourceStatusOptions, idToResourceStatusName } from '../enums/resource-status';
+import { ResourceTypeOptions, idToResourceTypeName } from '../enums/resource-type';
+import { FormOfAddressOptions, idToFormOfAddressName } from '../enums/form-of-address';
 import { TaxTypeOptions, idToTaxTypeName } from '../enums/tax-type';
 
-const RESOURCE = 'DataCustomer30Misc';
-const ENDPOINT = 'DataCustomer30';
+const RESOURCE = 'DataResource30Misc';
+const ENDPOINT = 'DataResource30';
 
-/** ─ CustomerStatus (local) ─ */
-type CustomerStatusName =
-    | 'ACTIVE' | 'NOT_ACTIVE' | 'CONTACTED' | 'NEW' | 'BLOCKED'
-    | 'AQUISITION_ADDRESS' | 'NEW_AUTO' | 'DELETION_REQUESTED';
-const CustomerStatusIdByName: Record<CustomerStatusName, number> = {
-    ACTIVE: 1, NOT_ACTIVE: 2, CONTACTED: 3, NEW: 4, BLOCKED: 5,
-    AQUISITION_ADDRESS: 6, NEW_AUTO: 7, DELETION_REQUESTED: 8,
-};
-const CustomerStatusOptions: INodePropertyOptions[] =
-    (Object.keys(CustomerStatusIdByName) as CustomerStatusName[])
-        .sort((a, b) => CustomerStatusIdByName[a] - CustomerStatusIdByName[b])
-        .map((name) => ({
-            name: `${name.replace(/_/g,' ').replace(/\b\w/g,(m)=>m.toUpperCase())} (${CustomerStatusIdByName[name]})`,
-            value: CustomerStatusIdByName[name],
-            description: name,
-        }));
+/** WorkingStatus (1=INTERNAL, 2=EXTERNAL) */
+const WorkingStatusOptions: INodePropertyOptions[] = [
+    { name: 'Internal (1)', value: 1, description: 'INTERNAL' },
+    { name: 'External (2)', value: 2, description: 'EXTERNAL' },
+];
 
-/** ─ Ops kept here: everything except the five “core” ones ─ */
-const PARAM_ORDER: Record<string, string[]> = {
-    // finders/lists
+/** Operations → parameters */
+const PARAM_ORDER: Record<string,string[]> = {
+    // lookups / search
     seekByExternalID: ['ExternalID'],
-    getAllCustomerObjects: ['Status'],
-    getAvailableAccountIDList: [],
-    getAvailablePaymentMethodList: [],
-    getAvailableWorkflows: ['customerID'],
-    getAccount: ['AccountID'],
-    getPaymentInformation: ['customerID'],
-    getPaymentMethodDescription: ['paymentMethodID', 'systemLanguageCode'],
-    getCreatedByResourceID: ['customerID'],
-    getProjectManagerID: ['customerID'],
-    getSourceOfContact: ['customerID'],
-    getDateOfInitialContact: ['customerID'],
-    getDossier: ['customerID'],
 
-    // setters
+    // pricelists
+    getPricelists: ['resourceID'],
+    getPricelists2: ['sourcelanguage','targetlanguage','resourceID'],
+
+    // payment info
+    getPaymentInformation: ['resourceID'],
     setPaymentInformation: [
-        'customerID','accountHolder','accountID','BIC','contractNumber',
+        'resourceID','accountHolder','accountID','BIC','contractNumber',
         'debitAccount','IBAN','paymentMethodID','preselectedTaxID','salesTaxID',
     ],
-    setProjectManagerID: ['resourceID', 'customerID'],
-    setSourceOfContact: ['sourceOfContact', 'customerID'],
-    setDateOfInitialContact: ['dateInitialContact', 'customerID'],
-    setDossier: ['dossier', 'customerID'],
+    getAvailableAccountIDList: [],
+    getAvailablePaymentMethodList: [],
+    getPaymentMethodDescription: ['paymentMethodID','systemLanguageCode'],
 };
 
-type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Customer'|'CustomerList'|'PaymentInfo'|'Account'|'WorkflowList';
-const RETURN_TYPE: Record<string, R> = {
+type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Resource'|'ResourceList'|'PricelistList'|'PaymentInfo';
+const RETURN_TYPE: Record<string,R> = {
     seekByExternalID: 'Integer',
-    getAllCustomerObjects: 'CustomerList',
+    getPricelists: 'PricelistList',
+    getPricelists2: 'PricelistList',
+    getPaymentInformation: 'PaymentInfo',
+    setPaymentInformation: 'Void',
     getAvailableAccountIDList: 'IntegerArray',
     getAvailablePaymentMethodList: 'IntegerArray',
-    getAvailableWorkflows: 'WorkflowList',
-    getAccount: 'Account',
-    getPaymentInformation: 'PaymentInfo',
     getPaymentMethodDescription: 'String',
-    getCreatedByResourceID: 'Integer',
-    getProjectManagerID: 'Integer',
-    getSourceOfContact: 'String',
-    getDateOfInitialContact: 'String',
-    getDossier: 'String',
-    setPaymentInformation: 'Void',
-    setProjectManagerID: 'Void',
-    setSourceOfContact: 'Void',
-    setDateOfInitialContact: 'Void',
-    setDossier: 'Void',
 };
 
-/** ─ UI ─ */
+/** UI */
 function labelize(op: string) {
     if (op.includes('_')) return op.replace(/_/g,' ').replace(/\b\w/g,(m)=>m.toUpperCase());
     return op.replace(/([a-z])([A-Z0-9])/g,'$1 $2').replace(/\b\w/g,(m)=>m.toUpperCase());
@@ -92,9 +67,7 @@ function asNonEmpty<T>(arr: T[]): [T,...T[]] { if(!arr.length) throw new Error('
 
 const FRIENDLY_LABEL: Record<string,string> = {
     seekByExternalID: 'Search by External ID',
-    getAllCustomerObjects: 'Get All Customer Objects For Defined Status',
-    getAvailableAccountIDList: 'Get Available Account IDs',
-    getAvailablePaymentMethodList: 'Get Available Payment Methods',
+    getPricelists2: 'Get Pricelists (Language Pair)',
 };
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
@@ -104,50 +77,75 @@ const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
     }),
 );
 
+// enum detectors
+const isStatusParam = (p: string) => p === 'Status' || p === 'status';
+const isWorkingStatusParam = (p: string) => p === 'WorkingStatus' || p === 'workingStatus';
+const isResourceTypeParam = (p: string) => p === 'ResourceType' || p === 'resourceType';
+const isFormOfAddressParam = (p: string) => p === 'FormOfAddress' || p === 'formOfAddress';
+
 const extraProperties: INodeProperties[] =
     Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
         params.map<INodeProperties>((p) => {
-            if (p.toLowerCase() === 'status') {
+            if (isStatusParam(p)) {
                 return {
                     displayName: 'Status',
-                    name: p,
-                    type: 'options',
-                    options: CustomerStatusOptions,
-                    default: 1,
-                    description: `${p} parameter for ${op} (CustomerStatus enum)`,
+                    name: p, type: 'options', options: ResourceStatusOptions, default: 1,
+                    description: `${p} parameter for ${op} (ResourceStatus enum)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+            if (isWorkingStatusParam(p)) {
+                return {
+                    displayName: 'Working Status',
+                    name: p, type: 'options', options: WorkingStatusOptions, default: 1,
+                    description: `${p} parameter for ${op} (1=INTERNAL, 2=EXTERNAL)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+            if (isResourceTypeParam(p)) {
+                return {
+                    displayName: 'Resource Type',
+                    name: p, type: 'options', options: ResourceTypeOptions, default: 0,
+                    description: `${p} parameter for ${op} (ResourceType enum)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+            if (isFormOfAddressParam(p)) {
+                return {
+                    displayName: 'Form of Address',
+                    name: p, type: 'options', options: FormOfAddressOptions, default: 3,
+                    description: `${p} parameter for ${op} (FormOfAddressType enum)`,
                     displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
                 };
             }
             if (p === 'preselectedTaxID') {
                 return {
                     displayName: 'Preselected Tax',
-                    name: p,
-                    type: 'options',
-                    options: TaxTypeOptions,
-                    default: 0,
+                    name: p, type: 'options', options: TaxTypeOptions, default: 0,
                     description: `${p} parameter for ${op} (TaxType enum)`,
                     displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
                 };
             }
             return {
-                displayName: p,
-                name: p,
-                type: 'string',
-                default: '',
+                displayName: p, name: p, type: 'string', default: '',
                 description: `${p} parameter for ${op}`,
                 displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
             };
         }),
     );
 
-/** ─ SOAP + runner ─ */
+/** SOAP */
 function buildEnvelope(op: string, childrenXml: string) {
     return `<?xml version="1.0" encoding="utf-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://API.Integration/">
-  <soapenv:Header/><soapenv:Body><api:${op}>
+  <soapenv:Header/><soapenv:Body>
+    <api:${op}>
 ${childrenXml.split('\n').map((l)=>l?`      ${l}`:l).join('\n')}
-  </api:${op}></soapenv:Body></soapenv:Envelope>`;
+    </api:${op}>
+  </soapenv:Body>
+</soapenv:Envelope>`;
 }
+
 function throwIfSoapOrStatusError(ctx: IExecuteFunctions, itemIndex: number, xml: string, op?: string) {
     const fault = extractSoapFault(xml);
     if (fault) throw new NodeOperationError(ctx.getNode(), `${op?op+': ':''}SOAP Fault: ${fault.message}${fault.code?` [${fault.code}]`:''}`, { itemIndex });
@@ -164,11 +162,13 @@ async function runOp(
 ): Promise<IDataObject> {
     const uuid = await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, itemIndex);
     const parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
+
     for (const name of paramNames) {
         const raw = ctx.getNodeParameter(name, itemIndex, '') as string|number|boolean;
         const val = typeof raw==='string' ? raw.trim() : typeof raw==='number' ? String(raw) : raw ? 'true' : 'false';
         if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
     }
+
     const env11 = buildEnvelope(op, parts.join('\n'));
     const body = await sendSoapWithFallback(ctx, url, env11, `http://API.Integration/${op}`, timeoutMs);
 
@@ -176,34 +176,29 @@ async function runOp(
 
     const rt = RETURN_TYPE[op] as R|undefined;
     let payload: IDataObject;
+
     switch (rt) {
-        case 'Customer': {
-            const r = parseCustomerResult(body);
-            payload = { customer: r.customer, statusMessage: r.statusMessage, statusCode: r.statusCode };
+        case 'Resource': {
+            const r = parseResourceResult(body);
+            payload = { resource: r.resource, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
-        case 'CustomerList': {
-            const r = parseCustomerListResult(body);
-            payload = { customers: r.customers, statusMessage: r.statusMessage, statusCode: r.statusCode };
+        case 'ResourceList': {
+            const r = parseResourceListResult(body);
+            payload = { resources: r.resources, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            break;
+        }
+        case 'PricelistList': {
+            const r = parsePricelistListResult(body);
+            payload = { pricelists: r.pricelists, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
         case 'PaymentInfo': {
             const r = parsePaymentInfoResult(body);
-            // optional: add friendly name for preselectedTaxID
             const idNum = r.paymentInfo?.preselectedTaxID != null ? Number(r.paymentInfo.preselectedTaxID) : undefined;
             const taxName = Number.isFinite(idNum as number) ? idToTaxTypeName(idNum as number) : undefined;
             const paymentInfo = r.paymentInfo ? { ...r.paymentInfo, ...(taxName ? { preselectedTaxName: taxName } : {}) } : undefined;
             payload = { paymentInfo, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'Account': {
-            const r = parseAccountResult(body);
-            payload = { account: r.account, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'WorkflowList': {
-            const r = parseWorkflowListResult(body);
-            payload = { workflows: r.workflows, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
         case 'String': {
@@ -213,8 +208,18 @@ async function runOp(
         }
         case 'Integer': {
             const r = parseIntegerResult(body);
-            if (op === 'getStatus') {
-                payload = { statusId: r.value ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            if (op === 'getWorkingStatus') {
+                const name = r.value === 1 ? 'INTERNAL' : r.value === 2 ? 'EXTERNAL' : undefined;
+                payload = { workingStatusId: r.value ?? null, workingStatus: name ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            } else if (op === 'getStatus') {
+                const name = idToResourceStatusName(r.value ?? undefined);
+                payload = { statusId: r.value ?? null, status: name ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            } else if (op === 'getResourceType') {
+                const name = idToResourceTypeName(r.value ?? undefined);
+                payload = { resourceTypeId: r.value ?? null, resourceType: name ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            } else if (op === 'getFormOfAddress') {
+                const name = idToFormOfAddressName(r.value ?? undefined);
+                payload = { formOfAddressId: r.value ?? null, formOfAddress: name ?? null, statusMessage: r.statusMessage, statusCode: r.statusCode };
             } else {
                 payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
             }
@@ -227,7 +232,10 @@ async function runOp(
         }
         case 'Void': {
             const r = parseVoidResult(body);
-            if (!r.ok) throw new NodeOperationError(ctx.getNode(), `${op}: ${r.statusMessage || 'Operation failed'}${r.statusCode!==undefined?` [${r.statusCode}]`:''}`, { itemIndex });
+            if (!r.ok) {
+                const msg = r.statusMessage || 'Operation failed';
+                throw new NodeOperationError(ctx.getNode(), `${op}: ${msg}${r.statusCode!==undefined?` [${r.statusCode}]`:''}`, { itemIndex });
+            }
             payload = { ok: r.ok, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
@@ -238,11 +246,11 @@ async function runOp(
     return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
 }
 
-/** ─ Service export ─ */
-export const DataCustomer30MiscService: Service = {
+/** Service export */
+export const DataResource30MiscService: Service = {
     resource: RESOURCE,
-    resourceDisplayName: 'Customers (Fields/Misc)',
-    resourceDescription: 'Non-core operations for DataCustomer30',
+    resourceDisplayName: 'Resources (Fields/Misc)',
+    resourceDescription: 'Non-core operations for DataResource30',
     endpoint: ENDPOINT,
     operationOptions,
     extraProperties,
