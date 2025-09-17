@@ -7,6 +7,8 @@ import {
     extractResultBase,
     type ResultBase,
 } from './xml';
+import type { FormOfAddressName } from '../enums/form-of-address';
+import { idToFormOfAddressName } from '../enums/form-of-address';
 
 /** ─────────────────────────────────────────────────────────────────────────────
  *  Customer status enum mapping (local to avoid extra imports)
@@ -43,11 +45,12 @@ export type CustomerDTO = {
     website?: string;
     currency?: string;
     status?: string;          // enum name (mapped)
-    statusId?: number;        // original numeric id (optional)
+    statusId?: number;        // numeric id
     accountID?: number;
     projectManagerID?: number;
     accountManagerID?: number;
     formOfAddress?: number;
+    formOfAddressName?: FormOfAddressName;  // <-- NEW
     academicTitle?: string;
     opening?: string;
     skypeID?: string;
@@ -163,7 +166,6 @@ function coerceCustomer(raw: any): CustomerDTO {
     c.accountID = asNum(firstNonEmptyKey(raw, ['accountID', 'AccountID']));
     c.projectManagerID = asNum(firstNonEmptyKey(raw, ['projectManagerID', 'ProjectManagerID']));
     c.accountManagerID = asNum(firstNonEmptyKey(raw, ['accountManagerID', 'AccountManagerID']));
-    c.formOfAddress = asNum(firstNonEmptyKey(raw, ['formOfAddress', 'FormOfAddress']));
     c.academicTitle = asStr(firstNonEmptyKey(raw, ['academicTitle', 'AcademicTitle']));
     c.opening = asStr(firstNonEmptyKey(raw, ['opening', 'Opening']));
     c.skypeID = asStr(firstNonEmptyKey(raw, ['skypeID', 'SkypeID']));
@@ -171,6 +173,19 @@ function coerceCustomer(raw: any): CustomerDTO {
     c.dateOfInitialContact = asStr(firstNonEmptyKey(raw, ['dateOfInitialContact', 'DateOfInitialContact']));
     c.sourceOfContact = asStr(firstNonEmptyKey(raw, ['sourceOfContact', 'SourceOfContact']));
     c.dossier = asStr(firstNonEmptyKey(raw, ['dossier', 'Dossier']));
+
+    const foaRaw =
+        firstNonEmptyKey(raw, ['formOfAddress', 'FormOfAddress', 'formOfAddressId', 'FormOfAddressId']);
+    const foaId = asNum(foaRaw);
+    if (foaId !== undefined) {
+        c.formOfAddress = foaId;
+        const foaName = idToFormOfAddressName(foaId);
+        if (foaName) c.formOfAddressName = foaName;
+    } else {
+        // If server already returned a string name (rare), keep it
+        const foaName = typeof foaRaw === 'string' ? foaRaw : undefined;
+        if (foaName) c.formOfAddressName = foaName as FormOfAddressName;
+    }
 
     // status mapping: keep both
     const statusId =

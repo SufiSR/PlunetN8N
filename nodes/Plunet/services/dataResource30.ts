@@ -29,6 +29,7 @@ import {
 // ✅ use your actual enum files/exports
 import { idToResourceStatusName, ResourceStatusOptions } from '../enums/resource-status';
 import { idToResourceTypeName, ResourceTypeOptions } from '../enums/resource-type';
+import { FormOfAddressOptions } from '../enums/form-of-address';
 
 const RESOURCE = 'DataResource30';
 
@@ -210,6 +211,17 @@ const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap((
                 options: ResourceTypeOptions,
                 default: 0, // RESOURCES
                 description: `${p} parameter for ${op} (ResourceType enum)`,
+                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+            };
+        }
+        if (p === 'FormOfAddress') {
+            return {
+                displayName: 'Form of Address',
+                name: p,
+                type: 'options',
+                options: FormOfAddressOptions,
+                default: 3, // COMPANY
+                description: `${p} parameter for ${op} (FormOfAddressType enum)`,
                 displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
             };
         }

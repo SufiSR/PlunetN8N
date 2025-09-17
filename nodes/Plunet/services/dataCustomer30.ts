@@ -25,6 +25,7 @@ import {
     parseWorkflowListResult,
 } from '../core/parsers';
 import { TaxTypeOptions, idToTaxTypeName } from '../enums/tax-type'; // ← NEW
+import { FormOfAddressOptions } from '../enums/form-of-address';
 
 const RESOURCE = 'DataCustomer30';
 
@@ -54,6 +55,8 @@ const CustomerStatusIdByName: Record<CustomerStatusName, number> = {
 const CustomerStatusNameById: Record<number, CustomerStatusName> = Object.fromEntries(
     Object.entries(CustomerStatusIdByName).map(([k, v]) => [v, k as CustomerStatusName]),
 ) as Record<number, CustomerStatusName>;
+
+const isFormOfAddressParam = (p: string) => p.toLowerCase() === 'formofaddress';
 
 function toSoapScalar(v: unknown): string {
     if (v === null || v === undefined) return '';
@@ -217,6 +220,18 @@ const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap((
                 options: CustomerStatusOptions,
                 default: 1, // ACTIVE
                 description: `${p} parameter for ${op} (CustomerStatus enum)`,
+                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+            };
+        }
+
+        if (isFormOfAddressParam(p)) {
+            return {
+                displayName: 'Form of Address',
+                name: p, // must remain "formOfAddress" for SOAP tag
+                type: 'options',
+                options: FormOfAddressOptions,
+                default: 3, // COMPANY (pick what you prefer)
+                description: `${p} parameter for ${op} (FormOfAddressType enum)`,
                 displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
             };
         }
