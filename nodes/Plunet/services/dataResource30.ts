@@ -107,12 +107,6 @@ const PARAM_ORDER: Record<string, string[]> = {
     ],
 
     // Status / Type
-    getStatus: ['resourceID'],
-    setStatus: ['Status', 'resourceID'],
-    getWorkingStatus: ['resourceID'],
-    setWorkingStatus: ['WorkingStatus', 'resourceID'],
-    getResourceType: ['resourceID'],
-    setResourceType: ['ResourceType', 'resourceID'],
 
     // Lookups
     getAvailableAccountIDList: [],
@@ -140,13 +134,6 @@ const RETURN_TYPE: Record<string, R> = {
 
     getPaymentInformation: 'PaymentInfo',
     setPaymentInformation: 'Void',
-
-    getStatus: 'Integer',
-    setStatus: 'Void',
-    getWorkingStatus: 'Integer',
-    setWorkingStatus: 'Void',
-    getResourceType: 'Integer',
-    setResourceType: 'Void',
 
     getAvailableAccountIDList: 'IntegerArray',
     getAvailablePaymentMethodList: 'IntegerArray',

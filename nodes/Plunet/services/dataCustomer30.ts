@@ -118,7 +118,6 @@ const PARAM_ORDER: Record<string, string[]> = {
     getPaymentMethodDescription: ['paymentMethodID', 'systemLanguageCode'],
     getProjectManagerID: ['customerID'],
     getSourceOfContact: ['customerID'],
-    getStatus: ['customerID'],
 
     // setters
     setAccountManagerID: ['resourceID', 'customerID'],
@@ -130,7 +129,7 @@ const PARAM_ORDER: Record<string, string[]> = {
     ],
     setProjectManagerID: ['resourceID', 'customerID'],
     setSourceOfContact: ['sourceOfContact', 'customerID'],
-    setStatus: ['Status', 'customerID'],
+
 };
 
 /** Return types (so we can dispatch to typed parsers) */
@@ -158,14 +157,12 @@ const RETURN_TYPE: Record<string, R> = {
     getPaymentMethodDescription: 'String',
     getProjectManagerID: 'Integer',
     getSourceOfContact: 'String',
-    getStatus: 'Integer',
     setAccountManagerID: 'Void',
     setDateOfInitialContact: 'Void',
     setDossier: 'Void',
     setPaymentInformation: 'Void',
     setProjectManagerID: 'Void',
     setSourceOfContact: 'Void',
-    setStatus: 'Void',
 };
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -189,13 +186,14 @@ const FRIENDLY_LABEL: Record<string, string> = {
     insert2: 'Create Customer',
     update: 'Update Customer',
     delete: 'Delete Customer',
+    getCustomerObject: 'Get Customer',
     seekByExternalID: 'Search by External ID',
     getAvailableAccountIDList: 'Get Available Account IDs',
     getAvailablePaymentMethodList: 'Get Available Payment Methods',
     getAllCustomerObjects: 'Get All Customer Objects For Defined Status',
 };
 
-const OP_ORDER: string[] = ['insert2', 'update', 'delete', 'search', 'seekByExternalID'];
+const OP_ORDER: string[] = ['getCustomerObject' ,'insert2', 'update', 'delete', 'search', 'seekByExternalID','getAllCustomerObjects'];
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
     [...new Set([...OP_ORDER, ...Object.keys(PARAM_ORDER)])]
