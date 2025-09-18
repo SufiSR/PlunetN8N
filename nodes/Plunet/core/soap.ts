@@ -76,3 +76,51 @@ export async function sendSoapWithFallback(
     }
     return resp.body;
 }
+export function sanitizeEnvelope(xml: string): string {
+    let out = xml;
+
+    // redact common sensitive tags
+    const redactTags = [
+        'UUID',
+        'Password',
+        'FileByteStream',
+        'FilePathName',
+        'pathOrUrl',
+        'Authorization',
+        'Token',
+        'token',
+    ];
+
+    for (const tag of redactTags) {
+        const rx = new RegExp(
+            `<(?:\\w+:)?${tag}\\b[^>]*>[\\s\\S]*?<\\/(?:\\w+:)?${tag}>`,
+            'gi',
+        );
+        out = out.replace(rx, (m) => {
+            const open = m.match(new RegExp(`<(?:\\w+:)?${tag}\\b[^>]*>`,'i'))?.[0] ?? `<${tag}>`;
+            const close = `</${tag}>`;
+            const placeholder =
+                tag === 'FileByteStream' ? '[REDACTED_FILE_B64]' :
+                    tag === 'UUID' ? '[REDACTED_UUID]' :
+                        '[REDACTED]';
+            return `${open}${placeholder}${close}`;
+        });
+    }
+    return clip(out);
+}
+
+function clip(str: string, max = 16384): string {
+    if (str.length <= max) return str;
+    return str.slice(0, max) + `\n[...truncated ${str.length - max} chars]`;
+}
+
+export function buildErrorDescription(envelope: string, soapAction?: string): string {
+    const safe = sanitizeEnvelope(envelope);
+    const lines = [
+        soapAction ? `SOAPAction: ${soapAction}` : undefined,
+        '––– Sent SOAP Envelope (sanitized) –––',
+        safe,
+        '––––––––––––––––––––––––––––––––––––––',
+    ].filter(Boolean);
+    return lines.join('\n');
+}

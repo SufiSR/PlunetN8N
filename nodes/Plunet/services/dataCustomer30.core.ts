@@ -2,7 +2,7 @@ import {
     IExecuteFunctions, IDataObject, INodeProperties, INodePropertyOptions, NodeOperationError,
 } from 'n8n-workflow';
 import type { Creds, Service, NonEmptyArray } from '../core/types';
-import { escapeXml, sendSoapWithFallback } from '../core/soap';
+import { escapeXml, sendSoapWithFallback, buildErrorDescription } from '../core/soap';
 import { ensureSession } from '../core/session';
 import {
     extractResultBase, extractStatusMessage, extractSoapFault, parseIntegerResult, parseIntegerArrayResult, parseVoidResult,
@@ -148,14 +148,55 @@ ${childrenXml.split('\n').map((l)=>l?`      ${l}`:l).join('\n')}
   </api:${op}></soapenv:Body></soapenv:Envelope>`;
 }
 
-function throwIfSoapOrStatusError(ctx: IExecuteFunctions, itemIndex: number, xml: string, op?: string) {
+function throwIfSoapOrStatusError(
+    ctx: IExecuteFunctions,
+    itemIndex: number,
+    xml: string,
+    op?: string,
+    sentEnvelope?: string,
+    soapAction?: string,
+) {
     const fault = extractSoapFault(xml);
-    if (fault) throw new NodeOperationError(ctx.getNode(), `${op?op+': ':''}SOAP Fault: ${fault.message}${fault.code?` [${fault.code}]`:''}`, { itemIndex });
+    if (fault) {
+        const prefix = op ? `${op}: ` : '';
+        const code = fault.code ? ` [${fault.code}]` : '';
+        throw new NodeOperationError(
+            ctx.getNode(),
+            `${prefix}SOAP Fault: ${fault.message}${code}`,
+            {
+                itemIndex,
+                description: sentEnvelope ? buildErrorDescription(sentEnvelope, soapAction) : undefined,
+            },
+        );
+    }
+
     const base = extractResultBase(xml);
-    if (base.statusMessage && base.statusMessage !== 'OK')
-        throw new NodeOperationError(ctx.getNode(), `${op?op+': ':''}${base.statusMessage}${base.statusCode!==undefined?` [${base.statusCode}]`:''}`, { itemIndex });
-    if (base.statusCode !== undefined && base.statusCode !== 0)
-        throw new NodeOperationError(ctx.getNode(), `${op?op+': ':''}${base.statusMessage || 'Plunet returned a non-zero status code'} [${base.statusCode}]`, { itemIndex });
+
+    if (base.statusMessage && base.statusMessage !== 'OK') {
+        const prefix = op ? `${op}: ` : '';
+        const code = base.statusCode !== undefined ? ` [${base.statusCode}]` : '';
+        throw new NodeOperationError(
+            ctx.getNode(),
+            `${prefix}${base.statusMessage}${code}`,
+            {
+                itemIndex,
+                description: sentEnvelope ? buildErrorDescription(sentEnvelope, soapAction) : undefined,
+            },
+        );
+    }
+
+    if (base.statusCode !== undefined && base.statusCode !== 0) {
+        const prefix = op ? `${op}: ` : '';
+        const msg = base.statusMessage || 'Plunet returned a non-zero status code';
+        throw new NodeOperationError(
+            ctx.getNode(),
+            `${prefix}${msg} [${base.statusCode}]`,
+            {
+                itemIndex,
+                description: sentEnvelope ? buildErrorDescription(sentEnvelope, soapAction) : undefined,
+            },
+        );
+    }
 }
 
 async function runOp(
@@ -172,9 +213,10 @@ async function runOp(
     }
 
     const env11 = buildEnvelope(op, parts.join('\n'));
-    const body = await sendSoapWithFallback(ctx, url, env11, `http://API.Integration/${op}`, timeoutMs);
+    const soapAction = `http://API.Integration/${op}`;
+    const body = await sendSoapWithFallback(ctx, url, env11, soapAction, timeoutMs);
 
-    throwIfSoapOrStatusError(ctx, itemIndex, body, op);
+    throwIfSoapOrStatusError(ctx, itemIndex, body, op, env11, soapAction);
 
     const rt = RETURN_TYPE[op] as R|undefined;
     let payload: IDataObject;
@@ -196,7 +238,17 @@ async function runOp(
         }
         case 'Void': {
             const r = parseVoidResult(body);
-            if (!r.ok) throw new NodeOperationError(ctx.getNode(), `${op}: ${r.statusMessage || 'Operation failed'}${r.statusCode!==undefined?` [${r.statusCode}]`:''}`, { itemIndex });
+            if (!r.ok) {
+                const msg = r.statusMessage || 'Operation failed';
+                throw new NodeOperationError(
+                    ctx.getNode(),
+                    `${op}: ${msg}${r.statusCode !== undefined ? ` [${r.statusCode}]` : ''}`,
+                    {
+                        itemIndex,
+                        description: buildErrorDescription(env11, soapAction),
+                    },
+                );
+            }
             payload = { ok: r.ok, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
         }
