@@ -57,7 +57,7 @@ const RESOURCE_IN_FIELDS_UPDATE = [
 const PARAM_ORDER: Record<string,string[]> = {
     getResourceObject: ['resourceID'],
     insertObject: [...RESOURCE_IN_FIELDS],
-    update: [...RESOURCE_IN_FIELDS, 'enableNullOrEmptyValues'],
+    update: ['resourceID', ...RESOURCE_IN_FIELDS, 'enableNullOrEmptyValues'],
     delete: ['resourceID'],
     search: [...RESOURCE_SEARCH_FILTER_FIELDS],
 };

@@ -546,7 +546,7 @@ export const DataJob30Service: Service = {
             itemParams[paramName] = ctx.getNodeParameter(paramName, itemIndex, '');
         }
 
-        const result = await executeOperation(ctx, operation, itemParams, config);
+        const result = await executeOperation(ctx, operation, itemParams, config, itemIndex);
         // Ensure we return a single IDataObject, not an array
         return Array.isArray(result) ? result[0] || {} : result;
     },

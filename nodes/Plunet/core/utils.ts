@@ -1,5 +1,28 @@
-export const labelize = (s: string) =>
-  (s || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, (c) => c.toUpperCase()).trim();
+export const labelize = (s: string) => {
+  if (!s) return '';
+  
+  // Handle common ID patterns first to avoid splitting them
+  const idPatterns = [
+    { pattern: /^(.+)(ID)$/i, replacement: '$1 ID' },
+    { pattern: /^(.+)(UUID)$/i, replacement: '$1 UUID' },
+    { pattern: /^(.+)(URL)$/i, replacement: '$1 URL' },
+    { pattern: /^(.+)(API)$/i, replacement: '$1 API' },
+  ];
+  
+  let result = s;
+  for (const { pattern, replacement } of idPatterns) {
+    if (pattern.test(result)) {
+      result = result.replace(pattern, replacement);
+      break;
+    }
+  }
+  
+  // Apply standard camelCase to space conversion
+  result = result.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+  
+  // Capitalize first letter
+  return result.replace(/^./, (c) => c.toUpperCase()).trim();
+};
 
 export const asNonEmpty = <T>(arr: T[] | null | undefined): T[] =>
   Array.isArray(arr) && arr.length ? arr : [];

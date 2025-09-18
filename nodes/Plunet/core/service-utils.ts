@@ -62,8 +62,8 @@ export function createStandardExecuteConfig(
         soapActionFor: (op: string) => `http://API.Integration/${op}`,
         paramOrder,
         numericBooleans: NUMERIC_BOOLEAN_PARAMS,
-        getSessionId: async (ctx: IExecuteFunctions) => {
-            return await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, 0);
+        getSessionId: async (ctx: IExecuteFunctions, itemIndex: number) => {
+            return await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, itemIndex);
         },
         buildCustomBodyXml: buildCustomBodyXml || (() => null),
         parseResult,
@@ -99,7 +99,7 @@ export async function executeStandardService(
         itemParams[paramName] = ctx.getNodeParameter(paramName, itemIndex, '');
     }
 
-    const result = await executeOperation(ctx, operation, itemParams, config);
+    const result = await executeOperation(ctx, operation, itemParams, config, itemIndex);
     // Ensure we return a single IDataObject, not an array
     return Array.isArray(result) ? result[0] || {} : result;
 }

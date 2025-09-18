@@ -38,7 +38,7 @@ const ENDPOINT = 'DataCustomer30';
 const PARAM_ORDER: Record<string, string[]> = {
     insert2: [...CUSTOMER_IN_FIELDS],
     update: [
-        'customerID', 'status','userId', ...CUSTOMER_IN_FIELDS.filter(f => f !== 'customerID'),
+        'customerID', 'status', ...CUSTOMER_IN_FIELDS.filter(f => f !== 'customerID'),
         'enableNullOrEmptyValues',
     ],
     delete: ['customerID'],
