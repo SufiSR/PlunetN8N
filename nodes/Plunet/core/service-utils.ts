@@ -62,8 +62,8 @@ export function createStandardExecuteConfig(
         soapActionFor: (op: string) => `http://API.Integration/${op}`,
         paramOrder,
         numericBooleans: NUMERIC_BOOLEAN_PARAMS,
-        getSessionId: async () => {
-            return await ensureSession({} as IExecuteFunctions, creds, `${baseUrl}/PlunetAPI`, timeoutMs, 0);
+        getSessionId: async (ctx: IExecuteFunctions) => {
+            return await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, 0);
         },
         buildCustomBodyXml: buildCustomBodyXml || (() => null),
         parseResult,

@@ -12,7 +12,7 @@ export interface ExecuteConfig {
   numericBooleans?: NumericBoolSet;
   buildCustomBodyXml?: (op: string, itemParams: IDataObject, sessionId: string) => string | null;
   parseResult: (xml: string, op: string) => IDataObject | IDataObject[];
-  getSessionId: () => Promise<string>;
+  getSessionId: (ctx: IExecuteFunctions) => Promise<string>;
 }
 
 export async function executeOperation(
@@ -21,7 +21,7 @@ export async function executeOperation(
   itemParams: IDataObject,
   cfg: ExecuteConfig,
 ): Promise<IDataObject | IDataObject[]> {
-  const sessionId = await cfg.getSessionId();
+  const sessionId = await cfg.getSessionId(ctx);
   const bodyXml =
     cfg.buildCustomBodyXml?.(op, itemParams, sessionId) ??
     defaultBodyXml(op, itemParams, sessionId, cfg.paramOrder, cfg.numericBooleans);

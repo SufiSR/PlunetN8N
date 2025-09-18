@@ -147,8 +147,8 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
         soapActionFor: (op: string) => `http://API.Integration/${op}`,
         paramOrder: PARAM_ORDER,
         numericBooleans: NUMERIC_BOOLEAN_PARAMS,
-        getSessionId: async () => {
-            return await ensureSession({} as IExecuteFunctions, creds, `${baseUrl}/PlunetAPI`, timeoutMs, 0);
+        getSessionId: async (ctx: IExecuteFunctions) => {
+            return await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, 0);
         },
         buildCustomBodyXml: () => null, // No custom body building needed for misc operations
         parseResult: (xml: string, op: string) => {
