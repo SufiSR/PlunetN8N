@@ -131,15 +131,14 @@ export function buildErrorDescription(envelope: string, soapAction?: string): st
 // New enhanced functions for the refactored architecture
 export function buildEnvelope(op: string, bodyXml: string): string {
   return `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-               xmlns:xsd="http://www.w3.org/2001/XMLSchema"
-               xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
-  <soap:Body>
-    <${op} xmlns="http://www.plunet.com/">
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://API.Integration/">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <api:${op}>
       ${bodyXml}
-    </${op}>
-  </soap:Body>
-</soap:Envelope>`;
+    </api:${op}>
+  </soapenv:Body>
+</soapenv:Envelope>`;
 }
 
 export async function sendSoap(
