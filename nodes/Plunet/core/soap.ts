@@ -76,26 +76,22 @@ export async function sendSoapWithFallback(
     }
     return resp.body;
 }
+
+const REDACT_TAGS = [
+    'UUID',
+    'Password',
+    'FileByteStream',
+    'FilePathName',
+    // 'pathOrUrl',          // ← comment out if you want to see it
+    'Authorization',
+    'Token',
+    'token',
+];
+
 export function sanitizeEnvelope(xml: string): string {
     let out = xml;
-
-    // redact common sensitive tags
-    const redactTags = [
-        'UUID',
-        'Password',
-        'FileByteStream',
-        'FilePathName',
-        'pathOrUrl',
-        'Authorization',
-        'Token',
-        'token',
-    ];
-
-    for (const tag of redactTags) {
-        const rx = new RegExp(
-            `<(?:\\w+:)?${tag}\\b[^>]*>[\\s\\S]*?<\\/(?:\\w+:)?${tag}>`,
-            'gi',
-        );
+    for (const tag of REDACT_TAGS) {
+        const rx = new RegExp(`<(?:\\w+:)?${tag}\\b[^>]*>[\\s\\S]*?<\\/(?:\\w+:)?${tag}>`, 'gi');
         out = out.replace(rx, (m) => {
             const open = m.match(new RegExp(`<(?:\\w+:)?${tag}\\b[^>]*>`,'i'))?.[0] ?? `<${tag}>`;
             const close = `</${tag}>`;
@@ -116,11 +112,17 @@ function clip(str: string, max = 16384): string {
 
 export function buildErrorDescription(envelope: string, soapAction?: string): string {
     const safe = sanitizeEnvelope(envelope);
-    const lines = [
+
+    // IMPORTANT: escape angle brackets so n8n doesn’t strip tags in the UI
+    const escaped = safe
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    return [
         soapAction ? `SOAPAction: ${soapAction}` : undefined,
         '––– Sent SOAP Envelope (sanitized) –––',
-        safe,
+        escaped,
         '––––––––––––––––––––––––––––––––––––––',
-    ].filter(Boolean);
-    return lines.join('\n');
+    ].filter(Boolean).join('\n');
 }
