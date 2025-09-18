@@ -172,6 +172,23 @@ function buildResourceINXml(ctx: IExecuteFunctions, itemIndex: number, fieldName
     return `<ResourceIN>\n${parts.map((l)=>'  '+l).join('\n')}\n</ResourceIN>`;
 }
 
+// Booleans that Plunet expects as 1/0 (not "true"/"false")
+const NUMERIC_BOOLEAN_PARAMS = new Set<string>([
+    'enableNullOrEmptyValues',
+]);
+
+function toSoapParamValue(raw: unknown, paramName: string): string {
+    if (raw == null) return '';               // guard null/undefined
+    if (typeof raw === 'string') return raw.trim();
+    if (typeof raw === 'number') return String(raw);
+    if (typeof raw === 'boolean') {
+        return NUMERIC_BOOLEAN_PARAMS.has(paramName)
+            ? (raw ? '1' : '0')                   // numeric boolean
+            : (raw ? 'true' : 'false');           // normal boolean
+    }
+    return String(raw);                        // fallback
+}
+
 async function runOp(
     ctx: IExecuteFunctions, creds: Creds, url: string, baseUrl: string, timeoutMs: number,
     itemIndex: number, op: string, paramNames: string[],
@@ -186,11 +203,11 @@ async function runOp(
         const resourceIn = buildResourceINXml(ctx, itemIndex, RESOURCE_IN_FIELDS_UPDATE);
         parts.push(resourceIn);
         const en = ctx.getNodeParameter('enableNullOrEmptyValues', itemIndex, false) as boolean;
-        parts.push(`<enableNullOrEmptyValues>${en ? 'true' : 'false'}</enableNullOrEmptyValues>`);
+        parts.push(`<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`);
     } else {
         for (const name of paramNames) {
-            const raw = ctx.getNodeParameter(name, itemIndex, '') as string|number|boolean;
-            const val = typeof raw==='string' ? raw.trim() : typeof raw==='number' ? String(raw) : raw ? 'true' : 'false';
+            const raw = ctx.getNodeParameter(name, itemIndex, '') as string | number | boolean;
+            const val = toSoapParamValue(raw, name);
             if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
         }
     }

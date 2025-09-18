@@ -158,15 +158,30 @@ function throwIfSoapOrStatusError(ctx: IExecuteFunctions, itemIndex: number, xml
         throw new NodeOperationError(ctx.getNode(), `${op?op+': ':''}${base.statusMessage || 'Plunet returned a non-zero status code'} [${base.statusCode}]`, { itemIndex });
 }
 
+const NUMERIC_BOOLEAN_PARAMS = new Set(['enableNullOrEmptyValues']);
+
+function toSoapParamValue(raw: unknown, paramName: string): string {
+    if (raw == null) return '';               // guard null/undefined
+    if (typeof raw === 'string') return raw.trim();
+    if (typeof raw === 'number') return String(raw);
+    if (typeof raw === 'boolean') {
+        return NUMERIC_BOOLEAN_PARAMS.has(paramName)
+            ? (raw ? '1' : '0')                   // numeric boolean
+            : (raw ? 'true' : 'false');           // normal boolean
+    }
+    return String(raw);                        // fallback
+}
+
 async function runOp(
     ctx: IExecuteFunctions, creds: Creds, url: string, baseUrl: string, timeoutMs: number,
     itemIndex: number, op: string, paramNames: string[],
 ): Promise<IDataObject> {
     const uuid = await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, itemIndex);
     const parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
+
     for (const name of paramNames) {
-        const raw = ctx.getNodeParameter(name, itemIndex, '') as string|number|boolean;
-        const val = typeof raw==='string' ? raw.trim() : typeof raw==='number' ? String(raw) : raw ? 'true' : 'false';
+        const raw = ctx.getNodeParameter(name, itemIndex, '') as string | number | boolean;
+        const val = toSoapParamValue(raw, name);
         if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
     }
     const env11 = buildEnvelope(op, parts.join('\n'));

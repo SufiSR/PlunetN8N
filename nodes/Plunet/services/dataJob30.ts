@@ -409,9 +409,20 @@ function throwIfSoapOrStatusError(
     }
 }
 
-function toSoapScalar(v: unknown): string {
-    if (v === null || v === undefined) return '';
-    return typeof v === 'string' ? v.trim() : String(v);
+
+// Params that should serialize booleans as 1/0 instead of true/false
+const NUMERIC_BOOLEAN_PARAMS = new Set(['enableNullOrEmptyValues']);
+
+function toSoapParamValue(raw: unknown, paramName: string): string {
+    if (raw == null) return '';               // guard null/undefined
+    if (typeof raw === 'string') return raw.trim();
+    if (typeof raw === 'number') return String(raw);
+    if (typeof raw === 'boolean') {
+        return NUMERIC_BOOLEAN_PARAMS.has(paramName)
+            ? (raw ? '1' : '0')                   // numeric boolean
+            : (raw ? 'true' : 'false');           // normal boolean
+    }
+    return String(raw);                        // fallback
 }
 
 async function runOp(
@@ -428,8 +439,8 @@ async function runOp(
 
     const parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
     for (const name of paramNames) {
-        const valRaw = ctx.getNodeParameter(name, itemIndex, '') as unknown;
-        const val = toSoapScalar(valRaw);
+        const raw = ctx.getNodeParameter(name, itemIndex, '') as string | number | boolean;
+        const val = toSoapParamValue(raw, name);
         if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
     }
 
