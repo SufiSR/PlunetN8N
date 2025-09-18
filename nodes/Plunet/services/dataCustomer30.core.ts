@@ -38,9 +38,9 @@ const PARAM_ORDER: Record<string, string[]> = {
         'name1','name2','opening','phone','skypeID','status','userId','website',
     ],
     update: [
-        'academicTitle','costCenter','currency','customerID','email',
+        'customerID', 'status','userId', 'academicTitle','costCenter','currency','email',
         'externalID','fax','formOfAddress','fullName','mobilePhone',
-        'name1','name2','opening','phone','skypeID','status','userId','website',
+        'name1','name2','opening','phone','skypeID','website',
         'enableNullOrEmptyValues',
     ],
     delete: ['customerID'],
@@ -100,7 +100,31 @@ const extraProperties: INodeProperties[] =
                     name: p,
                     type: 'boolean',
                     default: false,
+                    required: true,
                     description: 'If enabled, empty inputs overwrite existing values in Plunet.',
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+            if (op === 'update' && p === 'enableNullOrEmptyValues') {
+                return {
+                    displayName: 'Status',
+                    name: p,
+                    type: 'options',
+                    options: CustomerStatusOptions,
+                    required: true,
+                    default: 1,
+                    description: `${p} parameter for ${op} (CustomerStatus enum)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+            if (op === 'update' && p === 'userId') {
+                return {
+                    displayName: 'userId',
+                    name: p,
+                    type: 'number',
+                    default: 0,
+                    required: true,
+                    description: `${p} parameter for ${op}`,
                     displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
                 };
             }
