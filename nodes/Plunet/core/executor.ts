@@ -46,7 +46,7 @@ function defaultBodyXml(
 ): string {
   const names = order[op] ?? Object.keys(params ?? {});
   const chunks: string[] = [];
-  if (!names.includes('session')) chunks.push(`<session>${sessionId}</session>`);
+  if (!names.includes('session') && !names.includes('UUID')) chunks.push(`<UUID>${sessionId}</UUID>`);
   for (const name of names) {
     const raw = params?.[name];
     const v = toSoapParamValue(raw, name, numericBooleans);
