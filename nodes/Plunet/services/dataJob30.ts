@@ -412,6 +412,9 @@ function throwIfSoapOrStatusError(
 
 // Params that should serialize booleans as 1/0 instead of true/false
 const NUMERIC_BOOLEAN_PARAMS = new Set(['enableNullOrEmptyValues']);
+NUMERIC_BOOLEAN_PARAMS.add('createAsFirstItem');
+NUMERIC_BOOLEAN_PARAMS.add('overwriteExistingPriceLines');
+NUMERIC_BOOLEAN_PARAMS.add('analyzeAndCopyResultToJob');
 
 function toSoapParamValue(raw: unknown, paramName: string): string {
     if (raw == null) return '';               // guard null/undefined
@@ -439,7 +442,7 @@ async function runOp(
 
     const parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
     for (const name of paramNames) {
-        const raw = ctx.getNodeParameter(name, itemIndex, '') as string | number | boolean;
+        const raw = ctx.getNodeParameter(name, itemIndex, '');
         const val = toSoapParamValue(raw, name);
         if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
     }

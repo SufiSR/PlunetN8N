@@ -206,7 +206,7 @@ async function runOp(
         parts.push(`<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`);
     } else {
         for (const name of paramNames) {
-            const raw = ctx.getNodeParameter(name, itemIndex, '') as string | number | boolean;
+            const raw = ctx.getNodeParameter(name, itemIndex, '');
             const val = toSoapParamValue(raw, name);
             if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
         }
