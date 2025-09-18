@@ -139,15 +139,6 @@ const extraProperties: INodeProperties[] =
         }),
     );
 
-/** ─ SOAP helpers + runner ─ */
-function buildEnvelope(op: string, childrenXml: string) {
-    return `<?xml version="1.0" encoding="utf-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://API.Integration/">
-  <soapenv:Header/><soapenv:Body><api:${op}>
-${childrenXml.split('\n').map((l)=>l?`      ${l}`:l).join('\n')}
-  </api:${op}></soapenv:Body></soapenv:Envelope>`;
-}
-
 function throwIfSoapOrStatusError(
     ctx: IExecuteFunctions,
     itemIndex: number,
@@ -199,6 +190,45 @@ function throwIfSoapOrStatusError(
     }
 }
 
+const CUSTOMER_IN_FIELDS_UPDATE: readonly string[] = [
+    'academicTitle','costCenter','currency','customerID','email',
+    'externalID','fax','formOfAddress','fullName','mobilePhone',
+    'name1','name2','opening','phone','skypeID','status','userId','website',
+];
+
+// Build <CustomerIN>…</CustomerIN>. If includeEmpty=true, sends empty tags too.
+function buildCustomerINXml(
+    ctx: IExecuteFunctions,
+    itemIndex: number,
+    fields: readonly string[],
+    includeEmpty: boolean,
+): string {
+    const lines: string[] = ['<CustomerIN>'];
+    for (const name of fields) {
+        const raw = ctx.getNodeParameter(name, itemIndex, '');
+        const val = toSoapParamValue(raw, name);
+        if (includeEmpty || val !== '') {
+            lines.push(`  <${name}>${escapeXml(val)}</${name}>`);
+        }
+    }
+    lines.push('</CustomerIN>');
+    return lines.join('\n      ');
+}
+
+// SOAP 1.2 envelope builder (namespace matches your expected example)
+function buildEnvelope12(op: string, childrenXml: string): string {
+    return `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
+  <soap:Header/>
+  <soap:Body>
+    <api:${op}>
+${childrenXml.split('\n').map(l => (l ? '      ' + l : l)).join('\n')}
+    </api:${op}>
+  </soap:Body>
+</soap:Envelope>`;
+}
+
+
 const NUMERIC_BOOLEAN_PARAMS = new Set(['enableNullOrEmptyValues']);
 
 function toSoapParamValue(raw: unknown, paramName: string): string {
@@ -220,17 +250,32 @@ async function runOp(
     const uuid = await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, itemIndex);
 
     const parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
-    for (const name of paramNames) {
-        const raw = ctx.getNodeParameter(name, itemIndex, '');
-        const val = toSoapParamValue(raw, name);
-        if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
+
+    if (op === 'update') {
+        // Build <CustomerIN>…> with the update fields,
+        // include empty tags only if user chose to overwrite with empty values
+        const en = ctx.getNodeParameter('enableNullOrEmptyValues', itemIndex, false) as boolean;
+        parts.push(buildCustomerINXml(ctx, itemIndex, CUSTOMER_IN_FIELDS_UPDATE, en));
+        parts.push(`<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`);
+    } else if (op === 'insert2') {
+        parts.push(buildCustomerINXml(ctx, itemIndex, CUSTOMER_IN_FIELDS_UPDATE, /* includeEmpty */ false));
+    }
+    else {
+        // Generic flat params
+        for (const name of paramNames) {
+            const raw = ctx.getNodeParameter(name, itemIndex, '');
+            const val = toSoapParamValue(raw, name);
+            if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
+        }
     }
 
-    const env11 = buildEnvelope(op, parts.join('\n'));
+    // Use SOAP 1.2 envelope for consistency with docs and your expected output
+    const env12 = buildEnvelope12(op, parts.join('\n'));
     const soapAction = `http://API.Integration/${op}`;
-    const body = await sendSoapWithFallback(ctx, url, env11, soapAction, timeoutMs);
+    const body = await sendSoapWithFallback(ctx, url, env12, soapAction, timeoutMs);
 
-    throwIfSoapOrStatusError(ctx, itemIndex, body, op, env11, soapAction);
+    // include env in errors for debugging (if you already added this)
+    throwIfSoapOrStatusError(ctx, itemIndex, body, op, env12, soapAction);
 
     const rt = RETURN_TYPE[op] as R|undefined;
     let payload: IDataObject;
@@ -259,7 +304,7 @@ async function runOp(
                     `${op}: ${msg}${r.statusCode !== undefined ? ` [${r.statusCode}]` : ''}`,
                     {
                         itemIndex,
-                        description: buildErrorDescription(env11, soapAction),
+                        description: buildErrorDescription(env12, soapAction),
                     },
                 );
             }
