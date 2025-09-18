@@ -147,14 +147,39 @@ export async function sendSoap(
   soapAction: string,
   envelope: string,
 ): Promise<string> {
-  const res = await ctx.helpers.request({
-    method: 'POST',
-    url,
-    headers: { 'Content-Type': 'text/xml; charset=utf-8', SOAPAction: soapAction },
-    body: envelope,
-    json: false,
-  } as IDataObject);
-  return res as unknown as string;
+  // Use the same approach as the working sendSoapWithFallback
+  let resp = await requestSoap(ctx, url, envelope, soapAction, '1.1', 30000);
+  if (!resp.ok) {
+    const env12 = toSoap12Envelope(envelope);
+    resp = await requestSoap(ctx, url, env12, soapAction, '1.2', 30000);
+  }
+  if (!resp.ok) {
+    // Enhanced error logging to help debug 415 errors
+    const errorDetails = {
+      url,
+      soapAction,
+      envelope: envelope,
+      error: resp.error || 'Request failed',
+      responseBody: resp.body,
+    };
+    
+    // Log error details for debugging (n8n will handle logging)
+    const logMessage = `SOAP Request Failed: ${JSON.stringify(errorDetails, null, 2)}`;
+    // Note: In n8n context, this will be visible in the workflow execution logs
+    
+    // Create a more detailed error message
+    const detailedError = new Error(
+      `SOAP request failed: ${errorDetails.error}\n\n` +
+      `Request Details:\n` +
+      `URL: ${url}\n` +
+      `SOAP Action: ${soapAction}\n` +
+      `Envelope:\n${envelope}\n\n` +
+      `Response: ${errorDetails.responseBody || 'No response body'}`
+    );
+    
+    throw detailedError;
+  }
+  return resp.body;
 }
 
 const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '', textNodeName: 'text' });
