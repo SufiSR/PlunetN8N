@@ -1,8 +1,12 @@
 {
   "name": "n8n-nodes-plunet",
-  "version": "2.6.5",
+  "version": "3.0.0",
   "description": "n8n community node: Plunet BusinessManager",
-  "keywords": ["n8n-community-node-package", "plunet", "businessmanager"],
+  "keywords": [
+    "n8n-community-node-package",
+    "plunet",
+    "businessmanager"
+  ],
   "license": "MIT",
   "homepage": "https://github.com/SufiSR/PlunetN8N",
   "repository": {
@@ -15,7 +19,11 @@
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "files": ["dist", "README.md", "LICENSE"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc && npm run copy:assets && npm run verify:icon",
     "copy:assets": "copyfiles \"nodes/**/*.{svg,png,ico}\" dist",
@@ -24,12 +32,16 @@
   },
   "n8n": {
     "n8nNodesApiVersion": 1,
-    "credentials": ["dist/credentials/PlunetApi.credentials.js"],
-    "nodes": ["dist/nodes/Plunet/Plunet.node.js"]
+    "credentials": [
+      "dist/credentials/PlunetApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/nodes/Plunet/Plunet.node.js"
+    ]
   },
   "devDependencies": {
     "copyfiles": "^2.4.1",
-    "n8n-workflow": "^1.0.0",
+    "n8n-workflow": "^1.82.0",
     "typescript": "^4.8.4"
   },
   "dependencies": {

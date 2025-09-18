@@ -1,4 +1,5 @@
-import { IExecuteFunctions, IHttpRequestOptions } from 'n8n-workflow';
+import type { IExecuteFunctions, IDataObject, IHttpRequestOptions } from 'n8n-workflow';
+import { XMLParser } from 'fast-xml-parser';
 import { extractStatusMessage } from './xml';
 
 export function escapeXml(s: string): string {
@@ -113,7 +114,7 @@ function clip(str: string, max = 16384): string {
 export function buildErrorDescription(envelope: string, soapAction?: string): string {
     const safe = sanitizeEnvelope(envelope);
 
-    // IMPORTANT: escape angle brackets so n8n doesn’t strip tags in the UI
+    // IMPORTANT: escape angle brackets so n8n doesn't strip tags in the UI
     const escaped = safe
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -125,4 +126,59 @@ export function buildErrorDescription(envelope: string, soapAction?: string): st
         escaped,
         '––––––––––––––––––––––––––––––––––––––',
     ].filter(Boolean).join('\n');
+}
+
+// New enhanced functions for the refactored architecture
+export function buildEnvelope(op: string, bodyXml: string): string {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+               xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+               xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <${op} xmlns="http://www.plunet.com/">
+      ${bodyXml}
+    </${op}>
+  </soap:Body>
+</soap:Envelope>`;
+}
+
+export async function sendSoap(
+  ctx: IExecuteFunctions,
+  url: string,
+  soapAction: string,
+  envelope: string,
+): Promise<string> {
+  const res = await ctx.helpers.request({
+    method: 'POST',
+    url,
+    headers: { 'Content-Type': 'text/xml; charset=utf-8', SOAPAction: soapAction },
+    body: envelope,
+    json: false,
+  } as IDataObject);
+  return res as unknown as string;
+}
+
+const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '', textNodeName: 'text' });
+
+export function parseXml(xml: string): any { return parser.parse(xml); }
+
+export function extractSoapFault(xmlObj: any): string | null {
+  const fault =
+    xmlObj?.['soap:Envelope']?.['soap:Body']?.['soap:Fault'] ??
+    xmlObj?.Envelope?.Body?.Fault;
+  if (!fault) return null;
+  return String(fault.faultstring || fault.faultcode || 'SOAP Fault');
+}
+
+export function extractResultBase(xmlObj: any): { statusCode?: number; statusMessage?: string } {
+  const walk = (o: any): any => {
+    if (!o || typeof o !== 'object') return null;
+    if ('Status' in o || 'status' in o || 'StatusCode' in o || 'statusCode' in o) return o;
+    for (const k of Object.keys(o)) { const found = walk(o[k]); if (found) return found; }
+    return null;
+  };
+  const hit = walk(xmlObj);
+  const statusCode = Number(hit?.Status ?? hit?.status ?? hit?.StatusCode ?? hit?.statusCode);
+  const statusMessage = String(hit?.StatusMessage ?? hit?.statusMessage ?? hit?.Message ?? hit?.message ?? '');
+  return { statusCode: Number.isFinite(statusCode) ? statusCode : undefined, statusMessage };
 }

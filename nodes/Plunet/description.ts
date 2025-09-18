@@ -1,4 +1,4 @@
-import { INodeTypeDescription, NodeConnectionType } from 'n8n-workflow';
+import { INodeTypeDescription } from 'n8n-workflow';
 import { PlunetApiService } from './services/plunetApi';
 import { DataCustomer30CoreService } from './services/dataCustomer30.core';
 import { DataCustomer30MiscService } from './services/dataCustomer30.misc';
@@ -42,8 +42,8 @@ export const description: INodeTypeDescription = {
     version: 1,
     description: 'Get and Set Data for Plunet BusinessManager ',
     defaults: { name: 'Plunet' },
-    inputs: [NodeConnectionType.Main],
-    outputs: [NodeConnectionType.Main],
+    inputs: ['main'],
+    outputs: ['main'],
     credentials: [{ name: 'plunetApi', required: true }],
     properties: [
         {

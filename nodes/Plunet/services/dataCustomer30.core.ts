@@ -2,49 +2,47 @@ import {
     IExecuteFunctions, IDataObject, INodeProperties, INodePropertyOptions, NodeOperationError,
 } from 'n8n-workflow';
 import type { Creds, Service, NonEmptyArray } from '../core/types';
-import { escapeXml, sendSoapWithFallback, buildErrorDescription } from '../core/soap';
 import { ensureSession } from '../core/session';
+import { executeOperation, type ExecuteConfig } from '../core/executor';
+import { labelize, asNonEmpty } from '../core/utils';
+import { NUMERIC_BOOLEAN_PARAMS } from '../core/constants';
 import {
     extractResultBase, extractStatusMessage, extractSoapFault, parseIntegerResult, parseIntegerArrayResult, parseVoidResult,
 } from '../core/xml';
-import { parseCustomerResult } from '../core/parsers';
+// import { parseCustomerResult } from '../core/parsers'; // Removed: not exported from '../core/parsers'
+import { CustomerStatusOptions } from '../enums/customer-status';
+import {
+    toSoapParamValue,
+    escapeXml,
+    createStandardExecuteConfig,
+    executeStandardService,
+    generateOperationOptions,
+    createStringProperty,
+    createBooleanProperty,
+    createOptionsProperty,
+    createTypedProperty,
+    handleVoidResult,
+} from '../core/service-utils';
+import {
+    CUSTOMER_IN_FIELDS,
+    CUSTOMER_SEARCH_FILTER_FIELDS,
+    MANDATORY_FIELDS,
+    FIELD_TYPES,
+} from '../core/field-definitions';
+import { parseCustomerResult } from '../core/parsers/customer';
 
 const RESOURCE = 'DataCustomer30Core';
 const ENDPOINT = 'DataCustomer30';
 
-/** ─ CustomerStatus enum (local, same mapping you already use) ─ */
-type CustomerStatusName =
-    | 'ACTIVE' | 'NOT_ACTIVE' | 'CONTACTED' | 'NEW' | 'BLOCKED'
-    | 'AQUISITION_ADDRESS' | 'NEW_AUTO' | 'DELETION_REQUESTED';
-
-const CustomerStatusIdByName: Record<CustomerStatusName, number> = {
-    ACTIVE: 1, NOT_ACTIVE: 2, CONTACTED: 3, NEW: 4, BLOCKED: 5,
-    AQUISITION_ADDRESS: 6, NEW_AUTO: 7, DELETION_REQUESTED: 8,
-};
-const CustomerStatusOptions: INodePropertyOptions[] =
-    (Object.keys(CustomerStatusIdByName) as CustomerStatusName[])
-        .sort((a, b) => CustomerStatusIdByName[a] - CustomerStatusIdByName[b])
-        .map((name) => ({
-            name: `${name.replace(/_/g, ' ').replace(/\b\w/g,(m)=>m.toUpperCase())} (${CustomerStatusIdByName[name]})`,
-            value: CustomerStatusIdByName[name],
-            description: name,
-        }));
-
 /** ─ Params per operation (UUID auto-included) ─ */
 const PARAM_ORDER: Record<string, string[]> = {
-    insert2: [
-        'academicTitle','costCenter','currency','customerID','email',
-        'externalID','fax','formOfAddress','fullName','mobilePhone',
-        'name1','name2','opening','phone','skypeID','status','userId','website',
-    ],
+    insert2: [...CUSTOMER_IN_FIELDS],
     update: [
-        'customerID', 'status','userId', 'academicTitle','costCenter','currency','email',
-        'externalID','fax','formOfAddress','fullName','mobilePhone',
-        'name1','name2','opening','phone','skypeID','website',
+        'customerID', 'status','userId', ...CUSTOMER_IN_FIELDS.filter(f => f !== 'customerID'),
         'enableNullOrEmptyValues',
     ],
     delete: ['customerID'],
-    search: ['SearchFilter'],
+    search: [...CUSTOMER_SEARCH_FILTER_FIELDS],
     getCustomerObject: ['customerID'],
 };
 
@@ -58,12 +56,6 @@ const RETURN_TYPE: Record<string, R> = {
 };
 
 /** ─ UI wiring ─ */
-function labelize(op: string) {
-    if (op.includes('_')) return op.replace(/_/g,' ').replace(/\b\w/g,(m)=>m.toUpperCase());
-    return op.replace(/([a-z])([A-Z0-9])/g,'$1 $2').replace(/\b\w/g,(m)=>m.toUpperCase());
-}
-function asNonEmpty<T>(arr: T[]): [T,...T[]] { if(!arr.length) throw new Error('Expected non-empty'); return arr as any; }
-
 const FRIENDLY_LABEL: Record<string,string> = {
     insert2: 'Create Customer',
     update: 'Update Customer',
@@ -73,128 +65,63 @@ const FRIENDLY_LABEL: Record<string,string> = {
 
 const OP_ORDER = ['getCustomerObject','insert2','update','delete','search'] as const;
 
-const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
-    [...OP_ORDER].map((op) => {
-        const label = FRIENDLY_LABEL[op] ?? labelize(op);
-        return { name: label, value: op, action: label, description: `Call ${label} on ${ENDPOINT}` };
-    }),
+const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptions(
+    OP_ORDER,
+    FRIENDLY_LABEL,
+    ENDPOINT,
 );
 
 const extraProperties: INodeProperties[] =
     Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
         params.map<INodeProperties>((p) => {
+            const isMandatory = MANDATORY_FIELDS[op]?.includes(p) || false;
+            const fieldType = FIELD_TYPES[p] || 'string';
+            
+            // Handle special cases
             if (p.toLowerCase() === 'status') {
-                return {
-                    displayName: 'Status',
-                    name: p,
-                    type: 'options',
-                    options: CustomerStatusOptions,
-                    default: 1,
-                    description: `${p} parameter for ${op} (CustomerStatus enum)`,
-                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-                };
+                return createTypedProperty(
+                    p,
+                    'Status',
+                    `${p} parameter for ${op} (CustomerStatus enum)`,
+                    RESOURCE,
+                    op,
+                    'string',
+                    isMandatory,
+                    CustomerStatusOptions,
+                    1,
+                );
             }
             if (op === 'update' && p === 'enableNullOrEmptyValues') {
-                return {
-                    displayName: 'Overwrite with Empty Values',
-                    name: p,
-                    type: 'boolean',
-                    default: false,
-                    required: true,
-                    description: 'If enabled, empty inputs overwrite existing values in Plunet.',
-                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-                };
+                return createBooleanProperty(
+                    p,
+                    'Overwrite with Empty Values',
+                    'If enabled, empty inputs overwrite existing values in Plunet.',
+                    RESOURCE,
+                    op,
+                    false,
+                    true,
+                );
             }
-            if (op === 'update' && p === 'enableNullOrEmptyValues') {
-                return {
-                    displayName: 'Status',
-                    name: p,
-                    type: 'options',
-                    options: CustomerStatusOptions,
-                    required: true,
-                    default: 1,
-                    description: `${p} parameter for ${op} (CustomerStatus enum)`,
-                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-                };
-            }
-            if (op === 'update' && p === 'userId') {
-                return {
-                    displayName: 'userId',
-                    name: p,
-                    type: 'number',
-                    default: 0,
-                    required: true,
-                    description: `${p} parameter for ${op}`,
-                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-                };
-            }
-            return {
-                displayName: p,
-                name: p,
-                type: 'string',
-                default: '',
-                description: `${p} parameter for ${op}`,
-                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-            };
+            
+            // Create user-friendly display names
+            const displayName = p
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/^./, str => str.toUpperCase())
+                .trim();
+            
+            return createTypedProperty(
+                p,
+                displayName,
+                `${displayName} parameter for ${op}`,
+                RESOURCE,
+                op,
+                fieldType,
+                isMandatory,
+            );
         }),
     );
 
-function throwIfSoapOrStatusError(
-    ctx: IExecuteFunctions,
-    itemIndex: number,
-    xml: string,
-    op?: string,
-    sentEnvelope?: string,
-    soapAction?: string,
-) {
-    const fault = extractSoapFault(xml);
-    if (fault) {
-        const prefix = op ? `${op}: ` : '';
-        const code = fault.code ? ` [${fault.code}]` : '';
-        throw new NodeOperationError(
-            ctx.getNode(),
-            `${prefix}SOAP Fault: ${fault.message}${code}`,
-            {
-                itemIndex,
-                description: sentEnvelope ? buildErrorDescription(sentEnvelope, soapAction) : undefined,
-            },
-        );
-    }
-
-    const base = extractResultBase(xml);
-
-    if (base.statusMessage && base.statusMessage !== 'OK') {
-        const prefix = op ? `${op}: ` : '';
-        const code = base.statusCode !== undefined ? ` [${base.statusCode}]` : '';
-        throw new NodeOperationError(
-            ctx.getNode(),
-            `${prefix}${base.statusMessage}${code}`,
-            {
-                itemIndex,
-                description: sentEnvelope ? buildErrorDescription(sentEnvelope, soapAction) : undefined,
-            },
-        );
-    }
-
-    if (base.statusCode !== undefined && base.statusCode !== 0) {
-        const prefix = op ? `${op}: ` : '';
-        const msg = base.statusMessage || 'Plunet returned a non-zero status code';
-        throw new NodeOperationError(
-            ctx.getNode(),
-            `${prefix}${msg} [${base.statusCode}]`,
-            {
-                itemIndex,
-                description: sentEnvelope ? buildErrorDescription(sentEnvelope, soapAction) : undefined,
-            },
-        );
-    }
-}
-
-const CUSTOMER_IN_FIELDS_UPDATE: readonly string[] = [
-    'academicTitle','costCenter','currency','customerID','email',
-    'externalID','fax','formOfAddress','fullName','mobilePhone',
-    'name1','name2','opening','phone','skypeID','status','userId','website',
-];
+// Field definitions are now imported from field-definitions.ts
 
 // Build <CustomerIN>…</CustomerIN>. If includeEmpty=true, sends empty tags too.
 function buildCustomerINXml(
@@ -215,107 +142,81 @@ function buildCustomerINXml(
     return lines.join('\n      ');
 }
 
-// SOAP 1.2 envelope builder (namespace matches your expected example)
-function buildEnvelope12(op: string, childrenXml: string): string {
-    return `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
-  <soap:Header/>
-  <soap:Body>
-    <api:${op}>
-${childrenXml.split('\n').map(l => (l ? '      ' + l : l)).join('\n')}
-    </api:${op}>
-  </soap:Body>
-</soap:Envelope>`;
+// Build <SearchFilter_Customer>…</SearchFilter_Customer>
+function buildSearchFilterXml(
+    ctx: IExecuteFunctions,
+    itemIndex: number,
+    fields: readonly string[],
+): string {
+    const lines: string[] = ['<SearchFilter_Customer>'];
+    for (const name of fields) {
+        const raw = ctx.getNodeParameter(name, itemIndex, '');
+        const val = toSoapParamValue(raw, name);
+        if (val !== '') {
+            lines.push(`  <${name}>${escapeXml(val)}</${name}>`);
+        }
+    }
+    lines.push('</SearchFilter_Customer>');
+    return lines.join('\n      ');
 }
 
+// Common utility functions are now imported from service-utils
 
-const NUMERIC_BOOLEAN_PARAMS = new Set(['enableNullOrEmptyValues']);
-
-function toSoapParamValue(raw: unknown, paramName: string): string {
-    if (raw == null) return '';               // guard null/undefined
-    if (typeof raw === 'string') return raw.trim();
-    if (typeof raw === 'number') return String(raw);
-    if (typeof raw === 'boolean') {
-        return NUMERIC_BOOLEAN_PARAMS.has(paramName)
-            ? (raw ? '1' : '0')                   // numeric boolean
-            : (raw ? 'true' : 'false');           // normal boolean
-    }
-    return String(raw);                        // fallback
-}
-
-async function runOp(
-    ctx: IExecuteFunctions, creds: Creds, url: string, baseUrl: string, timeoutMs: number,
-    itemIndex: number, op: string, paramNames: string[],
-): Promise<IDataObject> {
-    const uuid = await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, itemIndex);
-
-    const parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
-
-    if (op === 'update') {
-        // Build <CustomerIN>…> with the update fields,
-        // include empty tags only if user chose to overwrite with empty values
-        const en = ctx.getNodeParameter('enableNullOrEmptyValues', itemIndex, false) as boolean;
-        parts.push(buildCustomerINXml(ctx, itemIndex, CUSTOMER_IN_FIELDS_UPDATE, en));
-        parts.push(`<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`);
-    } else if (op === 'insert2') {
-        parts.push(buildCustomerINXml(ctx, itemIndex, CUSTOMER_IN_FIELDS_UPDATE, /* includeEmpty */ false));
-    }
-    else {
-        // Generic flat params
-        for (const name of paramNames) {
-            const raw = ctx.getNodeParameter(name, itemIndex, '');
-            const val = toSoapParamValue(raw, name);
-            if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
-        }
-    }
-
-    // Use SOAP 1.2 envelope for consistency with docs and your expected output
-    const env12 = buildEnvelope12(op, parts.join('\n'));
-    const soapAction = `http://API.Integration/${op}`;
-    const body = await sendSoapWithFallback(ctx, url, env12, soapAction, timeoutMs);
-
-    // include env in errors for debugging (if you already added this)
-    throwIfSoapOrStatusError(ctx, itemIndex, body, op, env12, soapAction);
-
-    const rt = RETURN_TYPE[op] as R|undefined;
-    let payload: IDataObject;
-    switch (rt) {
-        case 'Customer': {
-            const r = parseCustomerResult(body);
-            payload = { customer: r.customer, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'Integer': {
-            const r = parseIntegerResult(body);
-            payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'IntegerArray': {
-            const r = parseIntegerArrayResult(body);
-            payload = { data: r.data, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'Void': {
-            const r = parseVoidResult(body);
-            if (!r.ok) {
-                const msg = r.statusMessage || 'Operation failed';
-                throw new NodeOperationError(
-                    ctx.getNode(),
-                    `${op}: ${msg}${r.statusCode !== undefined ? ` [${r.statusCode}]` : ''}`,
-                    {
-                        itemIndex,
-                        description: buildErrorDescription(env12, soapAction),
-                    },
-                );
+// Create the execution configuration
+function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeoutMs: number): ExecuteConfig {
+    return createStandardExecuteConfig(
+        creds,
+        url,
+        baseUrl,
+        timeoutMs,
+        PARAM_ORDER,
+        (xml: string, op: string) => {
+            const rt = RETURN_TYPE[op] as R|undefined;
+            let payload: IDataObject;
+            switch (rt) {
+                case 'Customer': {
+                    const r = parseCustomerResult(xml);
+                    payload = { customer: r.customer, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'Integer': {
+                    const r = parseIntegerResult(xml);
+                    payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'IntegerArray': {
+                    const r = parseIntegerArrayResult(xml);
+                    payload = { data: r.data, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'Void': {
+                    payload = handleVoidResult(xml, op, parseVoidResult);
+                    break;
+                }
+                default: {
+                    payload = { statusMessage: extractStatusMessage(xml), rawResponse: xml };
+                }
             }
-            payload = { ok: r.ok, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        default: {
-            payload = { statusMessage: extractStatusMessage(body), rawResponse: body };
-        }
-    }
-    return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
+            return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
+        },
+        (op: string, itemParams: IDataObject, sessionId: string) => {
+            if (op === 'update') {
+                // Build <CustomerIN>…> with the update fields,
+                // include empty tags only if user chose to overwrite with empty values
+                const en = itemParams.enableNullOrEmptyValues as boolean || false;
+                const customerIn = buildCustomerINXml({} as IExecuteFunctions, 0, CUSTOMER_IN_FIELDS, en);
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}\n<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`;
+            } else if (op === 'insert2') {
+                const customerIn = buildCustomerINXml({} as IExecuteFunctions, 0, CUSTOMER_IN_FIELDS, false);
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}`;
+            } else if (op === 'search') {
+                // Build <SearchFilter_Customer> with search fields
+                const searchFilter = buildSearchFilterXml({} as IExecuteFunctions, 0, CUSTOMER_SEARCH_FILTER_FIELDS);
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n${searchFilter}`;
+            }
+            return null;
+        },
+    );
 }
 
 /** ─ Service export ─ */
@@ -327,8 +228,17 @@ export const DataCustomer30CoreService: Service = {
     operationOptions,
     extraProperties,
     async execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex) {
-        const paramNames = PARAM_ORDER[operation];
-        if (!paramNames) throw new Error(`Unsupported operation for ${RESOURCE}: ${operation}`);
-        return runOp(ctx, creds, url, baseUrl, timeoutMs, itemIndex, operation, paramNames);
+        const config = createExecuteConfig(creds, url, baseUrl, timeoutMs);
+        return await executeStandardService(
+            operation,
+            ctx,
+            creds,
+            url,
+            baseUrl,
+            timeoutMs,
+            itemIndex,
+            PARAM_ORDER,
+            config,
+        );
     },
 };

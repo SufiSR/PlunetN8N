@@ -6,8 +6,10 @@ import {
     NodeOperationError,
 } from 'n8n-workflow';
 import type { Creds, Service, NonEmptyArray } from '../core/types';
-import { escapeXml, sendSoapWithFallback } from '../core/soap';
 import { ensureSession } from '../core/session';
+import { executeOperation, type ExecuteConfig } from '../core/executor';
+import { labelize, asNonEmpty } from '../core/utils';
+import { NUMERIC_BOOLEAN_PARAMS } from '../core/constants';
 import {
     extractResultBase,
     extractStatusMessage,
@@ -27,15 +29,29 @@ import {
     parsePriceLineListResult,
     parsePriceUnitResult,
     parsePriceUnitListResult,
+    parseJobTrackingTimeListResult,
+} from '../core/parsers/job';
+import {
     parsePricelistResult,
     parsePricelistListResult,
     parsePricelistEntryListResult,
-    parseJobTrackingTimeListResult,
-} from '../core/parsers';
+} from '../core/parsers/pricelist';
 import { CurrencyTypeOptions } from '../enums/currency-type';
 import { CatTypeOptions } from '../enums/cat-type';
 import { JobStatusOptions } from '../enums/job-status';
 import { ProjectTypeOptions } from '../enums/project-type';
+import {
+    JOB_IN_FIELDS,
+    JOB_TRACKING_TIME_IN_FIELDS,
+    PRICE_LINE_IN_FIELDS,
+    MANDATORY_FIELDS,
+    FIELD_TYPES,
+} from '../core/field-definitions';
+import {
+    createTypedProperty,
+    createStandardExecuteConfig,
+    executeStandardService,
+} from '../core/service-utils';
 
 const RESOURCE = 'DataJob30';
 
@@ -43,8 +59,8 @@ const RESOURCE = 'DataJob30';
  *  Operation → parameters (order matters). UUID is auto-included.
  *  ─────────────────────────────────────────────────────────────────────────── */
 const PARAM_ORDER: Record<string, string[]> = {
-    addJobTrackingTime: ['jobID', 'projectType', 'JobTrackingTimeIN'],
-    addJobTrackingTimesList: ['jobID', 'projectType', 'JobTrackingTimeListIN'],
+    addJobTrackingTime: ['jobID', 'projectType', ...JOB_TRACKING_TIME_IN_FIELDS],
+    addJobTrackingTimesList: ['jobID', 'projectType', 'JobTrackingTimeListIN'], // TODO: Expand this
     assignJob: ['projectType', 'jobID', 'resourceID'],
     deleteJob: ['jobID', 'projectType'],
     deletePriceLine: ['jobID', 'projectType', 'priceLineID'],
@@ -80,8 +96,8 @@ const PARAM_ORDER: Record<string, string[]> = {
     getServices_List: ['languageCode'],
     insert: ['projectID', 'projectType', 'jobTypeAbbrevation'],
     insert2: ['projectID', 'projectType', 'jobTypeAbbrevation', 'itemID'],
-    insert3: ['JobIN', 'JobTypeShort'],
-    insertPriceLine: ['jobID', 'projectType', 'priceLineIN', 'createAsFirstItem'],
+    insert3: [...JOB_IN_FIELDS, 'JobTypeShort'],
+    insertPriceLine: ['jobID', 'projectType', ...PRICE_LINE_IN_FIELDS, 'createAsFirstItem'],
     runAutomaticJob: ['jobID', 'projectType'],
     setCatReport: ['pathOrUrl', 'overwriteExistingPriceLines', 'catType', 'projectType', 'analyzeAndCopyResultToJob', 'jobID'],
     setCatReport2: ['FileByteStream', 'FilePathName', 'Filesize', 'catType', 'projectType', 'analyzeAndCopyResultToJob', 'jobID'],
@@ -97,8 +113,8 @@ const PARAM_ORDER: Record<string, string[]> = {
     setResourceContactPersonID: ['projectType', 'jobID', 'contactID'],
     setResourceID: ['projectType', 'resourceID', 'jobID'],
     setStartDate: ['projectType', 'startDate', 'jobID'],
-    update: ['JobIN', 'enableNullOrEmptyValues'],
-    updatePriceLine: ['jobID', 'projectType', 'priceLineIN'],
+    update: [...JOB_IN_FIELDS, 'enableNullOrEmptyValues'],
+    updatePriceLine: ['jobID', 'projectType', ...PRICE_LINE_IN_FIELDS],
 };
 
 /** Return types (so we can dispatch to typed parsers) */
@@ -172,14 +188,6 @@ const RETURN_TYPE: Record<string, R> = {
 /** ─────────────────────────────────────────────────────────────────────────────
  *  UI wiring
  *  ─────────────────────────────────────────────────────────────────────────── */
-function labelize(op: string): string {
-    if (op.includes('_')) return op.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
-    return op.replace(/([a-z])([A-Z0-9])/g, '$1 $2').replace(/\b\w/g, (m) => m.toUpperCase());
-}
-function asNonEmpty<T>(arr: T[], err = 'Expected non-empty array'): [T, ...T[]] {
-    if (arr.length === 0) throw new Error(err);
-    return arr as [T, ...T[]];
-}
 
 // Specific param helpers
 const isEnableEmptyParam = (op: string, p: string) =>
@@ -260,7 +268,7 @@ const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
             const label = FRIENDLY_LABEL[op] ?? labelize(op);
             return { name: label, value: op, action: label, description: `Call ${label} on ${RESOURCE}` };
         }),
-);
+) as NonEmptyArray<INodePropertyOptions>;
 
 // Make update.enableNullOrEmptyValues a boolean; plus enum dropdowns
 const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
@@ -367,55 +375,6 @@ const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap((
     }),
 );
 
-/** ─────────────────────────────────────────────────────────────────────────────
- *  SOAP helpers and execution
- *  ─────────────────────────────────────────────────────────────────────────── */
-function buildEnvelope(op: string, childrenXml: string): string {
-    return `<?xml version="1.0" encoding="utf-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://API.Integration/">
-  <soapenv:Header/>
-  <soapenv:Body>
-    <api:${op}>
-${childrenXml.split('\n').map((l) => (l ? '      ' + l : l)).join('\n')}
-    </api:${op}>
-  </soapenv:Body>
-</soapenv:Envelope>`;
-}
-
-/** Golden rule enforcement */
-function throwIfSoapOrStatusError(
-    ctx: IExecuteFunctions,
-    itemIndex: number,
-    xml: string,
-    op?: string,
-) {
-    const fault = extractSoapFault(xml);
-    if (fault) {
-        const prefix = op ? `${op}: ` : '';
-        const code = fault.code ? ` [${fault.code}]` : '';
-        throw new NodeOperationError(ctx.getNode(), `${prefix}SOAP Fault: ${fault.message}${code}`, { itemIndex });
-    }
-
-    const base = extractResultBase(xml);
-    if (base.statusMessage && base.statusMessage !== 'OK') {
-        const prefix = op ? `${op}: ` : '';
-        const code = base.statusCode !== undefined ? ` [${base.statusCode}]` : '';
-        throw new NodeOperationError(ctx.getNode(), `${prefix}${base.statusMessage}${code}`, { itemIndex });
-    }
-    if (base.statusCode !== undefined && base.statusCode !== 0) {
-        const prefix = op ? `${op}: ` : '';
-        const msg = base.statusMessage || 'Plunet returned a non-zero status code';
-        throw new NodeOperationError(ctx.getNode(), `${prefix}${msg} [${base.statusCode}]`, { itemIndex });
-    }
-}
-
-
-// Params that should serialize booleans as 1/0 instead of true/false
-const NUMERIC_BOOLEAN_PARAMS = new Set(['enableNullOrEmptyValues']);
-NUMERIC_BOOLEAN_PARAMS.add('createAsFirstItem');
-NUMERIC_BOOLEAN_PARAMS.add('overwriteExistingPriceLines');
-NUMERIC_BOOLEAN_PARAMS.add('analyzeAndCopyResultToJob');
-
 function toSoapParamValue(raw: unknown, paramName: string): string {
     if (raw == null) return '';               // guard null/undefined
     if (typeof raw === 'string') return raw.trim();
@@ -428,145 +387,141 @@ function toSoapParamValue(raw: unknown, paramName: string): string {
     return String(raw);                        // fallback
 }
 
-async function runOp(
-    ctx: IExecuteFunctions,
-    creds: Creds,
-    url: string,
-    baseUrl: string,
-    timeoutMs: number,
-    itemIndex: number,
-    op: string,
-    paramNames: string[],
-): Promise<IDataObject> {
-    const uuid = await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, itemIndex);
+function escapeXml(s: string): string {
+    return s
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+}
 
-    const parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
-    for (const name of paramNames) {
-        const raw = ctx.getNodeParameter(name, itemIndex, '');
-        const val = toSoapParamValue(raw, name);
-        if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
-    }
+// Create the execution configuration
+function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeoutMs: number): ExecuteConfig {
+    return {
+        url,
+        soapActionFor: (op: string) => `http://API.Integration/${op}`,
+        paramOrder: PARAM_ORDER,
+        numericBooleans: NUMERIC_BOOLEAN_PARAMS,
+        getSessionId: async () => {
+            return await ensureSession({} as IExecuteFunctions, creds, `${baseUrl}/PlunetAPI`, timeoutMs, 0);
+        },
+        buildCustomBodyXml: () => null, // No custom body building needed for job operations
+        parseResult: (xml: string, op: string) => {
+            const rt = RETURN_TYPE[op] as R | undefined;
+            let payload: IDataObject;
 
-    const env11 = buildEnvelope(op, parts.join('\n'));
-    const soapAction = `http://API.Integration/${op}`;
-    const body = await sendSoapWithFallback(ctx, url, env11, soapAction, timeoutMs);
-
-    // Enforce error rules
-    throwIfSoapOrStatusError(ctx, itemIndex, body, op);
-
-    // Dispatch to the proper parser / shape
-    const rt = RETURN_TYPE[op] as R | undefined;
-    let payload: IDataObject;
-
-    switch (rt) {
-        case 'Job': {
-            const r = parseJobResult(body);
-            payload = { job: r.job, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'JobList': {
-            const r = parseJobListResult(body);
-            payload = { jobs: r.jobs, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'JobMetric': {
-            const r = parseJobMetricResult(body);
-            payload = { jobMetric: r.jobMetric, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'PriceLine': {
-            const r = parsePriceLineResult(body);
-            payload = { priceLine: r.priceLine, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'PriceLineList': {
-            const r = parsePriceLineListResult(body);
-            payload = { priceLines: r.priceLines, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'PriceUnit': {
-            const r = parsePriceUnitResult(body);
-            payload = { priceUnit: r.priceUnit, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'PriceUnitList': {
-            const r = parsePriceUnitListResult(body);
-            payload = { priceUnits: r.priceUnits, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'Pricelist': {
-            const r = parsePricelistResult(body);
-            payload = { pricelist: r.pricelist, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'PricelistList': {
-            const r = parsePricelistListResult(body);
-            payload = { pricelists: r.pricelists, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'PricelistEntryList': {
-            const r = parsePricelistEntryListResult(body);
-            payload = {
-                pricelistEntries: r.entries,              // ← use r.entries
-                statusMessage: r.statusMessage,
-                statusCode: r.statusCode,
-            };
-            break;
-        }
-        case 'JobTrackingTimeList': {
-            const r = parseJobTrackingTimeListResult(body);
-            payload = {
-                jobTrackingTimes: r.times,                // ← use r.times
-                completed: r.completed,                   // ← optional extra, if you want it surfaced
-                statusMessage: r.statusMessage,
-                statusCode: r.statusCode,
-            };
-            break;
-        }
-        case 'StringArray': {
-            const r = parseStringArrayResult(body);
-            payload = { data: r.data, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'String': {
-            const r = parseStringResult(body);
-            payload = { data: r.data ?? '', statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'Integer': {
-            const r = parseIntegerResult(body);
-            payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'IntegerArray': {
-            const r = parseIntegerArrayResult(body);
-            payload = { data: r.data, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'Date': {
-            const r = parseDateResult(body);
-            payload = { date: r.date ?? '', statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'Void': {
-            const r = parseVoidResult(body);
-            if (!r.ok) {
-                const msg = r.statusMessage || 'Operation failed';
-                throw new NodeOperationError(
-                    ctx.getNode(),
-                    `${op}: ${msg}${r.statusCode !== undefined ? ` [${r.statusCode}]` : ''}`,
-                    { itemIndex },
-                );
+            switch (rt) {
+                case 'Job': {
+                    const r = parseJobResult(xml);
+                    payload = { job: r.job, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'JobList': {
+                    const r = parseJobListResult(xml);
+                    payload = { jobs: r.jobs, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'JobMetric': {
+                    const r = parseJobMetricResult(xml);
+                    payload = { jobMetric: r.jobMetric, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'PriceLine': {
+                    const r = parsePriceLineResult(xml);
+                    payload = { priceLine: r.priceLine, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'PriceLineList': {
+                    const r = parsePriceLineListResult(xml);
+                    payload = { priceLines: r.priceLines, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'PriceUnit': {
+                    const r = parsePriceUnitResult(xml);
+                    payload = { priceUnit: r.priceUnit, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'PriceUnitList': {
+                    const r = parsePriceUnitListResult(xml);
+                    payload = { priceUnits: r.priceUnits, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'Pricelist': {
+                    const r = parsePricelistResult(xml);
+                    payload = { pricelist: r.pricelist, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'PricelistList': {
+                    const r = parsePricelistListResult(xml);
+                    payload = { pricelists: r.pricelists, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'PricelistEntryList': {
+                    const r = parsePricelistEntryListResult(xml);
+                    payload = {
+                        pricelistEntries: r.entries,              // ← use r.entries
+                        statusMessage: r.statusMessage,
+                        statusCode: r.statusCode,
+                    };
+                    break;
+                }
+                case 'JobTrackingTimeList': {
+                    const r = parseJobTrackingTimeListResult(xml);
+                    payload = {
+                        jobTrackingTimes: r.times,                // ← use r.times
+                        completed: r.completed,                   // ← optional extra, if you want it surfaced
+                        statusMessage: r.statusMessage,
+                        statusCode: r.statusCode,
+                    };
+                    break;
+                }
+                case 'StringArray': {
+                    const r = parseStringArrayResult(xml);
+                    payload = { data: r.data, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'String': {
+                    const r = parseStringResult(xml);
+                    payload = { data: r.data ?? '', statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'Integer': {
+                    const r = parseIntegerResult(xml);
+                    payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'IntegerArray': {
+                    const r = parseIntegerArrayResult(xml);
+                    payload = { data: r.data, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'Date': {
+                    const r = parseDateResult(xml);
+                    payload = { date: r.date ?? '', statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'Void': {
+                    const r = parseVoidResult(xml);
+                    if (!r.ok) {
+                        const msg = r.statusMessage || 'Operation failed';
+                        throw new NodeOperationError(
+                            {} as any,
+                            `${op}: ${msg}${r.statusCode !== undefined ? ` [${r.statusCode}]` : ''}`,
+                            { itemIndex: 0 },
+                        );
+                    }
+                    payload = { ok: r.ok, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                default: {
+                    payload = { statusMessage: extractStatusMessage(xml), rawResponse: xml };
+                }
             }
-            payload = { ok: r.ok, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        default: {
-            payload = { statusMessage: extractStatusMessage(body), rawResponse: body };
-        }
-    }
 
-    return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
+            return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
+        },
+    };
 }
 
 /** ─────────────────────────────────────────────────────────────────────────────
@@ -582,6 +537,17 @@ export const DataJob30Service: Service = {
     async execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex) {
         const paramNames = PARAM_ORDER[operation];
         if (!paramNames) throw new Error(`Unsupported operation for ${RESOURCE}: ${operation}`);
-        return runOp(ctx, creds, url, baseUrl, timeoutMs, itemIndex, operation, paramNames);
+
+        const config = createExecuteConfig(creds, url, baseUrl, timeoutMs);
+        
+        // Get parameters from the context
+        const itemParams: IDataObject = {};
+        for (const paramName of paramNames) {
+            itemParams[paramName] = ctx.getNodeParameter(paramName, itemIndex, '');
+        }
+
+        const result = await executeOperation(ctx, operation, itemParams, config);
+        // Ensure we return a single IDataObject, not an array
+        return Array.isArray(result) ? result[0] || {} : result;
     },
 };

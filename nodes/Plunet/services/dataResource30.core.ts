@@ -2,8 +2,10 @@ import {
     IExecuteFunctions, IDataObject, INodeProperties, INodePropertyOptions, NodeOperationError,
 } from 'n8n-workflow';
 import type { Creds, Service, NonEmptyArray } from '../core/types';
-import { escapeXml, sendSoapWithFallback } from '../core/soap';
 import { ensureSession } from '../core/session';
+import { executeOperation, type ExecuteConfig } from '../core/executor';
+import { labelize, asNonEmpty } from '../core/utils';
+import { NUMERIC_BOOLEAN_PARAMS } from '../core/constants';
 import {
     extractResultBase,
     extractStatusMessage,
@@ -12,20 +14,33 @@ import {
     parseIntegerArrayResult,
     parseVoidResult,
 } from '../core/xml';
-import { parseResourceResult } from '../core/parsers';
+import { parseResourceResult } from '../core/parsers/resource';
 
 import { ResourceStatusOptions, idToResourceStatusName } from '../enums/resource-status';
 import { ResourceTypeOptions, idToResourceTypeName } from '../enums/resource-type';
 import { FormOfAddressOptions, idToFormOfAddressName } from '../enums/form-of-address';
+import { WorkingStatusOptions } from '../enums/working-status';
+import {
+    toSoapParamValue,
+    escapeXml,
+    createStandardExecuteConfig,
+    executeStandardService,
+    generateOperationOptions,
+    createStringProperty,
+    createBooleanProperty,
+    createOptionsProperty,
+    createTypedProperty,
+    handleVoidResult,
+} from '../core/service-utils';
+import {
+    RESOURCE_IN_FIELDS,
+    RESOURCE_SEARCH_FILTER_FIELDS,
+    MANDATORY_FIELDS,
+    FIELD_TYPES,
+} from '../core/field-definitions';
 
 const RESOURCE = 'DataResource30Core';
 const ENDPOINT = 'DataResource30';
-
-/** WorkingStatus (1=INTERNAL, 2=EXTERNAL) */
-const WorkingStatusOptions: INodePropertyOptions[] = [
-    { name: 'Internal (1)', value: 1, description: 'INTERNAL' },
-    { name: 'External (2)', value: 2, description: 'EXTERNAL' },
-];
 
 /** ResourceIN fields for create/update */
 const RESOURCE_IN_FIELDS_CREATE = [
@@ -41,10 +56,10 @@ const RESOURCE_IN_FIELDS_UPDATE = [
 /** Operations → parameters (UUID auto-included) */
 const PARAM_ORDER: Record<string,string[]> = {
     getResourceObject: ['resourceID'],
-    insertObject: [...RESOURCE_IN_FIELDS_CREATE],
-    update: [...RESOURCE_IN_FIELDS_UPDATE, 'enableNullOrEmptyValues'],
+    insertObject: [...RESOURCE_IN_FIELDS],
+    update: [...RESOURCE_IN_FIELDS, 'enableNullOrEmptyValues'],
     delete: ['resourceID'],
-    search: ['SearchFilterResource'],
+    search: [...RESOURCE_SEARCH_FILTER_FIELDS],
 };
 
 type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Resource';
@@ -57,12 +72,6 @@ const RETURN_TYPE: Record<string,R> = {
 };
 
 /** UI wiring */
-function labelize(op: string) {
-    if (op.includes('_')) return op.replace(/_/g,' ').replace(/\b\w/g,(m)=>m.toUpperCase());
-    return op.replace(/([a-z])([A-Z0-9])/g,'$1 $2').replace(/\b\w/g,(m)=>m.toUpperCase());
-}
-function asNonEmpty<T>(arr: T[]): [T,...T[]] { if(!arr.length) throw new Error('Expected non-empty'); return arr as any; }
-
 const FRIENDLY_LABEL: Record<string,string> = {
     getResourceObject: 'Get Resource',
     insertObject: 'Create Resource',
@@ -73,11 +82,10 @@ const FRIENDLY_LABEL: Record<string,string> = {
 
 const OP_ORDER = ['getResourceObject','insertObject','update','delete','search'] as const;
 
-const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
-    [...OP_ORDER].map((op) => {
-        const label = FRIENDLY_LABEL[op] ?? labelize(op);
-        return { name: label, value: op, action: label, description: `Call ${label} on ${ENDPOINT}` };
-    }),
+const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptions(
+    OP_ORDER,
+    FRIENDLY_LABEL,
+    ENDPOINT,
 );
 
 // enum helpers
@@ -91,76 +99,79 @@ const extraProperties: INodeProperties[] =
         params.map<INodeProperties>((p) => {
             // dropdowns for enum params
             if (isStatusParam(p)) {
-                return {
-                    displayName: 'Status',
-                    name: p, type: 'options', options: ResourceStatusOptions, default: 1,
-                    description: `${p} parameter for ${op} (ResourceStatus enum)`,
-                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-                };
+                return createOptionsProperty(
+                    p,
+                    'Status',
+                    `${p} parameter for ${op} (ResourceStatus enum)`,
+                    RESOURCE,
+                    op,
+                    ResourceStatusOptions,
+                    1,
+                );
             }
             if (isWorkingStatusParam(p)) {
-                return {
-                    displayName: 'Working Status',
-                    name: p, type: 'options', options: WorkingStatusOptions, default: 1,
-                    description: `${p} parameter for ${op} (1=INTERNAL, 2=EXTERNAL)`,
-                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-                };
+                return createOptionsProperty(
+                    p,
+                    'Working Status',
+                    `${p} parameter for ${op} (1=INTERNAL, 2=EXTERNAL)`,
+                    RESOURCE,
+                    op,
+                    WorkingStatusOptions,
+                    1,
+                );
             }
             if (isResourceTypeParam(p)) {
-                return {
-                    displayName: 'Resource Type',
-                    name: p, type: 'options', options: ResourceTypeOptions, default: 0,
-                    description: `${p} parameter for ${op} (ResourceType enum)`,
-                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-                };
+                return createOptionsProperty(
+                    p,
+                    'Resource Type',
+                    `${p} parameter for ${op} (ResourceType enum)`,
+                    RESOURCE,
+                    op,
+                    ResourceTypeOptions,
+                    0,
+                );
             }
             if (isFormOfAddressParam(p)) {
-                return {
-                    displayName: 'Form of Address',
-                    name: p, type: 'options', options: FormOfAddressOptions, default: 3,
-                    description: `${p} parameter for ${op} (FormOfAddressType enum)`,
-                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-                };
+                return createOptionsProperty(
+                    p,
+                    'Form of Address',
+                    `${p} parameter for ${op} (FormOfAddressType enum)`,
+                    RESOURCE,
+                    op,
+                    FormOfAddressOptions,
+                    3,
+                );
             }
             // toggle on update
             if (op === 'update' && p === 'enableNullOrEmptyValues') {
-                return {
-                    displayName: 'Overwrite with Empty Values',
-                    name: p, type: 'boolean', default: false,
-                    description: 'Empty inputs overwrite existing values (otherwise they’re ignored).',
-                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-                };
+                return createBooleanProperty(
+                    p,
+                    'Overwrite with Empty Values',
+                    'Empty inputs overwrite existing values (otherwise they are ignored).',
+                    RESOURCE,
+                    op,
+                    false,
+                );
             }
-            // default: string
-            return {
-                displayName: p, name: p, type: 'string', default: '',
-                description: `${p} parameter for ${op}`,
-                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-            };
+            // Create user-friendly display names and use proper field types
+            const isMandatory = MANDATORY_FIELDS[op]?.includes(p) || false;
+            const fieldType = FIELD_TYPES[p] || 'string';
+            const displayName = p
+                .replace(/([A-Z])/g, ' $1')
+                .replace(/^./, str => str.toUpperCase())
+                .trim();
+            
+            return createTypedProperty(
+                p,
+                displayName,
+                `${displayName} parameter for ${op}`,
+                RESOURCE,
+                op,
+                fieldType,
+                isMandatory,
+            );
         }),
     );
-
-/** SOAP helpers */
-function buildEnvelope(op: string, childrenXml: string) {
-    return `<?xml version="1.0" encoding="utf-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://API.Integration/">
-  <soapenv:Header/><soapenv:Body>
-    <api:${op}>
-${childrenXml.split('\n').map((l)=>l?`      ${l}`:l).join('\n')}
-    </api:${op}>
-  </soapenv:Body>
-</soapenv:Envelope>`;
-}
-
-function throwIfSoapOrStatusError(ctx: IExecuteFunctions, itemIndex: number, xml: string, op?: string) {
-    const fault = extractSoapFault(xml);
-    if (fault) throw new NodeOperationError(ctx.getNode(), `${op?op+': ':''}SOAP Fault: ${fault.message}${fault.code?` [${fault.code}]`:''}`, { itemIndex });
-    const base = extractResultBase(xml);
-    if (base.statusMessage && base.statusMessage !== 'OK')
-        throw new NodeOperationError(ctx.getNode(), `${op?op+': ':''}${base.statusMessage}${base.statusCode!==undefined?` [${base.statusCode}]`:''}`, { itemIndex });
-    if (base.statusCode !== undefined && base.statusCode !== 0)
-        throw new NodeOperationError(ctx.getNode(), `${op?op+': ':''}${base.statusMessage || 'Plunet returned a non-zero status code'} [${base.statusCode}]`, { itemIndex });
-}
 
 function buildResourceINXml(ctx: IExecuteFunctions, itemIndex: number, fieldNames: readonly string[]): string {
     const parts: string[] = [];
@@ -172,98 +183,94 @@ function buildResourceINXml(ctx: IExecuteFunctions, itemIndex: number, fieldName
     return `<ResourceIN>\n${parts.map((l)=>'  '+l).join('\n')}\n</ResourceIN>`;
 }
 
-// Booleans that Plunet expects as 1/0 (not "true"/"false")
-const NUMERIC_BOOLEAN_PARAMS = new Set<string>([
-    'enableNullOrEmptyValues',
-]);
-
-function toSoapParamValue(raw: unknown, paramName: string): string {
-    if (raw == null) return '';               // guard null/undefined
-    if (typeof raw === 'string') return raw.trim();
-    if (typeof raw === 'number') return String(raw);
-    if (typeof raw === 'boolean') {
-        return NUMERIC_BOOLEAN_PARAMS.has(paramName)
-            ? (raw ? '1' : '0')                   // numeric boolean
-            : (raw ? 'true' : 'false');           // normal boolean
+// Build <SearchFilter_Resource>…</SearchFilter_Resource>
+function buildResourceSearchFilterXml(
+    ctx: IExecuteFunctions,
+    itemIndex: number,
+    fields: readonly string[],
+): string {
+    const lines: string[] = ['<SearchFilter_Resource>'];
+    for (const name of fields) {
+        const raw = ctx.getNodeParameter(name, itemIndex, '');
+        const val = toSoapParamValue(raw, name);
+        if (val !== '') {
+            lines.push(`  <${name}>${escapeXml(val)}</${name}>`);
+        }
     }
-    return String(raw);                        // fallback
+    lines.push('</SearchFilter_Resource>');
+    return lines.join('\n      ');
 }
 
-async function runOp(
-    ctx: IExecuteFunctions, creds: Creds, url: string, baseUrl: string, timeoutMs: number,
-    itemIndex: number, op: string, paramNames: string[],
-): Promise<IDataObject> {
-    const uuid = await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, itemIndex);
+// Common utility functions are now imported from service-utils
 
-    const parts: string[] = [`<UUID>${escapeXml(uuid)}</UUID>`];
+// Create the execution configuration
+function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeoutMs: number): ExecuteConfig {
+    return createStandardExecuteConfig(
+        creds,
+        url,
+        baseUrl,
+        timeoutMs,
+        PARAM_ORDER,
+        (xml: string, op: string) => {
+            const rt = RETURN_TYPE[op] as R|undefined;
+            let payload: IDataObject;
 
-    if (op === 'insertObject') {
-        parts.push(buildResourceINXml(ctx, itemIndex, RESOURCE_IN_FIELDS_CREATE));
-    } else if (op === 'update') {
-        const resourceIn = buildResourceINXml(ctx, itemIndex, RESOURCE_IN_FIELDS_UPDATE);
-        parts.push(resourceIn);
-        const en = ctx.getNodeParameter('enableNullOrEmptyValues', itemIndex, false) as boolean;
-        parts.push(`<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`);
-    } else {
-        for (const name of paramNames) {
-            const raw = ctx.getNodeParameter(name, itemIndex, '');
-            const val = toSoapParamValue(raw, name);
-            if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
-        }
-    }
-
-    const env11 = buildEnvelope(op, parts.join('\n'));
-    const body = await sendSoapWithFallback(ctx, url, env11, `http://API.Integration/${op}`, timeoutMs);
-
-    throwIfSoapOrStatusError(ctx, itemIndex, body, op);
-
-    const rt = RETURN_TYPE[op] as R|undefined;
-    let payload: IDataObject;
-
-    switch (rt) {
-        case 'Resource': {
-            const r = parseResourceResult(body);
-            const res = (r as any).resource || undefined;
-            const statusName = idToResourceStatusName(res?.status ?? res?.Status);
-            const typeName = idToResourceTypeName(res?.resourceType ?? res?.ResourceType);
-            const wsId = res?.workingStatus ?? res?.WorkingStatus;
-            const wsName = wsId === 1 ? 'INTERNAL' : wsId === 2 ? 'EXTERNAL' : undefined;
-            const foaName = idToFormOfAddressName(res?.formOfAddress ?? res?.FormOfAddress);
-            const resource = res ? {
-                ...res,
-                ...(statusName ? { status: statusName } : {}),
-                ...(typeName ? { resourceType: typeName } : {}),
-                ...(wsName ? { workingStatus: wsName } : {}),
-                ...(foaName ? { formOfAddressName: foaName } : {}),
-            } : undefined;
-            payload = { resource, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'Integer': {
-            const r = parseIntegerResult(body);
-            payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'IntegerArray': {
-            const r = parseIntegerArrayResult(body);
-            payload = { data: r.data, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        case 'Void': {
-            const r = parseVoidResult(body);
-            if (!r.ok) {
-                const msg = r.statusMessage || 'Operation failed';
-                throw new NodeOperationError(ctx.getNode(), `${op}: ${msg}${r.statusCode!==undefined?` [${r.statusCode}]`:''}`, { itemIndex });
+            switch (rt) {
+                case 'Resource': {
+                    const r = parseResourceResult(xml);
+                    const res = (r as any).resource || undefined;
+                    const statusName = idToResourceStatusName(res?.status ?? res?.Status);
+                    const typeName = idToResourceTypeName(res?.resourceType ?? res?.ResourceType);
+                    const wsId = res?.workingStatus ?? res?.WorkingStatus;
+                    const wsName = wsId === 1 ? 'INTERNAL' : wsId === 2 ? 'EXTERNAL' : undefined;
+                    const foaName = idToFormOfAddressName(res?.formOfAddress ?? res?.FormOfAddress);
+                    const resource = res ? {
+                        ...res,
+                        ...(statusName ? { status: statusName } : {}),
+                        ...(typeName ? { resourceType: typeName } : {}),
+                        ...(wsName ? { workingStatus: wsName } : {}),
+                        ...(foaName ? { formOfAddressName: foaName } : {}),
+                    } : undefined;
+                    payload = { resource, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'Integer': {
+                    const r = parseIntegerResult(xml);
+                    payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'IntegerArray': {
+                    const r = parseIntegerArrayResult(xml);
+                    payload = { data: r.data, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    break;
+                }
+                case 'Void': {
+                    payload = handleVoidResult(xml, op, parseVoidResult);
+                    break;
+                }
+                default: {
+                    payload = { statusMessage: extractStatusMessage(xml), rawResponse: xml };
+                }
             }
-            payload = { ok: r.ok, statusMessage: r.statusMessage, statusCode: r.statusCode };
-            break;
-        }
-        default: {
-            payload = { statusMessage: extractStatusMessage(body), rawResponse: body };
-        }
-    }
 
-    return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
+            return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
+        },
+        (op: string, itemParams: IDataObject, sessionId: string) => {
+            if (op === 'insertObject') {
+                const resourceIn = buildResourceINXml({} as IExecuteFunctions, 0, RESOURCE_IN_FIELDS);
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n${resourceIn}`;
+            } else if (op === 'update') {
+                const resourceIn = buildResourceINXml({} as IExecuteFunctions, 0, RESOURCE_IN_FIELDS);
+                const en = itemParams.enableNullOrEmptyValues as boolean || false;
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n${resourceIn}\n<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`;
+            } else if (op === 'search') {
+                // Build <SearchFilter_Resource> with search fields
+                const searchFilter = buildResourceSearchFilterXml({} as IExecuteFunctions, 0, RESOURCE_SEARCH_FILTER_FIELDS);
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n${searchFilter}`;
+            }
+            return null;
+        },
+    );
 }
 
 /** Service export */
@@ -275,8 +282,17 @@ export const DataResource30CoreService: Service = {
     operationOptions,
     extraProperties,
     async execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex) {
-        const paramNames = PARAM_ORDER[operation];
-        if (!paramNames) throw new Error(`Unsupported operation for ${RESOURCE}: ${operation}`);
-        return runOp(ctx, creds, url, baseUrl, timeoutMs, itemIndex, operation, paramNames);
+        const config = createExecuteConfig(creds, url, baseUrl, timeoutMs);
+        return await executeStandardService(
+            operation,
+            ctx,
+            creds,
+            url,
+            baseUrl,
+            timeoutMs,
+            itemIndex,
+            PARAM_ORDER,
+            config,
+        );
     },
 };
