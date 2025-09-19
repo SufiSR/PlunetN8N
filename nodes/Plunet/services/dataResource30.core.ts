@@ -483,6 +483,10 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 // Build <SearchFilter_Resource> with search fields
                 const searchFilter = buildResourceSearchFilterXml(ctx, itemIndex, RESOURCE_SEARCH_FILTER_FIELDS);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${searchFilter}`;
+            } else if (op === 'delete') {
+                // Simple delete operation - just UUID and resourceID
+                const resourceID = ctx.getNodeParameter('resourceID', itemIndex) as number;
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n<resourceID>${escapeXml(String(resourceID))}</resourceID>`;
             }
             return null;
         },
