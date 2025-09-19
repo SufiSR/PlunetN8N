@@ -178,22 +178,7 @@ const extraProperties: INodeProperties[] = [
         });
     }),
 
-    // Simple toggle to show/hide optional fields for insertObject and update operations
-    {
-        displayName: 'Show Optional Fields',
-        name: 'showOptionalFields',
-        type: 'boolean',
-        default: false,
-        displayOptions: {
-            show: {
-                resource: [RESOURCE],
-                operation: ['insertObject', 'update'],
-            },
-        },
-        description: 'Toggle to show additional optional fields for resource data',
-    },
-
-    // Optional fields for insertObject and update operations (shown when toggle is enabled)
+    // Collection field for optional fields - exactly like HubSpot's "Add Property"
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
         if (op !== 'insertObject' && op !== 'update') return [];
 
@@ -203,140 +188,118 @@ const extraProperties: INodeProperties[] = [
             f !== 'status' &&
             f !== 'workingStatus'
         );
-        
-        return optionalFields.map<INodeProperties>((p) => {
-            // Handle special enum fields for optional fields
-            if (isResourceTypeParam(p)) {
+
+        // Create options for the collection
+        const collectionOptions = optionalFields.map(field => {
+            const fieldType = FIELD_TYPES[field] || 'string';
+            const displayName = labelize(field);
+
+            // Handle special enum fields
+            if (isResourceTypeParam(field)) {
                 return {
                     displayName: 'Resource Type',
-                    name: p,
+                    name: field,
                     type: 'options' as const,
                     options: [
                         { name: 'Please select...', value: '' },
                         ...ResourceTypeOptions
                     ],
-                    default: '', // No default value - only include if user sets it
-                    required: false,
-                    description: `${p} parameter for ${op} (ResourceType enum)`,
-                    displayOptions: {
-                        show: {
-                            resource: [RESOURCE],
-                            operation: [op],
-                            showOptionalFields: [true],
-                        },
-                    },
+                    default: '',
+                    description: `${field} parameter (ResourceType enum)`,
                 };
             }
-            if (isFormOfAddressParam(p)) {
+            if (isFormOfAddressParam(field)) {
                 return {
                     displayName: 'Form of Address',
-                    name: p,
+                    name: field,
                     type: 'options' as const,
                     options: [
                         { name: 'Please select...', value: '' },
                         ...FormOfAddressOptions
                     ],
-                    default: '', // No default value - only include if user sets it
-                    required: false,
-                    description: `${p} parameter for ${op} (FormOfAddressType enum)`,
-                    displayOptions: {
-                        show: {
-                            resource: [RESOURCE],
-                            operation: [op],
-                            showOptionalFields: [true],
-                        },
-                    },
+                    default: '',
+                    description: `${field} parameter (FormOfAddressType enum)`,
                 };
             }
-            if (isStatusParam(p)) {
+            if (isStatusParam(field)) {
                 return {
                     displayName: 'Status',
-                    name: p,
+                    name: field,
                     type: 'options' as const,
                     options: [
                         { name: 'Please select...', value: '' },
                         ...ResourceStatusOptions
                     ],
-                    default: '', // No default value - only include if user sets it
-                    required: false,
-                    description: `${p} parameter for ${op} (ResourceStatus enum)`,
-                    displayOptions: {
-                        show: {
-                            resource: [RESOURCE],
-                            operation: [op],
-                            showOptionalFields: [true],
-                        },
-                    },
+                    default: '',
+                    description: `${field} parameter (ResourceStatus enum)`,
                 };
             }
-            if (isWorkingStatusParam(p)) {
+            if (isWorkingStatusParam(field)) {
                 return {
                     displayName: 'Working Status',
-                    name: p,
+                    name: field,
                     type: 'options' as const,
                     options: [
                         { name: 'Please select...', value: '' },
                         ...WorkingStatusOptions
                     ],
-                    default: '', // No default value - only include if user sets it
-                    required: false,
-                    description: `${p} parameter for ${op} (1=INTERNAL, 2=EXTERNAL)`,
-                    displayOptions: {
-                        show: {
-                            resource: [RESOURCE],
-                            operation: [op],
-                            showOptionalFields: [true],
-                        },
-                    },
+                    default: '',
+                    description: `${field} parameter (1=INTERNAL, 2=EXTERNAL)`,
                 };
             }
 
             // Handle regular fields
-            const fieldType = FIELD_TYPES[p] || 'string';
-            const displayName = labelize(p);
-            
-            const baseProperty = {
-                displayName,
-                name: p,
-                required: false,
-                description: `${displayName} parameter for ${op}`,
-                displayOptions: {
-                    show: {
-                        resource: [RESOURCE],
-                        operation: [op],
-                        showOptionalFields: [true],
-                    },
-                },
-            };
-
             switch (fieldType) {
                 case 'number':
                     return {
-                        ...baseProperty,
-                        type: 'number',
+                        displayName,
+                        name: field,
+                        type: 'number' as const,
                         default: 0,
                         typeOptions: { minValue: 0, step: 1 },
+                        description: `${displayName} parameter`,
                     };
                 case 'boolean':
                     return {
-                        ...baseProperty,
-                        type: 'boolean',
+                        displayName,
+                        name: field,
+                        type: 'boolean' as const,
                         default: false,
+                        description: `${displayName} parameter`,
                     };
                 case 'date':
                     return {
-                        ...baseProperty,
-                        type: 'dateTime',
+                        displayName,
+                        name: field,
+                        type: 'dateTime' as const,
                         default: '',
+                        description: `${displayName} parameter`,
                     };
                 default: // 'string'
                     return {
-                        ...baseProperty,
-                        type: 'string',
+                        displayName,
+                        name: field,
+                        type: 'string' as const,
                         default: '',
+                        description: `${displayName} parameter`,
                     };
             }
         });
+
+        return [{
+            displayName: 'Additional Fields',
+            name: 'additionalFields',
+            type: 'collection' as const,
+            placeholder: 'Add Field',
+            default: {},
+            displayOptions: {
+                show: {
+                    resource: [RESOURCE],
+                    operation: [op],
+                },
+            },
+            options: collectionOptions,
+        }];
     }),
     
     // Keep non-RESOURCE_IN_FIELDS as regular properties
@@ -368,10 +331,22 @@ function buildResourceINXml(
 ): string {
     const lines: string[] = ['<ResourceIN>'];
     
-    // Process all fields (mandatory + optional if toggle is enabled)
+    // Get additional fields from collection
+    const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
+    
+    // Process all fields (mandatory + optional from collection)
     for (const name of fields) {
         try {
-            const raw = ctx.getNodeParameter(name, itemIndex, '');
+            let raw: any;
+            
+            // Check if this field is in the additional fields collection
+            if (additionalFields[name] !== undefined) {
+                raw = additionalFields[name];
+            } else {
+                // Try to get it as a regular parameter (for mandatory fields)
+                raw = ctx.getNodeParameter(name, itemIndex, '');
+            }
+            
             const val = toSoapParamValue(raw, name);
             
             // Special handling for "enableNullOrEmptyValues" - always include it
@@ -469,39 +444,38 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
         },
         (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
             if (op === 'insertObject') {
-                const showOptional = ctx.getNodeParameter('showOptionalFields', itemIndex, false) as boolean;
-
-                // Determine which fields to include
-                let fieldsToInclude: readonly string[] = MANDATORY_FIELDS[op] || [];
-                if (showOptional) {
-                    // Include all optional fields when toggle is enabled
-                    const mandatoryFields = MANDATORY_FIELDS[op] || [];
-                    const optionalFields = RESOURCE_IN_FIELDS.filter(f => 
-                        !mandatoryFields.includes(f) && 
-                        f !== 'status' &&
-                        f !== 'workingStatus'
-                    );
-                    fieldsToInclude = [...mandatoryFields, ...optionalFields] as readonly string[];
-                }
+                // Get mandatory fields
+                const mandatoryFields = MANDATORY_FIELDS[op] || [];
+                
+                // Get additional fields from collection
+                const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
+                const selectedOptionalFields = Object.keys(additionalFields).filter(key => 
+                    additionalFields[key] !== '' && 
+                    additionalFields[key] !== null && 
+                    additionalFields[key] !== undefined
+                );
+                
+                // Combine mandatory and selected optional fields
+                const fieldsToInclude = [...mandatoryFields, ...selectedOptionalFields] as readonly string[];
 
                 const resourceIn = buildResourceINXml(ctx, itemIndex, fieldsToInclude, false);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${resourceIn}`;
             } else if (op === 'update') {
-                const showOptional = ctx.getNodeParameter('showOptionalFields', itemIndex, false) as boolean;
+                // Get mandatory fields
+                const mandatoryFields = MANDATORY_FIELDS[op] || [];
+                
+                // Get additional fields from collection
+                const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
+                const selectedOptionalFields = Object.keys(additionalFields).filter(key => 
+                    additionalFields[key] !== '' && 
+                    additionalFields[key] !== null && 
+                    additionalFields[key] !== undefined
+                );
+                
+                // Combine mandatory and selected optional fields
+                const fieldsToInclude = [...mandatoryFields, ...selectedOptionalFields] as readonly string[];
+                
                 const en = itemParams.enableNullOrEmptyValues as boolean || false;
-
-                // Determine which fields to include
-                let fieldsToInclude: readonly string[] = MANDATORY_FIELDS[op] || [];
-                if (showOptional) {
-                    // Include all optional fields when toggle is enabled
-                    const mandatoryFields = MANDATORY_FIELDS[op] || [];
-                    const optionalFields = RESOURCE_IN_FIELDS.filter(f => 
-                        !mandatoryFields.includes(f) && 
-                        f !== 'status' &&
-                        f !== 'workingStatus'
-                    );
-                    fieldsToInclude = [...mandatoryFields, ...optionalFields] as readonly string[];
-                }
 
                 const resourceIn = buildResourceINXml(ctx, itemIndex, fieldsToInclude, en);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${resourceIn}\n<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`;

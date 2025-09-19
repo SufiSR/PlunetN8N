@@ -120,22 +120,7 @@ const extraProperties: INodeProperties[] = [
         });
     }),
     
-    // Simple toggle to show/hide optional fields for insert2 and update operations
-    {
-        displayName: 'Show Optional Fields',
-        name: 'showOptionalFields',
-        type: 'boolean',
-        default: false,
-        displayOptions: {
-            show: {
-                resource: [RESOURCE],
-                operation: ['insert2', 'update'],
-            },
-        },
-        description: 'Toggle to show additional optional fields for customer data',
-    },
-
-    // Optional fields for insert2 and update operations (shown when toggle is enabled)
+    // Collection field for optional fields - exactly like HubSpot's "Add Property"
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
         if (op !== 'insert2' && op !== 'update') return [];
 
@@ -145,53 +130,63 @@ const extraProperties: INodeProperties[] = [
             f !== 'customerID' && 
             f !== 'status'
         );
-        
-        return optionalFields.map<INodeProperties>((p) => {
-            const fieldType = FIELD_TYPES[p] || 'string';
-            const displayName = labelize(p);
-            
-            const baseProperty = {
-                displayName,
-                name: p,
-                required: false,
-                description: `${displayName} parameter for ${op}`,
-                displayOptions: {
-                    show: {
-                        resource: [RESOURCE],
-                        operation: [op],
-                        showOptionalFields: [true],
-                    },
-                },
-            };
+
+        // Create options for the collection
+        const collectionOptions = optionalFields.map(field => {
+            const fieldType = FIELD_TYPES[field] || 'string';
+            const displayName = labelize(field);
 
             switch (fieldType) {
                 case 'number':
                     return {
-                        ...baseProperty,
-                        type: 'number',
+                        displayName,
+                        name: field,
+                        type: 'number' as const,
                         default: 0,
                         typeOptions: { minValue: 0, step: 1 },
+                        description: `${displayName} parameter`,
                     };
                 case 'boolean':
                     return {
-                        ...baseProperty,
-                        type: 'boolean',
+                        displayName,
+                        name: field,
+                        type: 'boolean' as const,
                         default: false,
+                        description: `${displayName} parameter`,
                     };
                 case 'date':
                     return {
-                        ...baseProperty,
-                        type: 'dateTime',
+                        displayName,
+                        name: field,
+                        type: 'dateTime' as const,
                         default: '',
+                        description: `${displayName} parameter`,
                     };
                 default: // 'string'
                     return {
-                        ...baseProperty,
-                        type: 'string',
+                        displayName,
+                        name: field,
+                        type: 'string' as const,
                         default: '',
+                        description: `${displayName} parameter`,
                     };
             }
         });
+
+        return [{
+            displayName: 'Additional Fields',
+            name: 'additionalFields',
+            type: 'collection' as const,
+            placeholder: 'Add Field',
+            default: {},
+            displayOptions: {
+                show: {
+                    resource: [RESOURCE],
+                    operation: [op],
+                },
+            },
+            options: collectionOptions,
+        }];
     }),
     
     // Keep non-CUSTOMER_IN_FIELDS as regular properties
@@ -225,24 +220,33 @@ function buildCustomerINXml(
     includeEmpty: boolean,
 ): string {
     const lines: string[] = ['<CustomerIN>'];
-    
-    // Process all fields (mandatory + optional if toggle is enabled)
+
+    // Get additional fields from collection
+    const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
+
+    // Process all fields (mandatory + optional from collection)
     for (const name of fields) {
         try {
-            const raw = ctx.getNodeParameter(name, itemIndex, '');
+            let raw: any;
+            
+            // Check if this field is in the additional fields collection
+            if (additionalFields[name] !== undefined) {
+                raw = additionalFields[name];
+            } else {
+                // Try to get it as a regular parameter (for mandatory fields)
+                raw = ctx.getNodeParameter(name, itemIndex, '');
+            }
+            
             const val = toSoapParamValue(raw, name);
             if (includeEmpty || val !== '') {
                 lines.push(`  <${name}>${escapeXml(val)}</${name}>`);
             }
         } catch (error) {
-            // Log the error and continue with empty value
-            const errorMsg = `Error getting parameter '${name}' for item ${itemIndex}: ${error instanceof Error ? error.message : String(error)}`;
-            // In n8n context, errors will be visible in the workflow execution logs
-            // Add empty tag to maintain XML structure
-            lines.push(`  <${name}></${name}>`);
+            // If parameter doesn't exist, skip it (don't add empty tag)
+            // This prevents including fields that weren't set by the user
         }
     }
-    
+
     lines.push('</CustomerIN>');
     return lines.join('\n      ');
 }
@@ -290,39 +294,38 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
         },
         (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
             if (op === 'update') {
-                const showOptional = ctx.getNodeParameter('showOptionalFields', itemIndex, false) as boolean;
+                // Get mandatory fields
+                const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
+                
+                // Get additional fields from collection
+                const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
+                const selectedOptionalFields = Object.keys(additionalFields).filter(key => 
+                    additionalFields[key] !== '' && 
+                    additionalFields[key] !== null && 
+                    additionalFields[key] !== undefined
+                );
+                
+                // Combine mandatory and selected optional fields
+                const fieldsToInclude = [...mandatoryFields, ...selectedOptionalFields] as readonly string[];
+                
                 const en = itemParams.enableNullOrEmptyValues as boolean || false;
-
-                // Determine which fields to include
-                let fieldsToInclude: readonly string[] = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
-                if (showOptional) {
-                    // Include all optional fields when toggle is enabled
-                    const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
-                    const optionalFields = CUSTOMER_IN_FIELDS.filter(f => 
-                        !mandatoryFields.includes(f) && 
-                        f !== 'customerID' && 
-                        f !== 'status'
-                    );
-                    fieldsToInclude = [...mandatoryFields, ...optionalFields] as readonly string[];
-                }
 
                 const customerIn = buildCustomerINXml(ctx, itemIndex, fieldsToInclude, en);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}\n<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`;
             } else if (op === 'insert2') {
-                const showOptional = ctx.getNodeParameter('showOptionalFields', itemIndex, false) as boolean;
-
-                // Determine which fields to include
-                let fieldsToInclude: readonly string[] = MANDATORY_FIELDS[op] || [];
-                if (showOptional) {
-                    // Include all optional fields when toggle is enabled
-                    const mandatoryFields = MANDATORY_FIELDS[op] || [];
-                    const optionalFields = CUSTOMER_IN_FIELDS.filter(f => 
-                        !mandatoryFields.includes(f) && 
-                        f !== 'customerID' && 
-                        f !== 'status'
-                    );
-                    fieldsToInclude = [...mandatoryFields, ...optionalFields] as readonly string[];
-                }
+                // Get mandatory fields
+                const mandatoryFields = MANDATORY_FIELDS[op] || [];
+                
+                // Get additional fields from collection
+                const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
+                const selectedOptionalFields = Object.keys(additionalFields).filter(key => 
+                    additionalFields[key] !== '' && 
+                    additionalFields[key] !== null && 
+                    additionalFields[key] !== undefined
+                );
+                
+                // Combine mandatory and selected optional fields
+                const fieldsToInclude = [...mandatoryFields, ...selectedOptionalFields] as readonly string[];
 
                 const customerIn = buildCustomerINXml(ctx, itemIndex, fieldsToInclude, false);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}`;
