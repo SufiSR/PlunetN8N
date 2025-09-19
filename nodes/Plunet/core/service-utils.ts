@@ -55,7 +55,7 @@ export function createStandardExecuteConfig(
     timeoutMs: number,
     paramOrder: Record<string, string[]>,
     parseResult: (xml: string, op: string) => IDataObject,
-    buildCustomBodyXml?: (op: string, itemParams: IDataObject, sessionId: string) => string | null,
+    buildCustomBodyXml?: (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => string | null,
 ): ExecuteConfig {
     return {
         url,

@@ -10,7 +10,7 @@ export interface ExecuteConfig {
   soapActionFor: (op: string) => string;
   paramOrder: ParamOrder;
   numericBooleans?: NumericBoolSet;
-  buildCustomBodyXml?: (op: string, itemParams: IDataObject, sessionId: string) => string | null;
+  buildCustomBodyXml?: (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => string | null;
   parseResult: (xml: string, op: string) => IDataObject | IDataObject[];
   getSessionId: (ctx: IExecuteFunctions, itemIndex: number) => Promise<string>;
 }
@@ -24,7 +24,7 @@ export async function executeOperation(
 ): Promise<IDataObject | IDataObject[]> {
   const sessionId = await cfg.getSessionId(ctx, itemIndex);
   const bodyXml =
-    cfg.buildCustomBodyXml?.(op, itemParams, sessionId) ??
+    cfg.buildCustomBodyXml?.(op, itemParams, sessionId, ctx, itemIndex) ??
     defaultBodyXml(op, itemParams, sessionId, cfg.paramOrder, cfg.numericBooleans);
 
   const envelope = buildEnvelope(op, bodyXml);

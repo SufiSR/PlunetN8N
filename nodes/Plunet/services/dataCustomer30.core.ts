@@ -131,10 +131,18 @@ function buildCustomerINXml(
 ): string {
     const lines: string[] = ['<CustomerIN>'];
     for (const name of fields) {
-        const raw = ctx.getNodeParameter(name, itemIndex, '');
-        const val = toSoapParamValue(raw, name);
-        if (includeEmpty || val !== '') {
-            lines.push(`  <${name}>${escapeXml(val)}</${name}>`);
+        try {
+            const raw = ctx.getNodeParameter(name, itemIndex, '');
+            const val = toSoapParamValue(raw, name);
+            if (includeEmpty || val !== '') {
+                lines.push(`  <${name}>${escapeXml(val)}</${name}>`);
+            }
+        } catch (error) {
+            // Log the error and continue with empty value
+            const errorMsg = `Error getting parameter '${name}' for item ${itemIndex}: ${error instanceof Error ? error.message : String(error)}`;
+            // In n8n context, errors will be visible in the workflow execution logs
+            // Add empty tag to maintain XML structure
+            lines.push(`  <${name}></${name}>`);
         }
     }
     lines.push('</CustomerIN>');
@@ -182,15 +190,15 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             }
             return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
         },
-        (op: string, itemParams: IDataObject, sessionId: string) => {
+        (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
             if (op === 'update') {
                 // Build <CustomerIN>…> with the update fields,
                 // include empty tags only if user chose to overwrite with empty values
                 const en = itemParams.enableNullOrEmptyValues as boolean || false;
-                const customerIn = buildCustomerINXml({} as IExecuteFunctions, 0, CUSTOMER_IN_FIELDS, en);
+                const customerIn = buildCustomerINXml(ctx, itemIndex, CUSTOMER_IN_FIELDS, en);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}\n<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`;
             } else if (op === 'insert2') {
-                const customerIn = buildCustomerINXml({} as IExecuteFunctions, 0, CUSTOMER_IN_FIELDS, false);
+                const customerIn = buildCustomerINXml(ctx, itemIndex, CUSTOMER_IN_FIELDS, false);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}`;
             }
             return null;

@@ -236,10 +236,10 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             }
             return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
         },
-        (op: string, itemParams: IDataObject, sessionId: string) => {
+        (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
             if (op === 'search') {
                 // Build <SearchFilter_Customer> with search fields
-                const searchFilter = buildSearchFilterXml({} as IExecuteFunctions, 0, CUSTOMER_SEARCH_FILTER_FIELDS);
+                const searchFilter = buildSearchFilterXml(ctx, itemIndex, CUSTOMER_SEARCH_FILTER_FIELDS);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${searchFilter}`;
             } else if (op === 'getAllCustomerObjects2') {
                 // Handle StatusList parameter
