@@ -74,7 +74,7 @@ const extraProperties: INodeProperties[] = [
     
     // Mandatory fields for each operation
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
-        const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
+        const mandatoryFields = MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || MANDATORY_FIELDS[op] || [];
         return mandatoryFields.map<INodeProperties>((p) => {
             const fieldType = FIELD_TYPES[p] || 'string';
             
@@ -124,7 +124,7 @@ const extraProperties: INodeProperties[] = [
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
         if (op !== 'insert2' && op !== 'update') return [];
 
-        const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
+        const mandatoryFields = MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || MANDATORY_FIELDS[op] || [];
         const optionalFields = CUSTOMER_IN_FIELDS.filter(f => 
             !mandatoryFields.includes(f) && 
             f !== 'customerID' && 
@@ -295,7 +295,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
         (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
             if (op === 'update') {
                 // Get mandatory fields
-                const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
+                const mandatoryFields = MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || MANDATORY_FIELDS[op] || [];
                 
                 // Get additional fields from collection
                 const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
