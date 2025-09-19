@@ -184,8 +184,8 @@ export const MANDATORY_FIELDS: Record<string, string[]> = {
     
     // Resource operations
     'insertObject': ['name1','workingStatus'],
-    'update': ['resourceID'],
-    'delete': ['resourceID'],
+    'resourceUpdate': ['resourceID'],
+    'resourceDelete': ['resourceID'],
     'getResourceObject': ['resourceID'],
     
     // Job operations
