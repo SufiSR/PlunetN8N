@@ -22,6 +22,7 @@ import {
     createOptionsProperty,
     createTypedProperty,
     handleVoidResult,
+    buildSearchFilterXml,
 } from '../core/service-utils';
 import {
     CUSTOMER_IN_FIELDS,
@@ -36,13 +37,12 @@ const ENDPOINT = 'DataCustomer30';
 
 /** ─ Params per operation (UUID auto-included) ─ */
 const PARAM_ORDER: Record<string, string[]> = {
-    insert2: [...CUSTOMER_IN_FIELDS],
+    insert2: [...CUSTOMER_IN_FIELDS.filter(f => f !== 'customerID')],
     update: [
-        'customerID', 'status', ...CUSTOMER_IN_FIELDS.filter(f => f !== 'customerID'),
+        'customerID', 'status', ...CUSTOMER_IN_FIELDS.filter(f => f !== 'customerID' && f !== 'status'),
         'enableNullOrEmptyValues',
     ],
     delete: ['customerID'],
-    search: [...CUSTOMER_SEARCH_FILTER_FIELDS],
     getCustomerObject: ['customerID'],
 };
 
@@ -51,7 +51,6 @@ const RETURN_TYPE: Record<string, R> = {
     insert2: 'Integer',
     update: 'Void',
     delete: 'Void',
-    search: 'IntegerArray',
     getCustomerObject: 'Customer',
 };
 
@@ -63,7 +62,7 @@ const FRIENDLY_LABEL: Record<string,string> = {
     getCustomerObject: 'Get Customer',
 };
 
-const OP_ORDER = ['getCustomerObject','insert2','update','delete','search'] as const;
+const OP_ORDER = ['getCustomerObject','insert2','update','delete'] as const;
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptions(
     OP_ORDER,
@@ -143,22 +142,6 @@ function buildCustomerINXml(
 }
 
 // Build <SearchFilter_Customer>…</SearchFilter_Customer>
-function buildSearchFilterXml(
-    ctx: IExecuteFunctions,
-    itemIndex: number,
-    fields: readonly string[],
-): string {
-    const lines: string[] = ['<SearchFilter_Customer>'];
-    for (const name of fields) {
-        const raw = ctx.getNodeParameter(name, itemIndex, '');
-        const val = toSoapParamValue(raw, name);
-        if (val !== '') {
-            lines.push(`  <${name}>${escapeXml(val)}</${name}>`);
-        }
-    }
-    lines.push('</SearchFilter_Customer>');
-    return lines.join('\n      ');
-}
 
 // Common utility functions are now imported from service-utils
 
@@ -209,10 +192,6 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             } else if (op === 'insert2') {
                 const customerIn = buildCustomerINXml({} as IExecuteFunctions, 0, CUSTOMER_IN_FIELDS, false);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}`;
-            } else if (op === 'search') {
-                // Build <SearchFilter_Customer> with search fields
-                const searchFilter = buildSearchFilterXml({} as IExecuteFunctions, 0, CUSTOMER_SEARCH_FILTER_FIELDS);
-                return `<UUID>${escapeXml(sessionId)}</UUID>\n${searchFilter}`;
             }
             return null;
         },

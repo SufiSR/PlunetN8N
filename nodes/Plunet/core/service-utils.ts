@@ -366,3 +366,24 @@ export function createTypedProperty(
             };
     }
 }
+
+/**
+ * Build XML for search filter operations
+ */
+export function buildSearchFilterXml(
+    ctx: IExecuteFunctions,
+    itemIndex: number,
+    fields: readonly string[],
+    filterType: string = 'SearchFilter_Customer',
+): string {
+    const lines: string[] = [`<${filterType}>`];
+    for (const name of fields) {
+        const raw = ctx.getNodeParameter(name, itemIndex, '');
+        const val = toSoapParamValue(raw, name);
+        if (val !== '') {
+            lines.push(`  <${name}>${escapeXml(val)}</${name}>`);
+        }
+    }
+    lines.push(`</${filterType}>`);
+    return lines.join('\n      ');
+}

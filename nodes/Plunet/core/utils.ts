@@ -7,6 +7,8 @@ export const labelize = (s: string) => {
     { pattern: /^(.+)(UUID)$/i, replacement: '$1 UUID' },
     { pattern: /^(.+)(URL)$/i, replacement: '$1 URL' },
     { pattern: /^(.+)(API)$/i, replacement: '$1 API' },
+    { pattern: /^(.+)(BIC)$/i, replacement: '$1 BIC' },
+    { pattern: /^(.+)(IBAN)$/i, replacement: '$1 IBAN' },
   ];
   
   let result = s;
