@@ -94,10 +94,29 @@ const isWorkingStatusParam = (p: string) => p === 'WorkingStatus' || p === 'work
 const isResourceTypeParam = (p: string) => p === 'ResourceType' || p === 'resourceType';
 const isFormOfAddressParam = (p: string) => p === 'FormOfAddress' || p === 'formOfAddress';
 
-const extraProperties: INodeProperties[] =
-    Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
-        params.map<INodeProperties>((p) => {
-            // dropdowns for enum params
+const extraProperties: INodeProperties[] = [
+    // Toggle to show/hide optional fields for insertObject and update operations
+    {
+        displayName: 'Show Optional Fields',
+        name: 'showOptionalFields',
+        type: 'boolean',
+        default: false,
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insertObject', 'update'],
+            },
+        },
+        description: 'Toggle to show additional optional fields for resource data',
+    },
+    
+    // Mandatory fields for each operation
+    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
+        const mandatoryFields = MANDATORY_FIELDS[op] || [];
+        return mandatoryFields.map<INodeProperties>((p) => {
+            const fieldType = FIELD_TYPES[p] || 'string';
+            
+            // Handle special cases for mandatory fields
             if (isStatusParam(p)) {
                 return createOptionsProperty(
                     p,
@@ -142,7 +161,6 @@ const extraProperties: INodeProperties[] =
                     3,
                 );
             }
-            // toggle on update
             if (op === 'update' && p === 'enableNullOrEmptyValues') {
                 return createBooleanProperty(
                     p,
@@ -151,11 +169,11 @@ const extraProperties: INodeProperties[] =
                     RESOURCE,
                     op,
                     false,
+                    true,
                 );
             }
-            // Create user-friendly display names and use proper field types
-            const isMandatory = MANDATORY_FIELDS[op]?.includes(p) || false;
-            const fieldType = FIELD_TYPES[p] || 'string';
+            
+            // Create user-friendly display names
             const displayName = labelize(p);
             
             return createTypedProperty(
@@ -165,19 +183,119 @@ const extraProperties: INodeProperties[] =
                 RESOURCE,
                 op,
                 fieldType,
-                isMandatory,
+                true, // Always mandatory
             );
-        }),
-    );
+        });
+    }),
+    
+    // Optional fields for insertObject and update operations (shown when toggle is enabled)
+    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
+        if (op !== 'insertObject' && op !== 'update') return [];
+        
+        const mandatoryFields = MANDATORY_FIELDS[op] || [];
+        const optionalFields = RESOURCE_IN_FIELDS.filter(f => 
+            !mandatoryFields.includes(f) && 
+            f !== 'resourceID' && 
+            f !== 'status' &&
+            f !== 'workingStatus'
+        );
+        
+        return optionalFields.map<INodeProperties>((p) => {
+            const fieldType = FIELD_TYPES[p] || 'string';
+            const displayName = labelize(p);
+            
+            const baseProperty = {
+                displayName,
+                name: p,
+                required: false,
+                description: `${displayName} parameter for ${op}`,
+                displayOptions: {
+                    show: {
+                        resource: [RESOURCE],
+                        operation: [op],
+                        showOptionalFields: [true],
+                    },
+                },
+            };
 
-function buildResourceINXml(ctx: IExecuteFunctions, itemIndex: number, fieldNames: readonly string[]): string {
-    const parts: string[] = [];
-    for (const name of fieldNames) {
-        const raw = ctx.getNodeParameter(name, itemIndex, '') as string|number|boolean;
-        const val = typeof raw==='string' ? raw.trim() : typeof raw==='number' ? String(raw) : raw ? 'true' : 'false';
-        if (val !== '') parts.push(`<${name}>${escapeXml(val)}</${name}>`);
+            switch (fieldType) {
+                case 'number':
+                    return {
+                        ...baseProperty,
+                        type: 'number',
+                        default: 0,
+                        typeOptions: { minValue: 0, step: 1 },
+                    };
+                case 'boolean':
+                    return {
+                        ...baseProperty,
+                        type: 'boolean',
+                        default: false,
+                    };
+                case 'date':
+                    return {
+                        ...baseProperty,
+                        type: 'dateTime',
+                        default: '',
+                    };
+                default: // 'string'
+                    return {
+                        ...baseProperty,
+                        type: 'string',
+                        default: '',
+                    };
+            }
+        });
+    }),
+    
+    // Keep non-RESOURCE_IN_FIELDS as regular properties
+    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
+        params
+            .filter(p => !(RESOURCE_IN_FIELDS as readonly string[]).includes(p) && !MANDATORY_FIELDS[op]?.includes(p))
+            .map<INodeProperties>((p) => {
+                const fieldType = (FIELD_TYPES as Record<string, 'string' | 'number' | 'boolean' | 'date'>)[p] || 'string';
+                const displayName = labelize(p);
+                
+                return createTypedProperty(
+                    p,
+                    displayName,
+                    `${displayName} parameter for ${op}`,
+                    RESOURCE,
+                    op,
+                    fieldType as 'string' | 'number' | 'boolean' | 'date',
+                    false,
+                );
+            }),
+    ),
+];
+
+function buildResourceINXml(
+    ctx: IExecuteFunctions,
+    itemIndex: number,
+    fields: readonly string[],
+    includeEmpty: boolean,
+): string {
+    const lines: string[] = ['<ResourceIN>'];
+    
+    // Process all fields (mandatory + optional if toggle is enabled)
+    for (const name of fields) {
+        try {
+            const raw = ctx.getNodeParameter(name, itemIndex, '');
+            const val = toSoapParamValue(raw, name);
+            if (includeEmpty || val !== '') {
+                lines.push(`  <${name}>${escapeXml(val)}</${name}>`);
+            }
+        } catch (error) {
+            // Log the error and continue with empty value
+            const errorMsg = `Error getting parameter '${name}' for item ${itemIndex}: ${error instanceof Error ? error.message : String(error)}`;
+            // In n8n context, errors will be visible in the workflow execution logs
+            // Add empty tag to maintain XML structure
+            lines.push(`  <${name}></${name}>`);
+        }
     }
-    return `<ResourceIN>\n${parts.map((l)=>'  '+l).join('\n')}\n</ResourceIN>`;
+    
+    lines.push('</ResourceIN>');
+    return lines.join('\n      ');
 }
 
 // Build <SearchFilter_Resource>…</SearchFilter_Resource>
@@ -252,17 +370,37 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
 
             return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
         },
-        (op: string, itemParams: IDataObject, sessionId: string) => {
+        (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
             if (op === 'insertObject') {
-                const resourceIn = buildResourceINXml({} as IExecuteFunctions, 0, RESOURCE_IN_FIELDS);
+                const showOptional = ctx.getNodeParameter('showOptionalFields', itemIndex, false) as boolean;
+                
+                // Determine which fields to include
+                let fieldsToInclude: readonly string[] = RESOURCE_IN_FIELDS;
+                if (!showOptional) {
+                    // Only include mandatory fields
+                    const mandatoryFields = MANDATORY_FIELDS[op] || [];
+                    fieldsToInclude = RESOURCE_IN_FIELDS.filter(f => mandatoryFields.includes(f)) as readonly string[];
+                }
+                
+                const resourceIn = buildResourceINXml(ctx, itemIndex, fieldsToInclude, false);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${resourceIn}`;
             } else if (op === 'update') {
-                const resourceIn = buildResourceINXml({} as IExecuteFunctions, 0, RESOURCE_IN_FIELDS);
+                const showOptional = ctx.getNodeParameter('showOptionalFields', itemIndex, false) as boolean;
                 const en = itemParams.enableNullOrEmptyValues as boolean || false;
+                
+                // Determine which fields to include
+                let fieldsToInclude: readonly string[] = RESOURCE_IN_FIELDS;
+                if (!showOptional) {
+                    // Only include mandatory fields
+                    const mandatoryFields = MANDATORY_FIELDS[op] || [];
+                    fieldsToInclude = RESOURCE_IN_FIELDS.filter(f => mandatoryFields.includes(f)) as readonly string[];
+                }
+                
+                const resourceIn = buildResourceINXml(ctx, itemIndex, fieldsToInclude, en);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${resourceIn}\n<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`;
             } else if (op === 'search') {
                 // Build <SearchFilter_Resource> with search fields
-                const searchFilter = buildResourceSearchFilterXml({} as IExecuteFunctions, 0, RESOURCE_SEARCH_FILTER_FIELDS);
+                const searchFilter = buildResourceSearchFilterXml(ctx, itemIndex, RESOURCE_SEARCH_FILTER_FIELDS);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${searchFilter}`;
             }
             return null;
