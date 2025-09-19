@@ -251,12 +251,17 @@ export function createOptionsProperty(
     options: INodePropertyOptions[],
     defaultValue: number | string = 0,
     required: boolean = false,
+    addEmptyOption: boolean = false,
 ): INodeProperties {
+    const finalOptions = addEmptyOption 
+        ? [{ name: 'Please select...', value: '' }, ...options]
+        : options;
+    
     return {
         displayName,
         name,
         type: 'options',
-        options,
+        options: finalOptions,
         default: defaultValue,
         required,
         description,
@@ -320,6 +325,7 @@ export function createTypedProperty(
     required: boolean = false,
     options?: INodePropertyOptions[],
     defaultValue?: any,
+    addEmptyOption: boolean = false,
 ): INodeProperties {
     const baseProperty = {
         displayName,
@@ -352,11 +358,14 @@ export function createTypedProperty(
         case 'string':
         default:
             if (options) {
+                const finalOptions = addEmptyOption 
+                    ? [{ name: 'Please select...', value: '' }, ...options]
+                    : options;
                 return {
                     ...baseProperty,
                     type: 'options',
-                    options,
-                    default: defaultValue ?? (options[0]?.value ?? ''),
+                    options: finalOptions,
+                    default: defaultValue ?? '',
                 };
             }
             return {

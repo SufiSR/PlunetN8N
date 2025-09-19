@@ -71,20 +71,6 @@ const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationO
 );
 
 const extraProperties: INodeProperties[] = [
-    // Toggle to show/hide optional fields for insert2 and update operations
-    {
-        displayName: 'Show Optional Fields',
-        name: 'showOptionalFields',
-        type: 'boolean',
-        default: false,
-        displayOptions: {
-            show: {
-                resource: [RESOURCE],
-                operation: ['insert2', 'update'],
-            },
-        },
-        description: 'Toggle to show additional optional fields for customer data',
-    },
     
     // Mandatory fields for each operation
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
@@ -103,7 +89,8 @@ const extraProperties: INodeProperties[] = [
                     'string',
                     true, // Always mandatory
                     CustomerStatusOptions,
-                    1,
+                    '', // No default value - only include if user sets it
+                    true, // Add empty option for better UX
                 );
             }
             if (op === 'update' && p === 'enableNullOrEmptyValues') {
@@ -133,18 +120,57 @@ const extraProperties: INodeProperties[] = [
         });
     }),
     
-    // Optional fields for insert2 and update operations (shown when toggle is enabled)
+    // Field selection system for insert2 and update operations
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
         if (op !== 'insert2' && op !== 'update') return [];
-        
+
         const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
-        const optionalFields = CUSTOMER_IN_FIELDS.filter(f => 
+        const availableOptionalFields = CUSTOMER_IN_FIELDS.filter(f => 
+            !mandatoryFields.includes(f) && 
+            f !== 'customerID' && 
+            f !== 'status'
+        );
+
+        // Create field selection dropdown
+        const fieldSelectionOptions = availableOptionalFields.map(field => ({
+            name: labelize(field),
+            value: field,
+        }));
+
+        return [
+            {
+                displayName: 'Add Optional Field',
+                name: 'addOptionalField',
+                type: 'options' as const,
+                options: [
+                    { name: 'Select a field to add...', value: '' },
+                    ...fieldSelectionOptions
+                ],
+                default: '',
+                required: false,
+                description: 'Select an optional field to add to the form',
+                displayOptions: {
+                    show: {
+                        resource: [RESOURCE],
+                        operation: [op],
+                    },
+                },
+            },
+        ];
+    }),
+
+    // Dynamic optional fields (shown when user adds them)
+    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
+        if (op !== 'insert2' && op !== 'update') return [];
+
+        const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
+        const availableOptionalFields = CUSTOMER_IN_FIELDS.filter(f => 
             !mandatoryFields.includes(f) && 
             f !== 'customerID' && 
             f !== 'status'
         );
         
-        return optionalFields.map<INodeProperties>((p) => {
+        return availableOptionalFields.map<INodeProperties>((p) => {
             const fieldType = FIELD_TYPES[p] || 'string';
             const displayName = labelize(p);
             
@@ -157,7 +183,7 @@ const extraProperties: INodeProperties[] = [
                     show: {
                         resource: [RESOURCE],
                         operation: [op],
-                        showOptionalFields: [true],
+                        addOptionalField: [p],
                     },
                 },
             };
@@ -288,32 +314,35 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
         },
         (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
             if (op === 'update') {
-                // Build <CustomerIN>…> with the update fields,
-                // include empty tags only if user chose to overwrite with empty values
-                const en = itemParams.enableNullOrEmptyValues as boolean || false;
-                const showOptional = ctx.getNodeParameter('showOptionalFields', itemIndex, false) as boolean;
+                // Get mandatory fields
+                const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
+                
+                // Get selected optional field
+                const selectedOptionalField = ctx.getNodeParameter('addOptionalField', itemIndex, '') as string;
                 
                 // Determine which fields to include
-                let fieldsToInclude: readonly string[] = CUSTOMER_IN_FIELDS;
-                if (!showOptional) {
-                    // Only include mandatory fields
-                    const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
-                    fieldsToInclude = CUSTOMER_IN_FIELDS.filter(f => mandatoryFields.includes(f)) as readonly string[];
+                let fieldsToInclude: readonly string[] = mandatoryFields;
+                if (selectedOptionalField && selectedOptionalField !== '') {
+                    fieldsToInclude = [...mandatoryFields, selectedOptionalField] as readonly string[];
                 }
                 
+                const en = itemParams.enableNullOrEmptyValues as boolean || false;
+
                 const customerIn = buildCustomerINXml(ctx, itemIndex, fieldsToInclude, en);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}\n<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`;
             } else if (op === 'insert2') {
-                const showOptional = ctx.getNodeParameter('showOptionalFields', itemIndex, false) as boolean;
+                // Get mandatory fields
+                const mandatoryFields = MANDATORY_FIELDS[op] || [];
+                
+                // Get selected optional field
+                const selectedOptionalField = ctx.getNodeParameter('addOptionalField', itemIndex, '') as string;
                 
                 // Determine which fields to include
-                let fieldsToInclude: readonly string[] = CUSTOMER_IN_FIELDS;
-                if (!showOptional) {
-                    // Only include mandatory fields
-                    const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
-                    fieldsToInclude = CUSTOMER_IN_FIELDS.filter(f => mandatoryFields.includes(f)) as readonly string[];
+                let fieldsToInclude: readonly string[] = mandatoryFields;
+                if (selectedOptionalField && selectedOptionalField !== '') {
+                    fieldsToInclude = [...mandatoryFields, selectedOptionalField] as readonly string[];
                 }
-                
+
                 const customerIn = buildCustomerINXml(ctx, itemIndex, fieldsToInclude, false);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}`;
             }
