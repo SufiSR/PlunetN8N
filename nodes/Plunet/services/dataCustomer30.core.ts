@@ -70,13 +70,29 @@ const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationO
     ENDPOINT,
 );
 
-const extraProperties: INodeProperties[] =
-    Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
-        params.map<INodeProperties>((p) => {
-            const isMandatory = MANDATORY_FIELDS[op]?.includes(p) || false;
+const extraProperties: INodeProperties[] = [
+    // Toggle to show/hide optional fields for insert2 and update operations
+    {
+        displayName: 'Show Optional Fields',
+        name: 'showOptionalFields',
+        type: 'boolean',
+        default: false,
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2', 'update'],
+            },
+        },
+        description: 'Toggle to show additional optional fields for customer data',
+    },
+    
+    // Mandatory fields for each operation
+    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
+        const mandatoryFields = MANDATORY_FIELDS[op] || [];
+        return mandatoryFields.map<INodeProperties>((p) => {
             const fieldType = FIELD_TYPES[p] || 'string';
             
-            // Handle special cases
+            // Handle special cases for mandatory fields
             if (p.toLowerCase() === 'status') {
                 return createTypedProperty(
                     p,
@@ -85,7 +101,7 @@ const extraProperties: INodeProperties[] =
                     RESOURCE,
                     op,
                     'string',
-                    isMandatory,
+                    true, // Always mandatory
                     CustomerStatusOptions,
                     1,
                 );
@@ -112,10 +128,90 @@ const extraProperties: INodeProperties[] =
                 RESOURCE,
                 op,
                 fieldType,
-                isMandatory,
+                true, // Always mandatory
             );
-        }),
-    );
+        });
+    }),
+    
+    // Optional fields for insert2 and update operations (shown when toggle is enabled)
+    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
+        if (op !== 'insert2' && op !== 'update') return [];
+        
+        const mandatoryFields = MANDATORY_FIELDS[op] || [];
+        const optionalFields = CUSTOMER_IN_FIELDS.filter(f => 
+            !mandatoryFields.includes(f) && 
+            f !== 'customerID' && 
+            f !== 'status'
+        );
+        
+        return optionalFields.map<INodeProperties>((p) => {
+            const fieldType = FIELD_TYPES[p] || 'string';
+            const displayName = labelize(p);
+            
+            const baseProperty = {
+                displayName,
+                name: p,
+                required: false,
+                description: `${displayName} parameter for ${op}`,
+                displayOptions: {
+                    show: {
+                        resource: [RESOURCE],
+                        operation: [op],
+                        showOptionalFields: [true],
+                    },
+                },
+            };
+
+            switch (fieldType) {
+                case 'number':
+                    return {
+                        ...baseProperty,
+                        type: 'number',
+                        default: 0,
+                        typeOptions: { minValue: 0, step: 1 },
+                    };
+                case 'boolean':
+                    return {
+                        ...baseProperty,
+                        type: 'boolean',
+                        default: false,
+                    };
+                case 'date':
+                    return {
+                        ...baseProperty,
+                        type: 'dateTime',
+                        default: '',
+                    };
+                default: // 'string'
+                    return {
+                        ...baseProperty,
+                        type: 'string',
+                        default: '',
+                    };
+            }
+        });
+    }),
+    
+    // Keep non-CUSTOMER_IN_FIELDS as regular properties
+    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
+        params
+            .filter(p => !(CUSTOMER_IN_FIELDS as readonly string[]).includes(p) && !MANDATORY_FIELDS[op]?.includes(p))
+            .map<INodeProperties>((p) => {
+                const fieldType = (FIELD_TYPES as Record<string, 'string' | 'number' | 'boolean' | 'date'>)[p] || 'string';
+                const displayName = labelize(p);
+                
+                return createTypedProperty(
+                    p,
+                    displayName,
+                    `${displayName} parameter for ${op}`,
+                    RESOURCE,
+                    op,
+                    fieldType as 'string' | 'number' | 'boolean' | 'date',
+                    false,
+                );
+            }),
+    ),
+];
 
 // Field definitions are now imported from field-definitions.ts
 
@@ -127,6 +223,8 @@ function buildCustomerINXml(
     includeEmpty: boolean,
 ): string {
     const lines: string[] = ['<CustomerIN>'];
+    
+    // Process all fields (mandatory + optional if toggle is enabled)
     for (const name of fields) {
         try {
             const raw = ctx.getNodeParameter(name, itemIndex, '');
@@ -142,6 +240,7 @@ function buildCustomerINXml(
             lines.push(`  <${name}></${name}>`);
         }
     }
+    
     lines.push('</CustomerIN>');
     return lines.join('\n      ');
 }
@@ -192,10 +291,30 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 // Build <CustomerIN>…> with the update fields,
                 // include empty tags only if user chose to overwrite with empty values
                 const en = itemParams.enableNullOrEmptyValues as boolean || false;
-                const customerIn = buildCustomerINXml(ctx, itemIndex, CUSTOMER_IN_FIELDS, en);
+                const showOptional = ctx.getNodeParameter('showOptionalFields', itemIndex, false) as boolean;
+                
+                // Determine which fields to include
+                let fieldsToInclude: readonly string[] = CUSTOMER_IN_FIELDS;
+                if (!showOptional) {
+                    // Only include mandatory fields
+                    const mandatoryFields = MANDATORY_FIELDS[op] || [];
+                    fieldsToInclude = CUSTOMER_IN_FIELDS.filter(f => mandatoryFields.includes(f)) as readonly string[];
+                }
+                
+                const customerIn = buildCustomerINXml(ctx, itemIndex, fieldsToInclude, en);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}\n<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`;
             } else if (op === 'insert2') {
-                const customerIn = buildCustomerINXml(ctx, itemIndex, CUSTOMER_IN_FIELDS, false);
+                const showOptional = ctx.getNodeParameter('showOptionalFields', itemIndex, false) as boolean;
+                
+                // Determine which fields to include
+                let fieldsToInclude: readonly string[] = CUSTOMER_IN_FIELDS;
+                if (!showOptional) {
+                    // Only include mandatory fields
+                    const mandatoryFields = MANDATORY_FIELDS[op] || [];
+                    fieldsToInclude = CUSTOMER_IN_FIELDS.filter(f => mandatoryFields.includes(f)) as readonly string[];
+                }
+                
+                const customerIn = buildCustomerINXml(ctx, itemIndex, fieldsToInclude, false);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}`;
             }
             return null;
