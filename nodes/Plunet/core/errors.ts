@@ -33,6 +33,7 @@ export function throwForSoapFaultOrStatus(
 }
 
 function withSnippet(op: string, url: string, soapAction: string, envelope: string, msg: string) {
-  const snippet = envelope.length > 800 ? envelope.slice(0, 800) + '…' : envelope;
-  return new SoapRequestError(op, url, soapAction, snippet, msg);
+  const snippet = envelope.length > 2000 ? envelope.slice(0, 2000) + '…' : envelope;
+  const fullMessage = `${msg}\n\nRequest Details:\nURL: ${url}\nSOAP Action: ${soapAction}\nEnvelope:\n${snippet}`;
+  return new SoapRequestError(op, url, soapAction, snippet, fullMessage);
 }

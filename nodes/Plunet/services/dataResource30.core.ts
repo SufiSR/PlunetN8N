@@ -112,7 +112,7 @@ const extraProperties: INodeProperties[] = [
     
     // Mandatory fields for each operation
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
-        const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`resource${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
+        const mandatoryFields = MANDATORY_FIELDS[op] || [];
         return mandatoryFields.map<INodeProperties>((p) => {
             const fieldType = FIELD_TYPES[p] || 'string';
             
@@ -192,7 +192,7 @@ const extraProperties: INodeProperties[] = [
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
         if (op !== 'insertObject' && op !== 'update') return [];
         
-        const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`resource${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
+        const mandatoryFields = MANDATORY_FIELDS[op] || [];
         const optionalFields = RESOURCE_IN_FIELDS.filter(f => 
             !mandatoryFields.includes(f) && 
             f !== 'status' &&
@@ -377,7 +377,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 let fieldsToInclude: readonly string[] = RESOURCE_IN_FIELDS;
                 if (!showOptional) {
                     // Only include mandatory fields
-                    const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`resource${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
+                    const mandatoryFields = MANDATORY_FIELDS[op] || [];
                     fieldsToInclude = RESOURCE_IN_FIELDS.filter(f => mandatoryFields.includes(f)) as readonly string[];
                 }
                 
@@ -391,7 +391,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 let fieldsToInclude: readonly string[] = RESOURCE_IN_FIELDS;
                 if (!showOptional) {
                     // Only include mandatory fields
-                    const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`resource${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
+                    const mandatoryFields = MANDATORY_FIELDS[op] || [];
                     fieldsToInclude = RESOURCE_IN_FIELDS.filter(f => mandatoryFields.includes(f)) as readonly string[];
                 }
                 
