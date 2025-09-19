@@ -178,46 +178,33 @@ const extraProperties: INodeProperties[] = [
         });
     }),
 
-    // Optional fields selection system for insertObject and update operations
-    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
-        if (op !== 'insertObject' && op !== 'update') return [];
-
-        const mandatoryFields = MANDATORY_FIELDS[op] || [];
-        const availableOptionalFields = RESOURCE_IN_FIELDS.filter(f => 
-            !mandatoryFields.includes(f) && 
-            f !== 'status' &&
-            f !== 'workingStatus'
-        );
-
-        // Create checkboxes for each optional field
-        return availableOptionalFields.map(field => ({
-            displayName: labelize(field),
-            name: `include_${field}`,
-            type: 'boolean' as const,
-            default: false,
-            required: false,
-            description: `Include ${labelize(field)} field in the form`,
-            displayOptions: {
-                show: {
-                    resource: [RESOURCE],
-                    operation: [op],
-                },
+    // Simple toggle to show/hide optional fields for insertObject and update operations
+    {
+        displayName: 'Show Optional Fields',
+        name: 'showOptionalFields',
+        type: 'boolean',
+        default: false,
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insertObject', 'update'],
             },
-        }));
-    }),
+        },
+        description: 'Toggle to show additional optional fields for resource data',
+    },
 
-    // Dynamic optional fields (shown when user checks the corresponding checkbox)
+    // Optional fields for insertObject and update operations (shown when toggle is enabled)
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
         if (op !== 'insertObject' && op !== 'update') return [];
 
         const mandatoryFields = MANDATORY_FIELDS[op] || [];
-        const availableOptionalFields = RESOURCE_IN_FIELDS.filter(f => 
+        const optionalFields = RESOURCE_IN_FIELDS.filter(f => 
             !mandatoryFields.includes(f) && 
             f !== 'status' &&
             f !== 'workingStatus'
         );
         
-        return availableOptionalFields.map<INodeProperties>((p) => {
+        return optionalFields.map<INodeProperties>((p) => {
             // Handle special enum fields for optional fields
             if (isResourceTypeParam(p)) {
                 return {
@@ -235,7 +222,7 @@ const extraProperties: INodeProperties[] = [
                         show: {
                             resource: [RESOURCE],
                             operation: [op],
-                            [`include_${p}`]: [true],
+                            showOptionalFields: [true],
                         },
                     },
                 };
@@ -256,7 +243,7 @@ const extraProperties: INodeProperties[] = [
                         show: {
                             resource: [RESOURCE],
                             operation: [op],
-                            [`include_${p}`]: [true],
+                            showOptionalFields: [true],
                         },
                     },
                 };
@@ -277,7 +264,7 @@ const extraProperties: INodeProperties[] = [
                         show: {
                             resource: [RESOURCE],
                             operation: [op],
-                            [`include_${p}`]: [true],
+                            showOptionalFields: [true],
                         },
                     },
                 };
@@ -298,7 +285,7 @@ const extraProperties: INodeProperties[] = [
                         show: {
                             resource: [RESOURCE],
                             operation: [op],
-                            [`include_${p}`]: [true],
+                            showOptionalFields: [true],
                         },
                     },
                 };
@@ -317,7 +304,7 @@ const extraProperties: INodeProperties[] = [
                     show: {
                         resource: [RESOURCE],
                         operation: [op],
-                        [`include_${p}`]: [true],
+                        showOptionalFields: [true],
                     },
                 },
             };
@@ -482,52 +469,39 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
         },
         (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
             if (op === 'insertObject') {
-                // Get mandatory fields
-                const mandatoryFields = MANDATORY_FIELDS[op] || [];
-                
-                // Get selected optional fields from checkboxes
-                const selectedOptionalFields: string[] = [];
-                const availableOptionalFields = RESOURCE_IN_FIELDS.filter(f => 
-                    !mandatoryFields.includes(f) && 
-                    f !== 'status' &&
-                    f !== 'workingStatus'
-                );
-                
-                for (const field of availableOptionalFields) {
-                    const isIncluded = ctx.getNodeParameter(`include_${field}`, itemIndex, false) as boolean;
-                    if (isIncluded) {
-                        selectedOptionalFields.push(field);
-                    }
+                const showOptional = ctx.getNodeParameter('showOptionalFields', itemIndex, false) as boolean;
+
+                // Determine which fields to include
+                let fieldsToInclude: readonly string[] = MANDATORY_FIELDS[op] || [];
+                if (showOptional) {
+                    // Include all optional fields when toggle is enabled
+                    const mandatoryFields = MANDATORY_FIELDS[op] || [];
+                    const optionalFields = RESOURCE_IN_FIELDS.filter(f => 
+                        !mandatoryFields.includes(f) && 
+                        f !== 'status' &&
+                        f !== 'workingStatus'
+                    );
+                    fieldsToInclude = [...mandatoryFields, ...optionalFields] as readonly string[];
                 }
-                
-                // Combine mandatory and selected optional fields
-                const fieldsToInclude = [...mandatoryFields, ...selectedOptionalFields] as readonly string[];
 
                 const resourceIn = buildResourceINXml(ctx, itemIndex, fieldsToInclude, false);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${resourceIn}`;
             } else if (op === 'update') {
-                // Get mandatory fields
-                const mandatoryFields = MANDATORY_FIELDS[op] || [];
-                
-                // Get selected optional fields from checkboxes
-                const selectedOptionalFields: string[] = [];
-                const availableOptionalFields = RESOURCE_IN_FIELDS.filter(f => 
-                    !mandatoryFields.includes(f) && 
-                    f !== 'status' &&
-                    f !== 'workingStatus'
-                );
-                
-                for (const field of availableOptionalFields) {
-                    const isIncluded = ctx.getNodeParameter(`include_${field}`, itemIndex, false) as boolean;
-                    if (isIncluded) {
-                        selectedOptionalFields.push(field);
-                    }
-                }
-                
-                // Combine mandatory and selected optional fields
-                const fieldsToInclude = [...mandatoryFields, ...selectedOptionalFields] as readonly string[];
-                
+                const showOptional = ctx.getNodeParameter('showOptionalFields', itemIndex, false) as boolean;
                 const en = itemParams.enableNullOrEmptyValues as boolean || false;
+
+                // Determine which fields to include
+                let fieldsToInclude: readonly string[] = MANDATORY_FIELDS[op] || [];
+                if (showOptional) {
+                    // Include all optional fields when toggle is enabled
+                    const mandatoryFields = MANDATORY_FIELDS[op] || [];
+                    const optionalFields = RESOURCE_IN_FIELDS.filter(f => 
+                        !mandatoryFields.includes(f) && 
+                        f !== 'status' &&
+                        f !== 'workingStatus'
+                    );
+                    fieldsToInclude = [...mandatoryFields, ...optionalFields] as readonly string[];
+                }
 
                 const resourceIn = buildResourceINXml(ctx, itemIndex, fieldsToInclude, en);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${resourceIn}\n<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`;
