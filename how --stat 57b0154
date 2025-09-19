@@ -1,0 +1,27 @@
+[33mcommit 57b01548765144523d1941e00c1c164cd2aba47d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m
+Author: SufiSR <83453553+SufiSR@users.noreply.github.com>
+Date:   Fri Sep 19 09:51:22 2025 +0200
+
+    Fix labelize function with simple logical approach - v3.0.8
+    
+    - Implemented simple, logical labelize function as requested
+    - Find first capital letter and split there
+    - Check if second part has capital at position 2 (ID, URL, etc.)
+    - Don't split further for special patterns (ID, URL, API, UUID, BIC, IBAN)
+    - Continue splitting for normal camelCase patterns
+    - Fixed mandatory fields in field-definitions (name1 instead of fullName)
+    - Updated TypeScript types for better safety
+    
+    Examples:
+    - customerID -> Customer ID
+    - customerAddressID -> Customer Address ID
+    - fullName -> Full Name
+    - customerURL -> Customer URL
+    
+    Resolves:
+    - UI field naming issues with ID fields
+    - Complex regex pattern problems
+    - Mandatory field definitions
+
+nodes/Plunet/core/utils.ts
+package.json

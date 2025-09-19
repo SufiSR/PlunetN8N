@@ -177,13 +177,13 @@ export const PAYMENT_INFO_FIELDS = [
 
 export const MANDATORY_FIELDS: Record<string, string[]> = {
     // Customer operations
-    'insert2': ['fullName', 'status'],
+    'insert2': ['name1'],
     'update': ['customerID'],
     'delete': ['customerID'],
     'getCustomerObject': ['customerID'],
     
     // Resource operations
-    'insertObject': ['fullName', 'status', 'workingStatus'],
+    'insertObject': ['name1','workingStatus'],
     'resourceUpdate': ['resourceID'],
     'resourceDelete': ['resourceID'],
     'getResourceObject': ['resourceID'],

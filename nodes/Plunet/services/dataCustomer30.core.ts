@@ -103,10 +103,7 @@ const extraProperties: INodeProperties[] =
             }
             
             // Create user-friendly display names
-            const displayName = p
-                .replace(/([A-Z])/g, ' $1')
-                .replace(/^./, str => str.toUpperCase())
-                .trim();
+            const displayName = labelize(p);
             
             return createTypedProperty(
                 p,

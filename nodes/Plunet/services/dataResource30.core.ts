@@ -156,10 +156,7 @@ const extraProperties: INodeProperties[] =
             // Create user-friendly display names and use proper field types
             const isMandatory = MANDATORY_FIELDS[op]?.includes(p) || false;
             const fieldType = FIELD_TYPES[p] || 'string';
-            const displayName = p
-                .replace(/([A-Z])/g, ' $1')
-                .replace(/^./, str => str.toUpperCase())
-                .trim();
+            const displayName = labelize(p);
             
             return createTypedProperty(
                 p,
