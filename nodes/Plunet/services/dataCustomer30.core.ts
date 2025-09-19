@@ -120,7 +120,7 @@ const extraProperties: INodeProperties[] = [
         });
     }),
     
-    // Field selection system for insert2 and update operations
+    // Optional fields selection system for insert2 and update operations
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
         if (op !== 'insert2' && op !== 'update') return [];
 
@@ -131,35 +131,24 @@ const extraProperties: INodeProperties[] = [
             f !== 'status'
         );
 
-        // Create field selection dropdown
-        const fieldSelectionOptions = availableOptionalFields.map(field => ({
-            name: labelize(field),
-            value: field,
-        }));
-
-        return [
-            {
-                displayName: 'Add Optional Field',
-                name: 'addOptionalField',
-                type: 'options' as const,
-                options: [
-                    { name: 'Select a field to add...', value: '' },
-                    ...fieldSelectionOptions
-                ],
-                default: '',
-                required: false,
-                description: 'Select an optional field to add to the form',
-                displayOptions: {
-                    show: {
-                        resource: [RESOURCE],
-                        operation: [op],
-                    },
+        // Create checkboxes for each optional field
+        return availableOptionalFields.map(field => ({
+            displayName: labelize(field),
+            name: `include_${field}`,
+            type: 'boolean' as const,
+            default: false,
+            required: false,
+            description: `Include ${labelize(field)} field in the form`,
+            displayOptions: {
+                show: {
+                    resource: [RESOURCE],
+                    operation: [op],
                 },
             },
-        ];
+        }));
     }),
 
-    // Dynamic optional fields (shown when user adds them)
+    // Dynamic optional fields (shown when user checks the corresponding checkbox)
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
         if (op !== 'insert2' && op !== 'update') return [];
 
@@ -183,7 +172,7 @@ const extraProperties: INodeProperties[] = [
                     show: {
                         resource: [RESOURCE],
                         operation: [op],
-                        addOptionalField: [p],
+                        [`include_${p}`]: [true],
                     },
                 },
             };
@@ -317,14 +306,23 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 // Get mandatory fields
                 const mandatoryFields = MANDATORY_FIELDS[op] || MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || [];
                 
-                // Get selected optional field
-                const selectedOptionalField = ctx.getNodeParameter('addOptionalField', itemIndex, '') as string;
+                // Get selected optional fields from checkboxes
+                const selectedOptionalFields: string[] = [];
+                const availableOptionalFields = CUSTOMER_IN_FIELDS.filter(f => 
+                    !mandatoryFields.includes(f) && 
+                    f !== 'customerID' && 
+                    f !== 'status'
+                );
                 
-                // Determine which fields to include
-                let fieldsToInclude: readonly string[] = mandatoryFields;
-                if (selectedOptionalField && selectedOptionalField !== '') {
-                    fieldsToInclude = [...mandatoryFields, selectedOptionalField] as readonly string[];
+                for (const field of availableOptionalFields) {
+                    const isIncluded = ctx.getNodeParameter(`include_${field}`, itemIndex, false) as boolean;
+                    if (isIncluded) {
+                        selectedOptionalFields.push(field);
+                    }
                 }
+                
+                // Combine mandatory and selected optional fields
+                const fieldsToInclude = [...mandatoryFields, ...selectedOptionalFields] as readonly string[];
                 
                 const en = itemParams.enableNullOrEmptyValues as boolean || false;
 
@@ -334,14 +332,23 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 // Get mandatory fields
                 const mandatoryFields = MANDATORY_FIELDS[op] || [];
                 
-                // Get selected optional field
-                const selectedOptionalField = ctx.getNodeParameter('addOptionalField', itemIndex, '') as string;
+                // Get selected optional fields from checkboxes
+                const selectedOptionalFields: string[] = [];
+                const availableOptionalFields = CUSTOMER_IN_FIELDS.filter(f => 
+                    !mandatoryFields.includes(f) && 
+                    f !== 'customerID' && 
+                    f !== 'status'
+                );
                 
-                // Determine which fields to include
-                let fieldsToInclude: readonly string[] = mandatoryFields;
-                if (selectedOptionalField && selectedOptionalField !== '') {
-                    fieldsToInclude = [...mandatoryFields, selectedOptionalField] as readonly string[];
+                for (const field of availableOptionalFields) {
+                    const isIncluded = ctx.getNodeParameter(`include_${field}`, itemIndex, false) as boolean;
+                    if (isIncluded) {
+                        selectedOptionalFields.push(field);
+                    }
                 }
+                
+                // Combine mandatory and selected optional fields
+                const fieldsToInclude = [...mandatoryFields, ...selectedOptionalFields] as readonly string[];
 
                 const customerIn = buildCustomerINXml(ctx, itemIndex, fieldsToInclude, false);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}`;
