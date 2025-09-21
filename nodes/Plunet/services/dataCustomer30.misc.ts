@@ -248,7 +248,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 if (statusList && statusList.statusValues && Array.isArray(statusList.statusValues)) {
                     for (const statusItem of statusList.statusValues) {
                         if (statusItem.status !== undefined) {
-                            statusListXml += `<int>${escapeXml(String(statusItem.status))}</int>`;
+                            statusListXml += `<integerList>${escapeXml(String(statusItem.status))}</integerList>`;
                         }
                     }
                 }
