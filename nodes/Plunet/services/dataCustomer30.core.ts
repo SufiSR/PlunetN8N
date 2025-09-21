@@ -37,60 +37,60 @@ const ENDPOINT = 'DataCustomer30';
 
 /** ─ Params per operation (UUID auto-included) ─ */
 const PARAM_ORDER: Record<string, string[]> = {
-    'Create': [...CUSTOMER_IN_FIELDS.filter(f => f !== 'customerID')],
-    'Update': [
+    insert2: [...CUSTOMER_IN_FIELDS.filter(f => f !== 'customerID')],
+    update: [
         'customerID', 'status', ...CUSTOMER_IN_FIELDS.filter(f => f !== 'customerID' && f !== 'status'),
         'enableNullOrEmptyValues',
     ],
-    'Delete': ['customerID'],
-    'Get': ['customerID'],
-    'Get Many': [...CUSTOMER_SEARCH_FILTER_FIELDS],
+    delete: ['customerID'],
+    getCustomerObject: ['customerID'],
+    search: [...CUSTOMER_SEARCH_FILTER_FIELDS],
 };
 
 type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Customer';
 const RETURN_TYPE: Record<string, R> = {
-    'Create': 'Integer',
-    'Update': 'Void',
-    'Delete': 'Void',
-    'Get': 'Customer',
-    'Get Many': 'IntegerArray',
+    insert2: 'Integer',
+    update: 'Void',
+    delete: 'Void',
+    getCustomerObject: 'Customer',
+    search: 'IntegerArray',
 };
 
 /** ─ UI wiring ─ */
 const FRIENDLY_LABEL: Record<string,string> = {
-    'Create': 'Create',
-    'Update': 'Update',
-    'Delete': 'Delete',
-    'Get': 'Get',
-    'Get Many': 'Get Many',
+    insert2: 'Create',
+    update: 'Update',
+    delete: 'Delete',
+    getCustomerObject: 'Get',
+    search: 'Get Many',
 };
 
-const OP_ORDER = ['Get','Get Many','Create','Update','Delete'] as const;
+const OP_ORDER = ['getCustomerObject','search','insert2','update','delete'] as const;
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = [
     {
         name: 'Get Customer',
-        value: 'Get',
+        value: 'getCustomerObject',
         description: 'Retrieve a Customer',
     },
     {
         name: 'Get Many Customers',
-        value: 'Get Many',
+        value: 'search',
         description: 'Retrieve a list of Customers',
     },
     {
         name: 'Create Customer',
-        value: 'Create',
+        value: 'insert2',
         description: 'Create a new Customer',
     },
     {
         name: 'Update Customer',
-        value: 'Update',
+        value: 'update',
         description: 'Update a Customer',
     },
     {
         name: 'Delete Customer',
-        value: 'Delete',
+        value: 'delete',
         description: 'Delete a Customer',
     },
 ];
@@ -367,16 +367,9 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
         },
         (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
-            // Map UI operation names to API operation names
-            const apiOp = op === 'Create' ? 'insert2' : 
-                         op === 'Update' ? 'update' : 
-                         op === 'Delete' ? 'delete' : 
-                         op === 'Get' ? 'getCustomerObject' : 
-                         op === 'Get Many' ? 'search' : op;
-            
-            if (apiOp === 'update') {
+            if (op === 'update') {
                 // Get mandatory fields
-                const mandatoryFields = MANDATORY_FIELDS[`customer${apiOp.charAt(0).toUpperCase()}${apiOp.slice(1)}`] || MANDATORY_FIELDS[apiOp] || [];
+                const mandatoryFields = MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || MANDATORY_FIELDS[op] || [];
                 
                 // Get additional fields from collection
                 const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
@@ -393,9 +386,9 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
 
                 const customerIn = buildCustomerINXml(ctx, itemIndex, fieldsToInclude, en);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}\n<enableNullOrEmptyValues>${en ? '1' : '0'}</enableNullOrEmptyValues>`;
-            } else if (apiOp === 'insert2') {
+            } else if (op === 'insert2') {
                 // Get mandatory fields
-                const mandatoryFields = MANDATORY_FIELDS[apiOp] || [];
+                const mandatoryFields = MANDATORY_FIELDS[op] || [];
                 
                 // Get additional fields from collection
                 const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
@@ -410,7 +403,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
 
                 const customerIn = buildCustomerINXml(ctx, itemIndex, fieldsToInclude, false);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}`;
-            } else if (apiOp === 'search') {
+            } else if (op === 'search') {
                 // Build <SearchFilter> with search fields
                 const searchFilter = buildSearchFilterXml(ctx, itemIndex, CUSTOMER_SEARCH_FILTER_FIELDS);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${searchFilter}`;
@@ -430,15 +423,8 @@ export const DataCustomer30CoreService: Service = {
     extraProperties,
     async execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex) {
         const config = createExecuteConfig(creds, url, baseUrl, timeoutMs);
-        // Map UI operation names to API operation names
-        const apiOperation = operation === 'Create' ? 'insert2' : 
-                            operation === 'Update' ? 'update' : 
-                            operation === 'Delete' ? 'delete' : 
-                            operation === 'Get' ? 'getCustomerObject' : 
-                            operation === 'Get Many' ? 'search' : operation;
-        
         return await executeStandardService(
-            apiOperation,
+            operation,
             ctx,
             creds,
             url,
