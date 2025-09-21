@@ -69,27 +69,27 @@ const OP_ORDER = ['getCustomerObject','search','insert2','update','delete'] as c
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = [
     {
-        name: 'getCustomerObject',
+        name: 'Get',
         value: 'getCustomerObject',
         description: 'Retrieve a Customer',
     },
     {
-        name: 'search',
+        name: 'Get Many',
         value: 'search',
         description: 'Retrieve a list of Customers',
     },
     {
-        name: 'insert2',
+        name: 'Create',
         value: 'insert2',
         description: 'Create a new Customer',
     },
     {
-        name: 'update',
+        name: 'Update',
         value: 'update',
         description: 'Update a Customer',
     },
     {
-        name: 'delete',
+        name: 'Delete',
         value: 'delete',
         description: 'Delete a Customer',
     },
@@ -235,15 +235,23 @@ const extraProperties: INodeProperties[] = [
                 };
             }
             if (p === 'customerStatus') {
-                return createOptionsProperty(
-                    p,
-                    'Customer Status',
-                    'Customer status to filter by',
-                    RESOURCE,
-                    op,
-                    CustomerStatusOptions,
-                    undefined, // No default value - will be empty if not selected
-                );
+                return {
+                    displayName: 'Customer Status',
+                    name: p,
+                    type: 'options' as const,
+                    options: [
+                        { name: 'Please select', value: '' },
+                        ...CustomerStatusOptions,
+                    ],
+                    default: '',
+                    description: 'Customer status to filter by',
+                    displayOptions: {
+                        show: {
+                            resource: [RESOURCE],
+                            operation: [op],
+                        },
+                    },
+                };
             }
             return createStringProperty(
                 p,
