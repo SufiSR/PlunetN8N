@@ -27,23 +27,11 @@ export const CUSTOMER_IN_FIELDS = [
 ] as const;
 
 export const CUSTOMER_SEARCH_FILTER_FIELDS = [
-    'customerID',
-    'externalID',
-    'fullName',
+    'email',
+    'languageCode',
     'name1',
     'name2',
-    'email',
-    'phone',
-    'fax',
-    'mobilePhone',
-    'status',
-    'formOfAddress',
-    'academicTitle',
-    'costCenter',
-    'currency',
-    'website',
-    'skypeID',
-    'opening',
+    'customerStatus',
 ] as const;
 
 // ============================================================================

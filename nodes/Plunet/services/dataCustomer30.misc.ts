@@ -34,7 +34,6 @@ const ENDPOINT = 'DataCustomer30';
 /** ─ Ops kept here: everything except the five "core" ones ─ */
 const PARAM_ORDER: Record<string, string[]> = {
     // finders/lists
-    search: [...CUSTOMER_SEARCH_FILTER_FIELDS],
     seekByExternalID: ['ExternalID'],
     getAllCustomerObjects: ['Status'],
     getAllCustomerObjects2: ['StatusList'], // Takes array of status values
@@ -63,7 +62,6 @@ const PARAM_ORDER: Record<string, string[]> = {
 
 type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Customer'|'CustomerList'|'PaymentInfo'|'Account'|'WorkflowList';
 const RETURN_TYPE: Record<string, R> = {
-    search: 'IntegerArray',
     seekByExternalID: 'Integer',
     getAllCustomerObjects: 'CustomerList',
     getAllCustomerObjects2: 'CustomerList',
@@ -87,7 +85,6 @@ const RETURN_TYPE: Record<string, R> = {
 
 /** ─ UI ─ */
 const FRIENDLY_LABEL: Record<string,string> = {
-    search: 'Search Customers',
     seekByExternalID: 'Search by External ID',
     getAllCustomerObjects: 'Get All Customers (By Status)',
     getAllCustomerObjects2: 'Get All Customers (By Status List)',
@@ -237,11 +234,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
         },
         (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
-            if (op === 'search') {
-                // Build <SearchFilter_Customer> with search fields
-                const searchFilter = buildSearchFilterXml(ctx, itemIndex, CUSTOMER_SEARCH_FILTER_FIELDS);
-                return `<UUID>${escapeXml(sessionId)}</UUID>\n${searchFilter}`;
-            } else if (op === 'getAllCustomerObjects2') {
+            if (op === 'getAllCustomerObjects2') {
                 // Handle StatusList parameter
                 const statusList = itemParams.StatusList as any;
                 let statusListXml = '<StatusList>';

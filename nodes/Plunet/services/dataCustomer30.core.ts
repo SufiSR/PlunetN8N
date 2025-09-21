@@ -44,6 +44,7 @@ const PARAM_ORDER: Record<string, string[]> = {
     ],
     delete: ['customerID'],
     getCustomerObject: ['customerID'],
+    search: [...CUSTOMER_SEARCH_FILTER_FIELDS],
 };
 
 type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Customer';
@@ -52,23 +53,47 @@ const RETURN_TYPE: Record<string, R> = {
     update: 'Void',
     delete: 'Void',
     getCustomerObject: 'Customer',
+    search: 'IntegerArray',
 };
 
 /** ─ UI wiring ─ */
 const FRIENDLY_LABEL: Record<string,string> = {
-    insert2: 'Create Customer',
-    update: 'Update Customer',
-    delete: 'Delete Customer',
-    getCustomerObject: 'Get Customer',
+    insert2: 'Create',
+    update: 'Update',
+    delete: 'Delete',
+    getCustomerObject: 'Get',
+    search: 'Get Many',
 };
 
-const OP_ORDER = ['getCustomerObject','insert2','update','delete'] as const;
+const OP_ORDER = ['getCustomerObject','search','insert2','update','delete'] as const;
 
-const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptions(
-    OP_ORDER,
-    FRIENDLY_LABEL,
-    ENDPOINT,
-);
+const operationOptions: NonEmptyArray<INodePropertyOptions> = [
+    {
+        name: 'getCustomerObject',
+        value: 'getCustomerObject',
+        description: 'Retrieve a Customer',
+    },
+    {
+        name: 'search',
+        value: 'search',
+        description: 'Retrieve a list of Customers',
+    },
+    {
+        name: 'insert2',
+        value: 'insert2',
+        description: 'Create a new Customer',
+    },
+    {
+        name: 'update',
+        value: 'update',
+        description: 'Update a Customer',
+    },
+    {
+        name: 'delete',
+        value: 'delete',
+        description: 'Delete a Customer',
+    },
+];
 
 const extraProperties: INodeProperties[] = [
     
@@ -189,10 +214,51 @@ const extraProperties: INodeProperties[] = [
         }];
     }),
     
+    // Search filter fields
+    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
+        if (op !== 'search') return [];
+        
+        return params.map<INodeProperties>((p) => {
+            if (p === 'languageCode') {
+                return {
+                    displayName: 'Language Code',
+                    name: p,
+                    type: 'string' as const,
+                    default: 'EN',
+                    description: 'Language code for search (defaults to EN)',
+                    displayOptions: {
+                        show: {
+                            resource: [RESOURCE],
+                            operation: [op],
+                        },
+                    },
+                };
+            }
+            if (p === 'customerStatus') {
+                return createOptionsProperty(
+                    p,
+                    'Customer Status',
+                    'Customer status to filter by',
+                    RESOURCE,
+                    op,
+                    CustomerStatusOptions,
+                    undefined, // No default value - will be empty if not selected
+                );
+            }
+            return createStringProperty(
+                p,
+                labelize(p),
+                `${labelize(p)} parameter for ${op}`,
+                RESOURCE,
+                op,
+            );
+        });
+    }),
+    
     // Keep non-CUSTOMER_IN_FIELDS as regular properties
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
         params
-            .filter(p => !(CUSTOMER_IN_FIELDS as readonly string[]).includes(p) && !MANDATORY_FIELDS[op]?.includes(p))
+            .filter(p => !(CUSTOMER_IN_FIELDS as readonly string[]).includes(p) && !MANDATORY_FIELDS[op]?.includes(p) && !(CUSTOMER_SEARCH_FILTER_FIELDS as readonly string[]).includes(p))
             .map<INodeProperties>((p) => {
                 const fieldType = (FIELD_TYPES as Record<string, 'string' | 'number' | 'boolean' | 'date'>)[p] || 'string';
                 const displayName = labelize(p);
@@ -329,6 +395,10 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
 
                 const customerIn = buildCustomerINXml(ctx, itemIndex, fieldsToInclude, false);
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${customerIn}`;
+            } else if (op === 'search') {
+                // Build <SearchFilter> with search fields
+                const searchFilter = buildSearchFilterXml(ctx, itemIndex, CUSTOMER_SEARCH_FILTER_FIELDS);
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n${searchFilter}`;
             }
             return null;
         },
@@ -338,8 +408,8 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
 /** ─ Service export ─ */
 export const DataCustomer30CoreService: Service = {
     resource: RESOURCE,
-    resourceDisplayName: 'Customers (Core)',
-    resourceDescription: 'Core operations for DataCustomer30',
+    resourceDisplayName: 'Customer',
+    resourceDescription: 'Core operations for Customer management',
     endpoint: ENDPOINT,
     operationOptions,
     extraProperties,
