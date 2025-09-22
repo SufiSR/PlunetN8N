@@ -32,6 +32,7 @@ import {
     FIELD_TYPES,
 } from '../core/field-definitions';
 import { parseCustomerResult } from '../core/parsers/customer';
+import { idToCustomerStatusName } from '../core/parsers/common';
 
 const RESOURCE = 'DataCustomer30Core';
 const ENDPOINT = 'DataCustomer30';
@@ -364,7 +365,15 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             switch (rt) {
                 case 'Customer': {
                     const r = parseCustomerResult(xml);
-                    payload = { customer: r.customer, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    const customer = (r as any).customer || undefined;
+                    const statusId = typeof customer?.statusId === 'number' ? customer.statusId : 
+                                   typeof customer?.status === 'number' ? customer.status : undefined;
+                    const statusName = idToCustomerStatusName(statusId);
+                    const enrichedCustomer = customer ? {
+                        ...customer,
+                        ...(statusName ? { status: statusName } : {}),
+                    } : undefined;
+                    payload = { customer: enrichedCustomer, statusMessage: r.statusMessage, statusCode: r.statusCode };
                     break;
                 }
                 case 'Integer': {

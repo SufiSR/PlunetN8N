@@ -11,6 +11,7 @@ import {
     parseStringResult, parseIntegerResult, parseIntegerArrayResult, parseVoidResult,
 } from '../core/xml';
 import { parseCustomerResult, parseCustomerListResult } from '../core/parsers/customer';
+import { idToCustomerStatusName } from '../core/parsers/common';
 import { parsePaymentInfoResult, parseAccountResult } from '../core/parsers/account';
 import { parseWorkflowListResult } from '../core/parsers/workflow';
 import { CustomerStatusOptions } from '../enums/customer-status';
@@ -177,12 +178,29 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             switch (rt) {
                 case 'Customer': {
                     const r = parseCustomerResult(xml);
-                    payload = { customer: r.customer, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    const customer = (r as any).customer || undefined;
+                    const statusId = typeof customer?.statusId === 'number' ? customer.statusId : 
+                                   typeof customer?.status === 'number' ? customer.status : undefined;
+                    const statusName = idToCustomerStatusName(statusId);
+                    const enrichedCustomer = customer ? {
+                        ...customer,
+                        ...(statusName ? { status: statusName } : {}),
+                    } : undefined;
+                    payload = { customer: enrichedCustomer, statusMessage: r.statusMessage, statusCode: r.statusCode };
                     break;
                 }
                 case 'CustomerList': {
                     const r = parseCustomerListResult(xml);
-                    payload = { customers: r.customers, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    const enrichedCustomers = r.customers?.map(customer => {
+                        const statusId = typeof customer?.statusId === 'number' ? customer.statusId : 
+                                       typeof customer?.status === 'number' ? customer.status : undefined;
+                        const statusName = idToCustomerStatusName(statusId);
+                        return {
+                            ...customer,
+                            ...(statusName ? { status: statusName } : {}),
+                        };
+                    });
+                    payload = { customers: enrichedCustomers, statusMessage: r.statusMessage, statusCode: r.statusCode };
                     break;
                 }
                 case 'PaymentInfo': {
