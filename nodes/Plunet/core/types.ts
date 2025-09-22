@@ -38,6 +38,9 @@ export type OperationMetadata = {
     description: string;       // e.g., "Retrieve a single customer"
     returnType: string;        // e.g., "Customer"
     paramOrder: string[];      // e.g., ["customerID"]
+    
+    // Operation control
+    active: boolean;           // e.g., true (whether operation is active/enabled)
 };
 
 /**

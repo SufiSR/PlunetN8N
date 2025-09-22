@@ -48,6 +48,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get many by external ID',
         returnType: 'Integer',
         paramOrder: ['ExternalID'],
+        active: true,
     },
     getAllResourceObjects: {
         soapAction: 'getAllResourceObjects',
@@ -60,6 +61,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get many resource objects by status',
         returnType: 'ResourceList',
         paramOrder: ['WorkingStatus','Status'],
+        active: true,
     },
     getPricelists: {
         soapAction: 'getPricelists',
@@ -72,6 +74,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get pricelists for resource',
         returnType: 'PricelistList',
         paramOrder: ['resourceID'],
+        active: true,
     },
     getPricelists2: {
         soapAction: 'getPricelists2',
@@ -84,6 +87,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get pricelists for language pair',
         returnType: 'PricelistList',
         paramOrder: ['sourcelanguage','targetlanguage','resourceID'],
+        active: true,
     },
     getPaymentInformation: {
         soapAction: 'getPaymentInformation',
@@ -96,6 +100,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get payment information for resource',
         returnType: 'PaymentInfo',
         paramOrder: ['resourceID'],
+        active: true,
     },
     setPaymentInformation: {
         soapAction: 'setPaymentInformation',
@@ -111,6 +116,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
             'resourceID','accountHolder','accountID','BIC','contractNumber',
             'debitAccount','IBAN','paymentMethodID','preselectedTaxID','salesTaxID',
         ],
+        active: true,
     },
     getAvailableAccountIDs: {
         soapAction: 'getAvailableAccountIDList',
@@ -123,6 +129,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get list of available account IDs',
         returnType: 'IntegerArray',
         paramOrder: [],
+        active: true,
     },
     getAvailablePaymentMethods: {
         soapAction: 'getAvailablePaymentMethodList',
@@ -135,6 +142,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get list of available payment methods',
         returnType: 'IntegerArray',
         paramOrder: [],
+        active: true,
     },
     getPaymentMethodDescription: {
         soapAction: 'getPaymentMethodDescription',
@@ -147,17 +155,22 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get payment method description',
         returnType: 'String',
         paramOrder: ['paymentMethodID','systemLanguageCode'],
+        active: true,
     },
 };
 
 /** ─ Legacy compatibility mappings ─ */
 const PARAM_ORDER: Record<string, string[]> = Object.fromEntries(
-    Object.values(OPERATION_REGISTRY).map(op => [op.soapAction, op.paramOrder])
+    Object.values(OPERATION_REGISTRY)
+        .filter(op => op.active) // Only include active operations
+        .map(op => [op.soapAction, op.paramOrder])
 );
 
 type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Resource'|'ResourceList'|'PricelistList'|'PaymentInfo';
 const RETURN_TYPE: Record<string, R> = Object.fromEntries(
-    Object.values(OPERATION_REGISTRY).map(op => [op.soapAction, op.returnType as R])
+    Object.values(OPERATION_REGISTRY)
+        .filter(op => op.active) // Only include active operations
+        .map(op => [op.soapAction, op.returnType as R])
 );
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptionsFromRegistry(OPERATION_REGISTRY);

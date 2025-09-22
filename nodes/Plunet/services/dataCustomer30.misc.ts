@@ -47,6 +47,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get many by external ID',
         returnType: 'Integer',
         paramOrder: ['ExternalID'],
+        active: true,
     },
     getAllCustomersByStatus: {
         soapAction: 'getAllCustomerObjects',
@@ -59,6 +60,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get many customers objects by status',
         returnType: 'CustomerList',
         paramOrder: ['Status'],
+        active: true,
     },
     getAllCustomersByStatusList: {
         soapAction: 'getAllCustomerObjects2',
@@ -71,6 +73,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get many customers objects filtered by status list',
         returnType: 'CustomerList',
         paramOrder: ['StatusList'],
+        active: true,
     },
     getAvailableAccountIDs: {
         soapAction: 'getAvailableAccountIDList',
@@ -83,6 +86,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get list of available account IDs',
         returnType: 'IntegerArray',
         paramOrder: [],
+        active: true,
     },
     getAvailablePaymentMethods: {
         soapAction: 'getAvailablePaymentMethodList',
@@ -95,6 +99,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get list of available payment methods',
         returnType: 'IntegerArray',
         paramOrder: [],
+        active: true,
     },
     getAvailableWorkflows: {
         soapAction: 'getAvailableWorkflows',
@@ -107,6 +112,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get available workflows for customer',
         returnType: 'WorkflowList',
         paramOrder: ['customerID'],
+        active: true,
     },
     getAccount: {
         soapAction: 'getAccount',
@@ -119,6 +125,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get account information by account ID',
         returnType: 'Account',
         paramOrder: ['AccountID'],
+        active: true,
     },
     getPaymentInformation: {
         soapAction: 'getPaymentInformation',
@@ -131,6 +138,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get payment information for customer',
         returnType: 'PaymentInfo',
         paramOrder: ['customerID'],
+        active: true,
     },
     getPaymentMethodDescription: {
         soapAction: 'getPaymentMethodDescription',
@@ -143,6 +151,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get payment method description',
         returnType: 'String',
         paramOrder: ['paymentMethodID', 'systemLanguageCode'],
+        active: true,
     },
     getCreatedByResourceID: {
         soapAction: 'getCreatedByResourceID',
@@ -155,6 +164,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get resource ID who created the customer',
         returnType: 'Integer',
         paramOrder: ['customerID'],
+        active: true,
     },
     getProjectManagerID: {
         soapAction: 'getProjectManagerID',
@@ -167,6 +177,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get project manager ID for customer',
         returnType: 'Integer',
         paramOrder: ['customerID'],
+        active: true,
     },
     getSourceOfContact: {
         soapAction: 'getSourceOfContact',
@@ -179,6 +190,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get source of contact for customer',
         returnType: 'String',
         paramOrder: ['customerID'],
+        active: true,
     },
     getDateOfInitialContact: {
         soapAction: 'getDateOfInitialContact',
@@ -191,6 +203,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get date of initial contact for customer',
         returnType: 'String',
         paramOrder: ['customerID'],
+        active: true,
     },
     getDossier: {
         soapAction: 'getDossier',
@@ -203,6 +216,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get dossier information for customer',
         returnType: 'String',
         paramOrder: ['customerID'],
+        active: true,
     },
     setPaymentInformation: {
         soapAction: 'setPaymentInformation',
@@ -218,6 +232,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         'customerID','accountHolder','accountID','BIC','contractNumber',
         'debitAccount','IBAN','paymentMethodID','preselectedTaxID','salesTaxID',
     ],
+        active: true,
     },
     setProjectManagerID: {
         soapAction: 'setProjectManagerID',
@@ -230,6 +245,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Update project manager ID for customer',
         returnType: 'Void',
         paramOrder: ['resourceID', 'customerID'],
+        active: true,
     },
     setSourceOfContact: {
         soapAction: 'setSourceOfContact',
@@ -242,6 +258,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Update source of contact for customer',
         returnType: 'Void',
         paramOrder: ['sourceOfContact', 'customerID'],
+        active: true,
     },
     setDateOfInitialContact: {
         soapAction: 'setDateOfInitialContact',
@@ -254,6 +271,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Update date of initial contact for customer',
         returnType: 'Void',
         paramOrder: ['dateInitialContact', 'customerID'],
+        active: true,
     },
     setDossier: {
         soapAction: 'setDossier',
@@ -266,17 +284,22 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Update dossier information for customer',
         returnType: 'Void',
         paramOrder: ['dossier', 'customerID'],
+        active: true,
     },
 };
 
 /** ─ Legacy compatibility mappings ─ */
 const PARAM_ORDER: Record<string, string[]> = Object.fromEntries(
-    Object.values(OPERATION_REGISTRY).map(op => [op.soapAction, op.paramOrder])
+    Object.values(OPERATION_REGISTRY)
+        .filter(op => op.active) // Only include active operations
+        .map(op => [op.soapAction, op.paramOrder])
 );
 
 type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Customer'|'CustomerList'|'PaymentInfo'|'Account'|'WorkflowList';
 const RETURN_TYPE: Record<string, R> = Object.fromEntries(
-    Object.values(OPERATION_REGISTRY).map(op => [op.soapAction, op.returnType as R])
+    Object.values(OPERATION_REGISTRY)
+        .filter(op => op.active) // Only include active operations
+        .map(op => [op.soapAction, op.returnType as R])
 );
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptionsFromRegistry(OPERATION_REGISTRY);

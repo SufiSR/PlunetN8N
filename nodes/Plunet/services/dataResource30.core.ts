@@ -68,6 +68,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Retrieve a single resource by ID',
         returnType: 'Resource',
         paramOrder: ['resourceID'],
+        active: true,
     },
     getManyResources: {
         soapAction: 'search',
@@ -80,6 +81,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Search and retrieve multiple resources',
         returnType: 'IntegerArray',
         paramOrder: [...RESOURCE_SEARCH_FILTER_FIELDS],
+        active: true,
     },
     createResource: {
         soapAction: 'insertObject',
@@ -92,6 +94,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Create a new resource',
         returnType: 'Integer',
         paramOrder: [...RESOURCE_IN_FIELDS],
+        active: true,
     },
     updateResource: {
         soapAction: 'update',
@@ -106,6 +109,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         paramOrder: [
             'resourceID', ...RESOURCE_IN_FIELDS, 'enableNullOrEmptyValues',
         ],
+        active: true,
     },
     deleteResource: {
         soapAction: 'delete',
@@ -118,17 +122,22 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Delete a resource',
         returnType: 'Void',
         paramOrder: ['resourceID'],
+        active: true,
     },
 };
 
 /** ─ Legacy compatibility mappings ─ */
 const PARAM_ORDER: Record<string, string[]> = Object.fromEntries(
-    Object.values(OPERATION_REGISTRY).map(op => [op.soapAction, op.paramOrder])
+    Object.values(OPERATION_REGISTRY)
+        .filter(op => op.active) // Only include active operations
+        .map(op => [op.soapAction, op.paramOrder])
 );
 
 type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Resource';
 const RETURN_TYPE: Record<string, R> = Object.fromEntries(
-    Object.values(OPERATION_REGISTRY).map(op => [op.soapAction, op.returnType as R])
+    Object.values(OPERATION_REGISTRY)
+        .filter(op => op.active) // Only include active operations
+        .map(op => [op.soapAction, op.returnType as R])
 );
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptionsFromRegistry(OPERATION_REGISTRY);

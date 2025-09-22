@@ -154,12 +154,14 @@ export function generateOperationOptionsFromParams(
 export function generateOperationOptionsFromRegistry(
     operationRegistry: ServiceOperationRegistry,
 ): NonEmptyArray<INodePropertyOptions> {
-    const options = Object.values(operationRegistry).map((metadata) => ({
-        name: metadata.uiName,
-        value: metadata.soapAction,
-        action: metadata.uiName,
-        description: metadata.description,
-    }));
+    const options = Object.values(operationRegistry)
+        .filter((metadata) => metadata.active) // Only include active operations
+        .map((metadata) => ({
+            name: metadata.uiName,
+            value: metadata.soapAction,
+            action: metadata.uiName,
+            description: metadata.description,
+        }));
     return asNonEmpty(options) as NonEmptyArray<INodePropertyOptions>;
 }
 
@@ -178,9 +180,11 @@ export function getOperationMetadata(
  */
 export function buildSubtitleLookup(operationRegistry: ServiceOperationRegistry): Record<string, string> {
     const lookup: Record<string, string> = {};
-    Object.values(operationRegistry).forEach(metadata => {
-        lookup[metadata.soapAction] = metadata.subtitleName;
-    });
+    Object.values(operationRegistry)
+        .filter((metadata) => metadata.active) // Only include active operations
+        .forEach(metadata => {
+            lookup[metadata.soapAction] = metadata.subtitleName;
+        });
     return lookup;
 }
 
