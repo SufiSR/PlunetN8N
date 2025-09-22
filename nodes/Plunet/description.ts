@@ -72,7 +72,23 @@ const createSubtitleExpression = (): string => {
         conditions.push(`$parameter["resource"] === "${resource}" ? (${resourceConditions.join(' : ')})`);
     });
     
-    // Fallback for services without operation registries
+    // Add conditions for services without operation registries (use opLabelByResource)
+    const servicesWithoutRegistry = services.filter(s => !('operationRegistry' in s));
+    servicesWithoutRegistry.forEach(service => {
+        const resource = service.resource;
+        const lookup = opLabelByResource[resource];
+        if (lookup) {
+            const resourceConditions: string[] = [];
+            Object.entries(lookup).forEach(([operation, subtitle]) => {
+                resourceConditions.push(`$parameter["operation"] === "${operation}" ? "${subtitle}"`);
+            });
+            resourceConditions.push('$parameter["operation"]');
+            
+            conditions.push(`$parameter["resource"] === "${resource}" ? (${resourceConditions.join(' : ')})`);
+        }
+    });
+    
+    // Final fallback
     conditions.push('$parameter["operation"]');
     
     return `={{ ${conditions.join(' : ')} }}`;
