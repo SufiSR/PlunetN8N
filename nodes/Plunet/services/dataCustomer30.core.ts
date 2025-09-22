@@ -174,14 +174,28 @@ const extraProperties: INodeProperties[] = [
         const mandatoryFields = MANDATORY_FIELDS[`customer${op.charAt(0).toUpperCase()}${op.slice(1)}`] || MANDATORY_FIELDS[op] || [];
         const optionalFields = CUSTOMER_IN_FIELDS.filter(f => 
             !mandatoryFields.includes(f) && 
-            f !== 'customerID' && 
-            f !== 'status'
+            f !== 'customerID'
         );
 
         // Create options for the collection
         const collectionOptions = optionalFields.map(field => {
             const fieldType = FIELD_TYPES[field] || 'string';
             const displayName = labelize(field);
+
+            // Handle special enum fields
+            if (field === 'status') {
+                return {
+                    displayName: 'Status',
+                    name: field,
+                    type: 'options' as const,
+                    options: [
+                        { name: 'Please select...', value: '' },
+                        ...CustomerStatusOptions
+                    ],
+                    default: '',
+                    description: `${field} parameter (CustomerStatus enum)`,
+                };
+            }
 
             switch (fieldType) {
                 case 'number':
