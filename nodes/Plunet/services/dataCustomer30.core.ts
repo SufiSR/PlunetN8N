@@ -58,11 +58,11 @@ const RETURN_TYPE: Record<string, R> = {
 
 /** ─ UI wiring ─ */
 const FRIENDLY_LABEL: Record<string,string> = {
-    getCustomerObject: 'Get',
-    search: 'Get Many',
-    insert2: 'Create',
-    update: 'Update',
-    delete: 'Delete',
+    getCustomerObject: 'Get Customer',
+    search: 'Get Many Customers',
+    insert2: 'Create Customer',
+    update: 'Update Customer',
+    delete: 'Delete Customer',
 };
 
 const OP_ORDER = ['getCustomerObject','search','insert2','update','delete'] as const;

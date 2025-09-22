@@ -57,7 +57,7 @@ export const description: INodeTypeDescription = {
     inputs: ['main'],
     outputs: ['main'],
     credentials: [{ name: 'plunetApi', required: true }],
-    subtitle: '={{ $parameter["operation"] + ": " + $parameter["resource"] }}',
+    subtitle: '={{ $parameter["operation"] === "getCustomerObject" ? "Get Customer" : $parameter["operation"] === "search" ? "Get Many Customers" : $parameter["operation"] === "insert2" ? "Create Customer" : $parameter["operation"] === "update" ? "Update Customer" : $parameter["operation"] === "delete" ? "Delete Customer" : $parameter["operation"] }}',
     properties: [
         {
             displayName: 'Resource',
