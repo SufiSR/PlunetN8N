@@ -1,7 +1,7 @@
 import {
     IExecuteFunctions, IDataObject, INodeProperties, INodePropertyOptions, NodeOperationError,
 } from 'n8n-workflow';
-import type { Creds, Service, NonEmptyArray } from '../core/types';
+import type { Creds, Service, NonEmptyArray, ServiceOperationRegistry } from '../core/types';
 import { ensureSession } from '../core/session';
 import { executeOperation, type ExecuteConfig } from '../core/executor';
 import { labelize, asNonEmpty } from '../core/utils';
@@ -31,6 +31,7 @@ import {
     createOptionsProperty,
     createTypedProperty,
     handleVoidResult,
+    generateOperationOptionsFromRegistry,
 } from '../core/service-utils';
 import {
     RESOURCE_IN_FIELDS,
@@ -41,6 +42,7 @@ import {
 
 const RESOURCE = 'DataResource30Core';
 const ENDPOINT = 'DataResource30';
+const RESOURCE_DISPLAY_NAME = 'Resource';
 
 /** ResourceIN fields for create/update */
 const RESOURCE_IN_FIELDS_CREATE = [
@@ -53,40 +55,83 @@ const RESOURCE_IN_FIELDS_UPDATE = [
     'resourceID', ...RESOURCE_IN_FIELDS_CREATE,
 ] as const;
 
-/** Operations → parameters (UUID auto-included) */
-const PARAM_ORDER: Record<string,string[]> = {
-    getResourceObject: ['resourceID'],
-    insertObject: [...RESOURCE_IN_FIELDS],
-    update: ['resourceID', ...RESOURCE_IN_FIELDS, 'enableNullOrEmptyValues'],
-    delete: ['resourceID'],
-    search: [...RESOURCE_SEARCH_FILTER_FIELDS],
+/** ─ Centralized Operation Registry ─ */
+const OPERATION_REGISTRY: ServiceOperationRegistry = {
+    getResource: {
+        soapAction: 'getResourceObject',
+        endpoint: ENDPOINT,
+        uiName: 'Get Resource',
+        subtitleName: 'get: resource',
+        titleName: 'Get a Resource',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Retrieve a single resource by ID',
+        returnType: 'Resource',
+        paramOrder: ['resourceID'],
+    },
+    getManyResources: {
+        soapAction: 'search',
+        endpoint: ENDPOINT,
+        uiName: 'Get Many Resources',
+        subtitleName: 'get many: resource',
+        titleName: 'Get Many Resources',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Search and retrieve multiple resources',
+        returnType: 'IntegerArray',
+        paramOrder: [...RESOURCE_SEARCH_FILTER_FIELDS],
+    },
+    createResource: {
+        soapAction: 'insertObject',
+        endpoint: ENDPOINT,
+        uiName: 'Create Resource',
+        subtitleName: 'create: resource',
+        titleName: 'Create Resource',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Create a new resource',
+        returnType: 'Integer',
+        paramOrder: [...RESOURCE_IN_FIELDS],
+    },
+    updateResource: {
+        soapAction: 'update',
+        endpoint: ENDPOINT,
+        uiName: 'Update Resource',
+        subtitleName: 'update: resource',
+        titleName: 'Update Resource',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Update an existing resource',
+        returnType: 'Void',
+        paramOrder: [
+            'resourceID', ...RESOURCE_IN_FIELDS, 'enableNullOrEmptyValues',
+        ],
+    },
+    deleteResource: {
+        soapAction: 'delete',
+        endpoint: ENDPOINT,
+        uiName: 'Delete Resource',
+        subtitleName: 'delete: resource',
+        titleName: 'Delete Resource',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Delete a resource',
+        returnType: 'Void',
+        paramOrder: ['resourceID'],
+    },
 };
+
+/** ─ Legacy compatibility mappings ─ */
+const PARAM_ORDER: Record<string, string[]> = Object.fromEntries(
+    Object.values(OPERATION_REGISTRY).map(op => [op.soapAction, op.paramOrder])
+);
 
 type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Resource';
-const RETURN_TYPE: Record<string,R> = {
-    getResourceObject: 'Resource',
-    insertObject: 'Integer',
-    update: 'Void',
-    delete: 'Void',
-    search: 'IntegerArray',
-};
-
-/** UI wiring */
-const FRIENDLY_LABEL: Record<string,string> = {
-    getResourceObject: 'Get Resource',
-    insertObject: 'Create Resource',
-    update: 'Update Resource',
-    delete: 'Delete Resource',
-    search: 'Search',
-};
-
-const OP_ORDER = ['getResourceObject','insertObject','update','delete','search'] as const;
-
-const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptions(
-    OP_ORDER,
-    FRIENDLY_LABEL,
-    ENDPOINT,
+const RETURN_TYPE: Record<string, R> = Object.fromEntries(
+    Object.values(OPERATION_REGISTRY).map(op => [op.soapAction, op.returnType as R])
 );
+
+const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptionsFromRegistry(OPERATION_REGISTRY);
 
 // enum helpers
 const isStatusParam = (p: string) => p === 'Status' || p === 'status';
@@ -496,9 +541,10 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
 /** Service export */
 export const DataResource30CoreService: Service = {
     resource: RESOURCE,
-    resourceDisplayName: 'Resources (Core)',
+    resourceDisplayName: RESOURCE_DISPLAY_NAME,
     resourceDescription: 'Core operations for DataResource30',
     endpoint: ENDPOINT,
+    operationRegistry: OPERATION_REGISTRY,
     operationOptions,
     extraProperties,
     async execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex) {
