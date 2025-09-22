@@ -97,7 +97,8 @@ function mapJobTrackingTime(ttXml: string) {
 export function parseJobResult(xml: string) {
     const base = extractResultBase(xml);
     const scope = scopeToData(xml, 'JobResult');
-    const jobXml = findFirstTagBlock(scope, 'Job');
+    // For getJob_ForView, the job data is directly in the data tag, not wrapped in a Job tag
+    const jobXml = findFirstTagBlock(scope, 'Job') || scope;
     const job = jobXml ? mapJob(jobXml) : undefined;
     return { job, statusMessage: base.statusMessage, statusCode: base.statusCode };
 }
