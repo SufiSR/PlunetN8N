@@ -57,6 +57,27 @@ const subtitleLookupByResource = Object.fromEntries(
         ])
 );
 
+// Create a comprehensive subtitle expression that uses the lookup tables
+const createSubtitleExpression = (): string => {
+    const conditions: string[] = [];
+    
+    // Add conditions for each service with operation registry
+    Object.entries(subtitleLookupByResource).forEach(([resource, lookup]) => {
+        const resourceConditions: string[] = [];
+        Object.entries(lookup).forEach(([operation, subtitle]) => {
+            resourceConditions.push(`$parameter["operation"] === "${operation}" ? "${subtitle}"`);
+        });
+        resourceConditions.push('$parameter["operation"]');
+        
+        conditions.push(`$parameter["resource"] === "${resource}" ? (${resourceConditions.join(' : ')})`);
+    });
+    
+    // Fallback for services without operation registries
+    conditions.push('$parameter["operation"]');
+    
+    return `={{ ${conditions.join(' : ')} }}`;
+};
+
 export const description: INodeTypeDescription = {
     displayName: 'Plunet',
     name: 'plunet',
@@ -68,7 +89,7 @@ export const description: INodeTypeDescription = {
     inputs: ['main'],
     outputs: ['main'],
     credentials: [{ name: 'plunetApi', required: true }],
-    subtitle: '={{ $parameter["resource"] === "DataCustomer30Core" ? ($parameter["operation"] === "getCustomerObject" ? "Get Customer" : $parameter["operation"] === "search" ? "Get Many Customers" : $parameter["operation"] === "insert2" ? "Create Customer" : $parameter["operation"] === "update" ? "Update Customer" : $parameter["operation"] === "delete" ? "Delete Customer" : $parameter["operation"]) : $parameter["operation"] }}',
+    subtitle: createSubtitleExpression(),
     properties: [
         {
             displayName: 'Resource',
