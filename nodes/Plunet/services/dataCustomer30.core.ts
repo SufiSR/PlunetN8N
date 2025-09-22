@@ -70,27 +70,27 @@ const OP_ORDER = ['getCustomerObject','search','insert2','update','delete'] as c
 const operationOptions: NonEmptyArray<INodePropertyOptions> = [
     {
         name: 'getCustomerObject',
-        value: 'getCustomerObject',
+        value: 'Get',
         description: 'Retrieve a Customer',
     },
     {
         name: 'search',
-        value: 'search',
+        value: 'Get Many',
         description: 'Retrieve a list of Customers',
     },
     {
         name: 'insert2',
-        value: 'insert2',
+        value: 'Create',
         description: 'Create a new Customer',
     },
     {
         name: 'update',
-        value: 'update',
+        value: 'Update',
         description: 'Update a Customer',
     },
     {
         name: 'delete',
-        value: 'delete',
+        value: 'Delete',
         description: 'Delete a Customer',
     },
 ];
