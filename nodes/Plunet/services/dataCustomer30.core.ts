@@ -1,7 +1,7 @@
 import {
     IExecuteFunctions, IDataObject, INodeProperties, INodePropertyOptions, NodeOperationError,
 } from 'n8n-workflow';
-import type { Creds, Service, NonEmptyArray } from '../core/types';
+import type { Creds, Service, NonEmptyArray, ServiceOperationRegistry } from '../core/types';
 import { ensureSession } from '../core/session';
 import { executeOperation, type ExecuteConfig } from '../core/executor';
 import { labelize, asNonEmpty } from '../core/utils';
@@ -17,6 +17,7 @@ import {
     createStandardExecuteConfig,
     executeStandardService,
     generateOperationOptions,
+    generateOperationOptionsFromRegistry,
     createStringProperty,
     createBooleanProperty,
     createOptionsProperty,
@@ -34,44 +35,86 @@ import { parseCustomerResult } from '../core/parsers/customer';
 
 const RESOURCE = 'DataCustomer30Core';
 const ENDPOINT = 'DataCustomer30';
+const RESOURCE_DISPLAY_NAME = 'Customer';
 
-/** ─ Params per operation (UUID auto-included) ─ */
-const PARAM_ORDER: Record<string, string[]> = {
-    insert2: [...CUSTOMER_IN_FIELDS.filter(f => f !== 'customerID')],
-    update: [
-        'customerID', 'status', ...CUSTOMER_IN_FIELDS.filter(f => f !== 'customerID' && f !== 'status'),
-        'enableNullOrEmptyValues',
-    ],
-    delete: ['customerID'],
-    getCustomerObject: ['customerID'],
-    search: [...CUSTOMER_SEARCH_FILTER_FIELDS],
+/** ─ Centralized Operation Registry ─ */
+const OPERATION_REGISTRY: ServiceOperationRegistry = {
+    getCustomer: {
+        soapAction: 'getCustomerObject',
+        endpoint: ENDPOINT,
+        uiName: 'Get Customer',
+        subtitleName: 'Get Customer',
+        titleName: 'Get Customer',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Retrieve a single customer by ID',
+        returnType: 'Customer',
+        paramOrder: ['customerID'],
+    },
+    getManyCustomers: {
+        soapAction: 'search',
+        endpoint: ENDPOINT,
+        uiName: 'Get Many Customers',
+        subtitleName: 'Get Many Customers',
+        titleName: 'Get Many Customers',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Search and retrieve multiple customers',
+        returnType: 'IntegerArray',
+        paramOrder: [...CUSTOMER_SEARCH_FILTER_FIELDS],
+    },
+    createCustomer: {
+        soapAction: 'insert2',
+        endpoint: ENDPOINT,
+        uiName: 'Create Customer',
+        subtitleName: 'Create Customer',
+        titleName: 'Create Customer',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Create a new customer',
+        returnType: 'Integer',
+        paramOrder: [...CUSTOMER_IN_FIELDS.filter(f => f !== 'customerID')],
+    },
+    updateCustomer: {
+        soapAction: 'update',
+        endpoint: ENDPOINT,
+        uiName: 'Update Customer',
+        subtitleName: 'Update Customer',
+        titleName: 'Update Customer',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Update an existing customer',
+        returnType: 'Void',
+        paramOrder: [
+            'customerID', 'status', ...CUSTOMER_IN_FIELDS.filter(f => f !== 'customerID' && f !== 'status'),
+            'enableNullOrEmptyValues',
+        ],
+    },
+    deleteCustomer: {
+        soapAction: 'delete',
+        endpoint: ENDPOINT,
+        uiName: 'Delete Customer',
+        subtitleName: 'Delete Customer',
+        titleName: 'Delete Customer',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Delete a customer',
+        returnType: 'Void',
+        paramOrder: ['customerID'],
+    },
 };
+
+/** ─ Legacy compatibility mappings ─ */
+const PARAM_ORDER: Record<string, string[]> = Object.fromEntries(
+    Object.values(OPERATION_REGISTRY).map(op => [op.soapAction, op.paramOrder])
+);
 
 type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Customer';
-const RETURN_TYPE: Record<string, R> = {
-    insert2: 'Integer',
-    update: 'Void',
-    delete: 'Void',
-    getCustomerObject: 'Customer',
-    search: 'IntegerArray',
-};
-
-/** ─ UI wiring ─ */
-const FRIENDLY_LABEL: Record<string,string> = {
-    getCustomerObject: 'Get Customer',
-    search: 'Get Many Customers',
-    insert2: 'Create Customer',
-    update: 'Update Customer',
-    delete: 'Delete Customer',
-};
-
-const OP_ORDER = ['getCustomerObject','search','insert2','update','delete'] as const;
-
-const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptions(
-    OP_ORDER,
-    FRIENDLY_LABEL,
-    ENDPOINT,
+const RETURN_TYPE: Record<string, R> = Object.fromEntries(
+    Object.values(OPERATION_REGISTRY).map(op => [op.soapAction, op.returnType as R])
 );
+
+const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptionsFromRegistry(OPERATION_REGISTRY);
 
 const extraProperties: INodeProperties[] = [
     
@@ -394,9 +437,10 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
 /** ─ Service export ─ */
 export const DataCustomer30CoreService: Service = {
     resource: RESOURCE,
-    resourceDisplayName: 'Customer',
+    resourceDisplayName: RESOURCE_DISPLAY_NAME,
     resourceDescription: 'Core operations for DataCustomer30',
     endpoint: ENDPOINT,
+    operationRegistry: OPERATION_REGISTRY,
     operationOptions,
     extraProperties,
     async execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex) {

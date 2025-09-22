@@ -5,6 +5,7 @@ import { DataCustomer30MiscService } from './services/dataCustomer30.misc';
 import { DataResource30CoreService } from './services/dataResource30.core';
 import { DataResource30MiscService } from './services/dataResource30.misc';
 import { DataJob30Service } from './services/dataJob30';
+import { buildSubtitleLookup } from './core/service-utils';
 
 
 const services = [
@@ -46,6 +47,16 @@ const opLabelByResource = Object.fromEntries(
     ]),
 );
 
+// Build dynamic subtitle lookup from operation registries
+const subtitleLookupByResource = Object.fromEntries(
+    services
+        .filter(s => 'operationRegistry' in s) // Only services with operation registries
+        .map(s => [
+            s.resource,
+            buildSubtitleLookup((s as any).operationRegistry),
+        ])
+);
+
 export const description: INodeTypeDescription = {
     displayName: 'Plunet',
     name: 'plunet',
@@ -57,7 +68,7 @@ export const description: INodeTypeDescription = {
     inputs: ['main'],
     outputs: ['main'],
     credentials: [{ name: 'plunetApi', required: true }],
-    subtitle: '={{ $parameter["operation"] === "getCustomerObject" ? "Get Customer" : $parameter["operation"] === "search" ? "Get Many Customers" : $parameter["operation"] === "insert2" ? "Create Customer" : $parameter["operation"] === "update" ? "Update Customer" : $parameter["operation"] === "delete" ? "Delete Customer" : $parameter["operation"] }}',
+    subtitle: '={{ $parameter["resource"] === "DataCustomer30Core" ? ($parameter["operation"] === "getCustomerObject" ? "Get Customer" : $parameter["operation"] === "search" ? "Get Many Customers" : $parameter["operation"] === "insert2" ? "Create Customer" : $parameter["operation"] === "update" ? "Update Customer" : $parameter["operation"] === "delete" ? "Delete Customer" : $parameter["operation"]) : $parameter["operation"] }}',
     properties: [
         {
             displayName: 'Resource',

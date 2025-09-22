@@ -17,11 +17,44 @@ export type Creds = {
 
 export type SessionMap = Record<string, { uuid: string; issuedAt: number }>;
 
+/**
+ * Centralized operation metadata for consistent UI display and SOAP operations
+ */
+export type OperationMetadata = {
+    // SOAP/API identifiers
+    soapAction: string;        // e.g., "getCustomerObject"
+    endpoint: string;          // e.g., "DataCustomer30"
+    
+    // UI display names
+    uiName: string;            // e.g., "Get Customer"
+    subtitleName: string;      // e.g., "Get Customer" (can be same as uiName)
+    titleName: string;         // e.g., "Get Customer" (for node titles)
+    
+    // Resource context
+    resource: string;          // e.g., "DataCustomer30Core"
+    resourceDisplayName: string; // e.g., "Customer"
+    
+    // Technical metadata
+    description: string;       // e.g., "Retrieve a single customer"
+    returnType: string;        // e.g., "Customer"
+    paramOrder: string[];      // e.g., ["customerID"]
+};
+
+/**
+ * Service-level operation registry mapping operation keys to metadata
+ */
+export type ServiceOperationRegistry = {
+    [operationKey: string]: OperationMetadata;
+};
+
 export type Service = {
     resource: string;
     resourceDisplayName: string;
     resourceDescription: string;
     endpoint: string;
+
+    // Centralized operation metadata registry (optional for backward compatibility)
+    operationRegistry?: ServiceOperationRegistry;
 
     // Enforce at least one operation per service:
     operationOptions: NonEmptyArray<INodePropertyOptions>;

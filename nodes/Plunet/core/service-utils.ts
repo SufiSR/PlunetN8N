@@ -2,7 +2,7 @@
 import {
     IExecuteFunctions, IDataObject, INodeProperties, INodePropertyOptions, NodeOperationError,
 } from 'n8n-workflow';
-import type { Creds, Service, NonEmptyArray } from './types';
+import type { Creds, Service, NonEmptyArray, OperationMetadata, ServiceOperationRegistry } from './types';
 import type { ExecuteConfig } from './executor';
 import { ensureSession } from './session';
 import { executeOperation } from './executor';
@@ -146,6 +146,42 @@ export function generateOperationOptionsFromParams(
         };
     });
     return asNonEmpty(options) as NonEmptyArray<INodePropertyOptions>;
+}
+
+/**
+ * Generate operation options from operation registry
+ */
+export function generateOperationOptionsFromRegistry(
+    operationRegistry: ServiceOperationRegistry,
+): NonEmptyArray<INodePropertyOptions> {
+    const options = Object.values(operationRegistry).map((metadata) => ({
+        name: metadata.uiName,
+        value: metadata.soapAction,
+        action: metadata.uiName,
+        description: metadata.description,
+    }));
+    return asNonEmpty(options) as NonEmptyArray<INodePropertyOptions>;
+}
+
+/**
+ * Get operation metadata by SOAP action
+ */
+export function getOperationMetadata(
+    operationRegistry: ServiceOperationRegistry,
+    soapAction: string,
+): OperationMetadata | undefined {
+    return Object.values(operationRegistry).find(op => op.soapAction === soapAction);
+}
+
+/**
+ * Build subtitle lookup table from operation registry
+ */
+export function buildSubtitleLookup(operationRegistry: ServiceOperationRegistry): Record<string, string> {
+    const lookup: Record<string, string> = {};
+    Object.values(operationRegistry).forEach(metadata => {
+        lookup[metadata.soapAction] = metadata.subtitleName;
+    });
+    return lookup;
 }
 
 /**
