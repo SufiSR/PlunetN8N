@@ -1,7 +1,7 @@
 import {
     IExecuteFunctions, IDataObject, INodeProperties, INodePropertyOptions, NodeOperationError,
 } from 'n8n-workflow';
-import type { Creds, Service, NonEmptyArray } from '../core/types';
+import type { Creds, Service, NonEmptyArray, ServiceOperationRegistry } from '../core/types';
 import { ensureSession } from '../core/session';
 import { executeOperation, type ExecuteConfig } from '../core/executor';
 import { labelize, asNonEmpty } from '../core/utils';
@@ -25,6 +25,7 @@ import {
     createStandardExecuteConfig,
     executeStandardService,
     generateOperationOptionsFromParams,
+    generateOperationOptionsFromRegistry,
     createStringProperty,
     createOptionsProperty,
     handleVoidResult,
@@ -32,54 +33,134 @@ import {
 
 const RESOURCE = 'DataResource30Misc';
 const ENDPOINT = 'DataResource30';
+const RESOURCE_DISPLAY_NAME = 'Resource Fields';
 
-/** Operations → parameters */
-const PARAM_ORDER: Record<string,string[]> = {
-    // search / lookups
-    seekByExternalID: ['ExternalID'],
-    getAllResourceObjects: ['WorkingStatus','Status'],
-
-    // pricelists
-    getPricelists: ['resourceID'],
-    getPricelists2: ['sourcelanguage','targetlanguage','resourceID'],
-
-    // payment info
-    getPaymentInformation: ['resourceID'],
-    setPaymentInformation: [
-        'resourceID','accountHolder','accountID','BIC','contractNumber',
-        'debitAccount','IBAN','paymentMethodID','preselectedTaxID','salesTaxID',
-    ],
-    getAvailableAccountIDList: [],
-    getAvailablePaymentMethodList: [],
-    getPaymentMethodDescription: ['paymentMethodID','systemLanguageCode'],
+/** ─ Centralized Operation Registry ─ */
+const OPERATION_REGISTRY: ServiceOperationRegistry = {
+    seekByExternalID: {
+        soapAction: 'seekByExternalID',
+        endpoint: ENDPOINT,
+        uiName: 'Get Many by External ID',
+        subtitleName: 'get many by external id: resource fields',
+        titleName: 'Get Many by External ID',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get many by external ID',
+        returnType: 'Integer',
+        paramOrder: ['ExternalID'],
+    },
+    getAllResourceObjects: {
+        soapAction: 'getAllResourceObjects',
+        endpoint: ENDPOINT,
+        uiName: 'Get Many Resource Objects (By Status)',
+        subtitleName: 'get many resource objects by status: resource fields',
+        titleName: 'Get Many Resource Objects (By Status)',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get many resource objects by status',
+        returnType: 'ResourceList',
+        paramOrder: ['WorkingStatus','Status'],
+    },
+    getPricelists: {
+        soapAction: 'getPricelists',
+        endpoint: ENDPOINT,
+        uiName: 'Get Pricelists',
+        subtitleName: 'get pricelists: resource fields',
+        titleName: 'Get Pricelists',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get pricelists for resource',
+        returnType: 'PricelistList',
+        paramOrder: ['resourceID'],
+    },
+    getPricelists2: {
+        soapAction: 'getPricelists2',
+        endpoint: ENDPOINT,
+        uiName: 'Get Pricelists (by Language Pair)',
+        subtitleName: 'get pricelists language pair: resource fields',
+        titleName: 'Get Pricelists (by Language Pair)',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get pricelists for language pair',
+        returnType: 'PricelistList',
+        paramOrder: ['sourcelanguage','targetlanguage','resourceID'],
+    },
+    getPaymentInformation: {
+        soapAction: 'getPaymentInformation',
+        endpoint: ENDPOINT,
+        uiName: 'Get Payment Information',
+        subtitleName: 'get payment information: resource fields',
+        titleName: 'Get Payment Information',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get payment information for resource',
+        returnType: 'PaymentInfo',
+        paramOrder: ['resourceID'],
+    },
+    setPaymentInformation: {
+        soapAction: 'setPaymentInformation',
+        endpoint: ENDPOINT,
+        uiName: 'Update Payment Information',
+        subtitleName: 'update payment information: resource fields',
+        titleName: 'Update Payment Information',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Set payment information for resource',
+        returnType: 'Void',
+        paramOrder: [
+            'resourceID','accountHolder','accountID','BIC','contractNumber',
+            'debitAccount','IBAN','paymentMethodID','preselectedTaxID','salesTaxID',
+        ],
+    },
+    getAvailableAccountIDs: {
+        soapAction: 'getAvailableAccountIDList',
+        endpoint: ENDPOINT,
+        uiName: 'Get Available Account IDs',
+        subtitleName: 'get available account ids: resource fields',
+        titleName: 'Get Available Account IDs',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get list of available account IDs',
+        returnType: 'IntegerArray',
+        paramOrder: [],
+    },
+    getAvailablePaymentMethods: {
+        soapAction: 'getAvailablePaymentMethodList',
+        endpoint: ENDPOINT,
+        uiName: 'Get Available Payment Methods',
+        subtitleName: 'get available payment methods: resource fields',
+        titleName: 'Get Available Payment Methods',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get list of available payment methods',
+        returnType: 'IntegerArray',
+        paramOrder: [],
+    },
+    getPaymentMethodDescription: {
+        soapAction: 'getPaymentMethodDescription',
+        endpoint: ENDPOINT,
+        uiName: 'Get Payment Method Description',
+        subtitleName: 'get payment method description: resource fields',
+        titleName: 'Get Payment Method Description',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get payment method description',
+        returnType: 'String',
+        paramOrder: ['paymentMethodID','systemLanguageCode'],
+    },
 };
+
+/** ─ Legacy compatibility mappings ─ */
+const PARAM_ORDER: Record<string, string[]> = Object.fromEntries(
+    Object.values(OPERATION_REGISTRY).map(op => [op.soapAction, op.paramOrder])
+);
 
 type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Resource'|'ResourceList'|'PricelistList'|'PaymentInfo';
-const RETURN_TYPE: Record<string,R> = {
-    seekByExternalID: 'Integer',
-    getAllResourceObjects: 'ResourceList',
-    getPricelists: 'PricelistList',
-    getPricelists2: 'PricelistList',
-    getPaymentInformation: 'PaymentInfo',
-    setPaymentInformation: 'Void',
-    getAvailableAccountIDList: 'IntegerArray',
-    getAvailablePaymentMethodList: 'IntegerArray',
-    getPaymentMethodDescription: 'String',
-};
+const RETURN_TYPE: Record<string, R> = Object.fromEntries(
+    Object.values(OPERATION_REGISTRY).map(op => [op.soapAction, op.returnType as R])
+);
 
-/** UI */
-const FRIENDLY_LABEL: Record<string,string> = {
-    seekByExternalID: 'Search by External ID',
-    getAllResourceObjects: 'Get All Resources (By Status)',
-    getPricelists2: 'Get Pricelists (Language Pair)',
-};
-
-const operationOptions: NonEmptyArray<INodePropertyOptions> = asNonEmpty(
-    Object.keys(PARAM_ORDER).sort().map((op) => {
-        const label = FRIENDLY_LABEL[op] ?? labelize(op);
-        return { name: label, value: op, action: label, description: `Call ${label} on ${ENDPOINT}` };
-    }),
-) as NonEmptyArray<INodePropertyOptions>;
+const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptionsFromRegistry(OPERATION_REGISTRY);
 
 // enum detectors
 const isStatusParam = (p: string) => p === 'Status' || p === 'status';
@@ -228,9 +309,10 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
 /** Service export */
 export const DataResource30MiscService: Service = {
     resource: RESOURCE,
-    resourceDisplayName: 'Resources (Fields/Misc)',
+    resourceDisplayName: RESOURCE_DISPLAY_NAME,
     resourceDescription: 'Non-core operations for DataResource30',
     endpoint: ENDPOINT,
+    operationRegistry: OPERATION_REGISTRY,
     operationOptions,
     extraProperties,
     async execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex) {

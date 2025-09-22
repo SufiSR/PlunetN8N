@@ -1,7 +1,7 @@
 import {
     IExecuteFunctions, IDataObject, INodeProperties, INodePropertyOptions, NodeOperationError,
 } from 'n8n-workflow';
-import type { Creds, Service, NonEmptyArray } from '../core/types';
+import type { Creds, Service, NonEmptyArray, ServiceOperationRegistry } from '../core/types';
 import { ensureSession } from '../core/session';
 import { executeOperation, type ExecuteConfig } from '../core/executor';
 import { labelize, asNonEmpty } from '../core/utils';
@@ -22,6 +22,7 @@ import {
     createStandardExecuteConfig,
     executeStandardService,
     generateOperationOptionsFromParams,
+    generateOperationOptionsFromRegistry,
     createStringProperty,
     createOptionsProperty,
     handleVoidResult,
@@ -31,73 +32,254 @@ import { CUSTOMER_SEARCH_FILTER_FIELDS } from '../core/field-definitions';
 
 const RESOURCE = 'DataCustomer30Misc';
 const ENDPOINT = 'DataCustomer30';
+const RESOURCE_DISPLAY_NAME = 'Customer Fields';
 
-/** ─ Ops kept here: everything except the five "core" ones ─ */
-const PARAM_ORDER: Record<string, string[]> = {
-    // finders/lists
-    seekByExternalID: ['ExternalID'],
-    getAllCustomerObjects: ['Status'],
-    getAllCustomerObjects2: ['StatusList'], // Takes array of status values
-    getAvailableAccountIDList: [],
-    getAvailablePaymentMethodList: [],
-    getAvailableWorkflows: ['customerID'],
-    getAccount: ['AccountID'],
-    getPaymentInformation: ['customerID'],
-    getPaymentMethodDescription: ['paymentMethodID', 'systemLanguageCode'],
-    getCreatedByResourceID: ['customerID'],
-    getProjectManagerID: ['customerID'],
-    getSourceOfContact: ['customerID'],
-    getDateOfInitialContact: ['customerID'],
-    getDossier: ['customerID'],
-
-    // setters
-    setPaymentInformation: [
+/** ─ Centralized Operation Registry ─ */
+const OPERATION_REGISTRY: ServiceOperationRegistry = {
+    seekByExternalID: {
+        soapAction: 'seekByExternalID',
+        endpoint: ENDPOINT,
+        uiName: 'Get Many by External ID',
+        subtitleName: 'get many by external id: customer fields',
+        titleName: 'Get Many by External ID',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get many by external ID',
+        returnType: 'Integer',
+        paramOrder: ['ExternalID'],
+    },
+    getAllCustomersByStatus: {
+        soapAction: 'getAllCustomerObjects',
+        endpoint: ENDPOINT,
+        uiName: 'Get Many Customer Objects (By Status)',
+        subtitleName: 'get many customer objects by status: customer fields',
+        titleName: 'Get Many Customer Objects (By Status)',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get many customers objects by status',
+        returnType: 'CustomerList',
+        paramOrder: ['Status'],
+    },
+    getAllCustomersByStatusList: {
+        soapAction: 'getAllCustomerObjects2',
+        endpoint: ENDPOINT,
+        uiName: 'Get Many Customer Objects (By Status List)',
+        subtitleName: 'get many customer objects by status list: customer fields',
+        titleName: 'Get Many Customer Objects (By Status List)',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get many customers objects filtered by status list',
+        returnType: 'CustomerList',
+        paramOrder: ['StatusList'],
+    },
+    getAvailableAccountIDs: {
+        soapAction: 'getAvailableAccountIDList',
+        endpoint: ENDPOINT,
+        uiName: 'Get Available Account IDs',
+        subtitleName: 'get available account ids: customer fields',
+        titleName: 'Get Available Account IDs',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get list of available account IDs',
+        returnType: 'IntegerArray',
+        paramOrder: [],
+    },
+    getAvailablePaymentMethods: {
+        soapAction: 'getAvailablePaymentMethodList',
+        endpoint: ENDPOINT,
+        uiName: 'Get Available Payment Methods',
+        subtitleName: 'get available payment methods: customer fields',
+        titleName: 'Get Available Payment Methods',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get list of available payment methods',
+        returnType: 'IntegerArray',
+        paramOrder: [],
+    },
+    getAvailableWorkflows: {
+        soapAction: 'getAvailableWorkflows',
+        endpoint: ENDPOINT,
+        uiName: 'Get Available Workflows',
+        subtitleName: 'get available workflows: customer fields',
+        titleName: 'Get Available Workflows',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get available workflows for customer',
+        returnType: 'WorkflowList',
+        paramOrder: ['customerID'],
+    },
+    getAccount: {
+        soapAction: 'getAccount',
+        endpoint: ENDPOINT,
+        uiName: 'Get Account',
+        subtitleName: 'get account: customer fields',
+        titleName: 'Get Account',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get account information by account ID',
+        returnType: 'Account',
+        paramOrder: ['AccountID'],
+    },
+    getPaymentInformation: {
+        soapAction: 'getPaymentInformation',
+        endpoint: ENDPOINT,
+        uiName: 'Get Payment Information',
+        subtitleName: 'get payment information: customer fields',
+        titleName: 'Get Payment Information',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get payment information for customer',
+        returnType: 'PaymentInfo',
+        paramOrder: ['customerID'],
+    },
+    getPaymentMethodDescription: {
+        soapAction: 'getPaymentMethodDescription',
+        endpoint: ENDPOINT,
+        uiName: 'Get Payment Method Description',
+        subtitleName: 'get payment method description: customer fields',
+        titleName: 'Get Payment Method Description',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get payment method description',
+        returnType: 'String',
+        paramOrder: ['paymentMethodID', 'systemLanguageCode'],
+    },
+    getCreatedByResourceID: {
+        soapAction: 'getCreatedByResourceID',
+        endpoint: ENDPOINT,
+        uiName: 'Get Created By Resource ID',
+        subtitleName: 'get created by resource id: customer fields',
+        titleName: 'Get Created By Resource ID',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get resource ID who created the customer',
+        returnType: 'Integer',
+        paramOrder: ['customerID'],
+    },
+    getProjectManagerID: {
+        soapAction: 'getProjectManagerID',
+        endpoint: ENDPOINT,
+        uiName: 'Get Project Manager ID',
+        subtitleName: 'get project manager id: customer fields',
+        titleName: 'Get Project Manager ID',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get project manager ID for customer',
+        returnType: 'Integer',
+        paramOrder: ['customerID'],
+    },
+    getSourceOfContact: {
+        soapAction: 'getSourceOfContact',
+        endpoint: ENDPOINT,
+        uiName: 'Get Source of Contact',
+        subtitleName: 'get source of contact: customer fields',
+        titleName: 'Get Source of Contact',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get source of contact for customer',
+        returnType: 'String',
+        paramOrder: ['customerID'],
+    },
+    getDateOfInitialContact: {
+        soapAction: 'getDateOfInitialContact',
+        endpoint: ENDPOINT,
+        uiName: 'Get Date of Initial Contact',
+        subtitleName: 'get date of initial contact: customer fields',
+        titleName: 'Get Date of Initial Contact',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get date of initial contact for customer',
+        returnType: 'String',
+        paramOrder: ['customerID'],
+    },
+    getDossier: {
+        soapAction: 'getDossier',
+        endpoint: ENDPOINT,
+        uiName: 'Get Dossier',
+        subtitleName: 'get dossier: customer fields',
+        titleName: 'Get Dossier',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get dossier information for customer',
+        returnType: 'String',
+        paramOrder: ['customerID'],
+    },
+    setPaymentInformation: {
+        soapAction: 'setPaymentInformation',
+        endpoint: ENDPOINT,
+        uiName: 'Update Payment Information',
+        subtitleName: 'update payment information: customer fields',
+        titleName: 'Update Payment Information',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Update payment information for customer',
+        returnType: 'Void',
+        paramOrder: [
         'customerID','accountHolder','accountID','BIC','contractNumber',
         'debitAccount','IBAN','paymentMethodID','preselectedTaxID','salesTaxID',
     ],
-    setProjectManagerID: ['resourceID', 'customerID'],
-    setSourceOfContact: ['sourceOfContact', 'customerID'],
-    setDateOfInitialContact: ['dateInitialContact', 'customerID'],
-    setDossier: ['dossier', 'customerID'],
+    },
+    setProjectManagerID: {
+        soapAction: 'setProjectManagerID',
+        endpoint: ENDPOINT,
+        uiName: 'Update Project Manager ID',
+        subtitleName: 'update project manager id: customer fields',
+        titleName: 'Update Project Manager ID',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Update project manager ID for customer',
+        returnType: 'Void',
+        paramOrder: ['resourceID', 'customerID'],
+    },
+    setSourceOfContact: {
+        soapAction: 'setSourceOfContact',
+        endpoint: ENDPOINT,
+        uiName: 'Update Source of Contact',
+        subtitleName: 'update source of contact: customer fields',
+        titleName: 'Update Source of Contact',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Update source of contact for customer',
+        returnType: 'Void',
+        paramOrder: ['sourceOfContact', 'customerID'],
+    },
+    setDateOfInitialContact: {
+        soapAction: 'setDateOfInitialContact',
+        endpoint: ENDPOINT,
+        uiName: 'Update Date of Initial Contact',
+        subtitleName: 'update date of initial contact: customer fields',
+        titleName: 'Update Date of Initial Contact',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Update date of initial contact for customer',
+        returnType: 'Void',
+        paramOrder: ['dateInitialContact', 'customerID'],
+    },
+    setDossier: {
+        soapAction: 'setDossier',
+        endpoint: ENDPOINT,
+        uiName: 'Update Dossier',
+        subtitleName: 'update dossier: customer fields',
+        titleName: 'Update Dossier',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Update dossier information for customer',
+        returnType: 'Void',
+        paramOrder: ['dossier', 'customerID'],
+    },
 };
+
+/** ─ Legacy compatibility mappings ─ */
+const PARAM_ORDER: Record<string, string[]> = Object.fromEntries(
+    Object.values(OPERATION_REGISTRY).map(op => [op.soapAction, op.paramOrder])
+);
 
 type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Customer'|'CustomerList'|'PaymentInfo'|'Account'|'WorkflowList';
-const RETURN_TYPE: Record<string, R> = {
-    seekByExternalID: 'Integer',
-    getAllCustomerObjects: 'CustomerList',
-    getAllCustomerObjects2: 'CustomerList',
-    getAvailableAccountIDList: 'IntegerArray',
-    getAvailablePaymentMethodList: 'IntegerArray',
-    getAvailableWorkflows: 'WorkflowList',
-    getAccount: 'Account',
-    getPaymentInformation: 'PaymentInfo',
-    getPaymentMethodDescription: 'String',
-    getCreatedByResourceID: 'Integer',
-    getProjectManagerID: 'Integer',
-    getSourceOfContact: 'String',
-    getDateOfInitialContact: 'String',
-    getDossier: 'String',
-    setPaymentInformation: 'Void',
-    setProjectManagerID: 'Void',
-    setSourceOfContact: 'Void',
-    setDateOfInitialContact: 'Void',
-    setDossier: 'Void',
-};
-
-/** ─ UI ─ */
-const FRIENDLY_LABEL: Record<string,string> = {
-    seekByExternalID: 'Search by External ID',
-    getAllCustomerObjects: 'Get All Customers (By Status)',
-    getAllCustomerObjects2: 'Get All Customers (By Status List)',
-    getAvailableAccountIDList: 'Get Available Account IDs',
-    getAvailablePaymentMethodList: 'Get Available Payment Methods',
-};
-
-const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptionsFromParams(
-    PARAM_ORDER,
-    FRIENDLY_LABEL,
-    ENDPOINT,
+const RETURN_TYPE: Record<string, R> = Object.fromEntries(
+    Object.values(OPERATION_REGISTRY).map(op => [op.soapAction, op.returnType as R])
 );
+
+const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptionsFromRegistry(OPERATION_REGISTRY);
 
 const extraProperties: INodeProperties[] =
     Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
@@ -274,9 +456,10 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
 /** ─ Service export ─ */
 export const DataCustomer30MiscService: Service = {
     resource: RESOURCE,
-    resourceDisplayName: 'Customers (Fields/Misc)',
+    resourceDisplayName: RESOURCE_DISPLAY_NAME,
     resourceDescription: 'Non-core operations for DataCustomer30',
     endpoint: ENDPOINT,
+    operationRegistry: OPERATION_REGISTRY,
     operationOptions,
     extraProperties,
     async execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex) {
