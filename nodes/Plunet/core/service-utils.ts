@@ -383,7 +383,7 @@ export function buildSearchFilterXml(
     ctx: IExecuteFunctions,
     itemIndex: number,
     fields: readonly string[],
-    filterType: string = 'SearchFilter_Customer',
+    filterType: string = 'SearchFilter',
 ): string {
     const lines: string[] = [`<${filterType}>`];
     for (const name of fields) {
@@ -391,6 +391,9 @@ export function buildSearchFilterXml(
         const val = toSoapParamValue(raw, name);
         if (val !== '') {
             lines.push(`  <${name}>${escapeXml(val)}</${name}>`);
+        } else {
+            // Add empty tags as self-closing tags
+            lines.push(`  <${name}/>`);
         }
     }
     lines.push(`</${filterType}>`);
