@@ -58,11 +58,11 @@ const RETURN_TYPE: Record<string, R> = {
 
 /** ─ UI wiring ─ */
 const FRIENDLY_LABEL: Record<string,string> = {
-    insert2: 'Create Customer',
-    update: 'Update Customer',
-    delete: 'Delete Customer',
-    getCustomerObject: 'Get Customer',
-    search: 'Get Many Customers',
+    getCustomerObject: 'Get',
+    search: 'Get Many',
+    insert2: 'Create',
+    update: 'Update',
+    delete: 'Delete',
 };
 
 const OP_ORDER = ['getCustomerObject','search','insert2','update','delete'] as const;
@@ -394,7 +394,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
 /** ─ Service export ─ */
 export const DataCustomer30CoreService: Service = {
     resource: RESOURCE,
-    resourceDisplayName: 'Customers (Core)',
+    resourceDisplayName: 'Customer',
     resourceDescription: 'Core operations for DataCustomer30',
     endpoint: ENDPOINT,
     operationOptions,

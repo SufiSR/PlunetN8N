@@ -34,6 +34,18 @@ const operationProperties = services.map((s) => ({
 
 const extraProps = services.flatMap((s) => s.extraProperties);
 
+// Build lookup tables for clean display names
+const resourceLabelByValue = Object.fromEntries(
+    services.map(s => [s.resource, s.resourceDisplayName ?? s.resource])
+);
+
+const opLabelByResource = Object.fromEntries(
+    services.map(s => [
+        s.resource,
+        Object.fromEntries(s.operationOptions.map(o => [String(o.value), String(o.name)])),
+    ]),
+);
+
 export const description: INodeTypeDescription = {
     displayName: 'Plunet',
     name: 'plunet',
@@ -45,6 +57,7 @@ export const description: INodeTypeDescription = {
     inputs: ['main'],
     outputs: ['main'],
     credentials: [{ name: 'plunetApi', required: true }],
+    subtitle: '={{ $parameter["operation"] + ": " + $parameter["resource"] }}',
     properties: [
         {
             displayName: 'Resource',
