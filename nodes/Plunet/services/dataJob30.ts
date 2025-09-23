@@ -1011,7 +1011,7 @@ const extraProperties: INodeProperties[] = [
     
     // Standard properties for other operations
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
-        if (op === 'insert3' || op === 'update' || op === 'insertPriceLine' || op === 'updatePriceLine') return []; // Skip insert3, update, insertPriceLine, and updatePriceLine as they're handled above
+        if (op === 'insert3' || op === 'update') return []; // Skip insert3 and update as they're handled above
         
         return params.map<INodeProperties>((p) => {
         // 1) enableNullOrEmptyValues → boolean
