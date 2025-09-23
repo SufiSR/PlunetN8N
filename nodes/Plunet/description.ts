@@ -1,10 +1,12 @@
 import { INodeTypeDescription } from 'n8n-workflow';
 import { PlunetApiService } from './services/plunetApi';
 import { DataCustomer30CoreService } from './services/dataCustomer30.core';
-import { DataCustomer30MiscService } from './services/dataCustomer30.misc';
 import { DataResource30CoreService } from './services/dataResource30.core';
+import { DataJob30ActionsService } from './services/dataJob30.actions';
+import { DataCustomer30MiscService } from './services/dataCustomer30.misc';
 import { DataResource30MiscService } from './services/dataResource30.misc';
-import { DataJob30Service } from './services/dataJob30';
+import { DataJob30PricesService } from './services/dataJob30.prices';
+import { DataJob30FieldsService } from './services/dataJob30.fields';
 import { buildSubtitleLookup } from './core/service-utils';
 
 
@@ -12,9 +14,11 @@ const services = [
     PlunetApiService,
     DataCustomer30CoreService,
     DataResource30CoreService,
+    DataJob30ActionsService,
     DataCustomer30MiscService,
     DataResource30MiscService,
-    DataJob30Service,
+    DataJob30PricesService,
+    DataJob30FieldsService,
 ] as const;
 
 const resourceOptions = services.map((s) => ({
