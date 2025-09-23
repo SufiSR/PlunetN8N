@@ -598,6 +598,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         active: true,
     },
     setResourceId: {
+        // Deprecated operation
         soapAction: 'setResourceID',
         endpoint: ENDPOINT,
         uiName: 'Update Resource ID',
@@ -608,7 +609,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Update resource ID for a job',
         returnType: 'Void',
         paramOrder: ['projectType', 'resourceID', 'jobID'],
-        active: true,
+        active: false,
     },
     getContactPersonId: {
         soapAction: 'getContactPersonID',
@@ -637,6 +638,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         active: true,
     },
     getResourceContactPersonId: {
+        // Not necessary operation
         soapAction: 'getResourceContactPersonID',
         endpoint: ENDPOINT,
         uiName: 'Get Resource Contact Person ID',
@@ -647,9 +649,10 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get resource contact person ID for a job',
         returnType: 'Integer',
         paramOrder: ['projectType', 'jobID'],
-        active: true,
+        active: false,
     },
     setResourceContactPersonId: {
+        // Not necessary operation
         soapAction: 'setResourceContactPersonID',
         endpoint: ENDPOINT,
         uiName: 'Update Resource Contact Person ID',
@@ -660,7 +663,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Update resource contact person ID for a job',
         returnType: 'Void',
         paramOrder: ['projectType', 'jobID', 'contactID'],
-        active: true,
+        active: false,
     },
     getDeliveryNote: {
         soapAction: 'getDeliveryNote',
@@ -702,6 +705,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         active: true,
     },
     getJobTypeLongName: {
+        // Not necessary operation
         soapAction: 'getJobType_LongName',
         endpoint: ENDPOINT,
         uiName: 'Get Job Type (Long Name)',
@@ -712,9 +716,10 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get long name of job type',
         returnType: 'String',
         paramOrder: ['projectType', 'jobID'],
-        active: true,
+        active: false,
     },
     getJobTypeShortName: {
+        // Not necessary operation
         soapAction: 'getJobType_ShortName',
         endpoint: ENDPOINT,
         uiName: 'Get Job Type (Short Name)',
@@ -725,7 +730,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get short name of job type',
         returnType: 'String',
         paramOrder: ['projectType', 'jobID'],
-        active: true,
+        active: false,
     },
     getDownloadUrlSourceData: {
         // Not necessary operation
@@ -755,6 +760,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         active: true,
     },
     setItemId: {
+        // Not necessary operation
         soapAction: 'setItemID',
         endpoint: ENDPOINT,
         uiName: 'Update Item ID for Job',
@@ -765,9 +771,10 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Update item ID for a job',
         returnType: 'Void',
         paramOrder: ['projectType', 'itemID', 'jobID'],
-        active: true,
+        active: false,
     },
     setStartDate: {
+        // Not necessary operation
         soapAction: 'setStartDate',
         endpoint: ENDPOINT,
         uiName: 'Update Start Date',
@@ -778,7 +785,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Update start date for a job',
         returnType: 'Void',
         paramOrder: ['projectType', 'startDate', 'jobID'],
-        active: true,
+        active: false,
     },
     // CAT Report Operations
     setCatReport: {
