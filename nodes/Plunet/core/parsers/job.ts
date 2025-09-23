@@ -18,18 +18,21 @@ import {
 function mapJob(jobXml: string) {
     const o = deepObjectify(jobXml);
     
+    // Handle the case where deepObjectify creates a nested structure with 'data' property
+    const jobData = o.data || o;
+    
     return {
-        JobID: o.jobID ?? o.JobID ?? undefined,
-        ProjectID: o.projectID ?? o.ProjectID ?? undefined,
-        ResourceID: o.resourceID ?? o.ResourceID ?? undefined,
-        ProjectType: o.projectType ?? o.ProjectType ?? undefined,
-        Status: o.status ?? o.Status ?? undefined,
-        JobTypeFull: o.jobTypeFull ?? o.JobTypeFull ?? undefined,
-        JobTypeShort: o.jobTypeShort ?? o.JobTypeShort ?? undefined,
-        CountSourceFiles: o.countSourceFiles ?? o.CountSourceFiles ?? undefined,
-        ItemID: o.itemID ?? o.ItemID ?? undefined,
-        StartDate: o.startDate ?? o.StartDate ?? undefined,
-        DueDate: o.dueDate ?? o.DueDate ?? undefined,
+        JobID: jobData.jobID ?? jobData.JobID ?? undefined,
+        ProjectID: jobData.projectID ?? jobData.ProjectID ?? undefined,
+        ResourceID: jobData.resourceID ?? jobData.ResourceID ?? undefined,
+        ProjectType: jobData.projectType ?? jobData.ProjectType ?? undefined,
+        Status: jobData.status ?? jobData.Status ?? undefined,
+        JobTypeFull: jobData.jobTypeFull ?? jobData.JobTypeFull ?? undefined,
+        JobTypeShort: jobData.jobTypeShort ?? jobData.JobTypeShort ?? undefined,
+        CountSourceFiles: jobData.countSourceFiles ?? jobData.CountSourceFiles ?? undefined,
+        ItemID: jobData.itemID ?? jobData.ItemID ?? undefined,
+        StartDate: jobData.startDate ?? jobData.StartDate ?? undefined,
+        DueDate: jobData.dueDate ?? jobData.DueDate ?? undefined,
     };
 }
 
