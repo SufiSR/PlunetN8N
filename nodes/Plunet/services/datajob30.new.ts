@@ -1349,21 +1349,30 @@ import {
     config: ExecuteConfig,
     itemIndex: number,
   ) {
+    // Use individual try-catch blocks to handle failures gracefully
+    const safeCall = async (operation: string, params: IDataObject) => {
+      try {
+        return await call(ctx, operation, params, config, itemIndex);
+      } catch {
+        return null;
+      }
+    };
+
     const [
       comment, description, deliveryDate, creationDate,
       jobNumber, currency, deliveryNote, payableID, contactPersonID
     ] = await Promise.all([
-      call(ctx, 'getComment',         { projectType, jobID }, config, itemIndex),
-      call(ctx, 'getDescription',     { projectType, jobID }, config, itemIndex),
-      call(ctx, 'getDeliveryDate',    { projectType, jobID }, config, itemIndex),
-      call(ctx, 'getCreationDate',    { projectType, jobID }, config, itemIndex),
-      call(ctx, 'getJobNumber',       { projectType, jobID }, config, itemIndex),
-      call(ctx, 'getCurrency',        { jobID, projectType }, config, itemIndex),
-      call(ctx, 'getDeliveryNote',    { projectType, jobID }, config, itemIndex),
-      call(ctx, 'getPayableID',       { jobID, projectType }, config, itemIndex),
-      call(ctx, 'getContactPersonID', { projectType, jobID }, config, itemIndex),
+      safeCall('getComment',         { projectType, jobID }),
+      safeCall('getDescription',     { projectType, jobID }),
+      safeCall('getDeliveryDate',    { projectType, jobID }),
+      safeCall('getCreationDate',    { projectType, jobID }),
+      safeCall('getJobNumber',       { projectType, jobID }),
+      safeCall('getCurrency',        { jobID, projectType }),
+      safeCall('getDeliveryNote',    { projectType, jobID }),
+      safeCall('getPayableID',       { jobID, projectType }),
+      safeCall('getContactPersonID', { projectType, jobID }),
     ]);
-  
+
     return {
       comment: comment?.data ?? '',
       description: description?.data ?? '',
