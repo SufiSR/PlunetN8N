@@ -987,10 +987,6 @@ const extraProperties: INodeProperties[] = [
             type: 'collection' as const,
             placeholder: 'Add Field',
             default: {},
-            typeOptions: {
-                multipleValues: true,
-                sortable: true,
-            },
             options: collectionOptions,
             description: 'Additional job fields to include (optional)',
             displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
@@ -1146,6 +1142,13 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 // Get additional fields from collection
                 const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
                 
+                // Filter out empty values like customer service does
+                const selectedOptionalFields = Object.keys(additionalFields).filter(key => 
+                    additionalFields[key] !== '' && 
+                    additionalFields[key] !== null && 
+                    additionalFields[key] !== undefined
+                );
+                
                 // Build JobIN XML with mandatory and optional fields
                 let jobInXml = '<JobIN>';
                 
@@ -1153,26 +1156,25 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 jobInXml += `<projectID>${escapeXml(String(projectID))}</projectID>`;
                 jobInXml += `<projectType>${escapeXml(String(projectType))}</projectType>`;
                 
-                // Add optional fields from collection
-                Object.entries(additionalFields).forEach(([key, value]) => {
-                    if (value !== '' && value !== null && value !== undefined) {
-                        let xmlValue: string;
-                        
-                        // Handle datetime fields properly
-                        if (key === 'startDate' || key === 'dueDate') {
-                            if (value instanceof Date) {
-                                xmlValue = value.toISOString();
-                            } else if (typeof value === 'string' && value) {
-                                xmlValue = value;
-                            } else {
-                                return; // Skip if not a valid date
-                            }
+                // Add optional fields from collection (only non-empty ones)
+                selectedOptionalFields.forEach(key => {
+                    const value = additionalFields[key];
+                    let xmlValue: string;
+                    
+                    // Handle datetime fields properly
+                    if (key === 'startDate' || key === 'dueDate') {
+                        if (value instanceof Date) {
+                            xmlValue = value.toISOString();
+                        } else if (typeof value === 'string' && value) {
+                            xmlValue = value;
                         } else {
-                            xmlValue = toSoapParamValue(value, key);
+                            return; // Skip if not a valid date
                         }
-                        
-                        jobInXml += `<${key}>${escapeXml(xmlValue)}</${key}>`;
+                    } else {
+                        xmlValue = toSoapParamValue(value, key);
                     }
+                    
+                    jobInXml += `<${key}>${escapeXml(xmlValue)}</${key}>`;
                 });
                 
                 jobInXml += '</JobIN>';

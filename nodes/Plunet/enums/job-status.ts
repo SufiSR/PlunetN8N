@@ -44,7 +44,7 @@ export function idToJobStatusName(id?: number | null): JobStatusName | undefined
 
 function pretty(name: JobStatusName): string {
     switch (name) {
-        case 'IN_PREPERATION': return 'In preperation'; // matches Plunet
+        case 'IN_PREPERATION': return 'In preparation'; // matches Plunet
         case 'IN_PROGRESS': return 'In progress';
         case 'DELIVERED': return 'Delivered';
         case 'APPROVED': return 'Approved';
