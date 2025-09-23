@@ -52,8 +52,10 @@ function mapJobMetric(metricXml: string) {
     const o = deepObjectify(metricXml);
     // Handle nested structure created by deepObjectify
     const metricData = o.data || o;
-    const amountsScope = findFirstTagBlock(metricXml, 'amounts') ?? metricXml;
-    const amounts = findAllTagBlocks(amountsScope, 'amounts').map(mapAmount);
+    
+    // Find all amounts tags within the entire data scope
+    const amounts = findAllTagBlocks(metricXml, 'amounts').map(mapAmount);
+    
     return {
         totalPrice: metricData.totalPrice ?? metricData.TotalPrice ?? undefined,
         totalPriceJobCurrency: metricData.totalPriceJobCurrency ?? metricData.TotalPriceJobCurrency ?? undefined,
