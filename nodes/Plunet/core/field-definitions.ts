@@ -123,17 +123,14 @@ export const JOB_TRACKING_TIME_IN_FIELDS = [
 ] as const;
 
 export const PRICE_LINE_IN_FIELDS = [
+    'amount',
+    'amount_perUnit',
+    'memo',
     'priceLineID',
-    'jobID',
-    'projectType',
-    'serviceType',
-    'sourceLanguage',
-    'targetLanguage',
-    'unitPrice',
-    'quantity',
-    'totalPrice',
-    'currency',
-    'description',
+    'priceUnitID',
+    'taxType',
+    'time_perUnit',
+    'unit_price',
 ] as const;
 
 // ============================================================================
@@ -183,6 +180,7 @@ export const MANDATORY_FIELDS: Record<string, string[]> = {
     'jobUpdate': ['jobID'],
     'deleteJob': ['jobID', 'projectType'],
     'getJob_ForView': ['jobID', 'projectType'],
+    'insertPriceLine': ['jobID', 'projectType', 'amount', 'amount_perUnit', 'priceUnitID', 'unit_price', 'taxType', 'createAsFirstItem'],
     
     // Payment operations
     'setPaymentInformation': ['customerID', 'paymentMethodID'],
