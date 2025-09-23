@@ -103,6 +103,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         active: true,
     },
     createJob: {
+        // unnecessary operation
         soapAction: 'insert',
         endpoint: ENDPOINT,
         uiName: 'Create Empty Job',
@@ -116,6 +117,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         active: false,
     },
     createJobWithItem: {
+        // unnecessary operation
         soapAction: 'insert2',
         endpoint: ENDPOINT,
         uiName: 'Create Empty Job (with Item)',
@@ -133,7 +135,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         endpoint: ENDPOINT,
         uiName: 'Create Job',
         subtitleName: 'create job from object: job',
-        titleName: 'Create Job from Object',
+        titleName: 'Create a Job',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Create a new job from a complete job object',
@@ -168,6 +170,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         active: true,
     },
     assignJob: {
+        // This has been deprecated in the API
         soapAction: 'assignJob',
         endpoint: ENDPOINT,
         uiName: 'Assign Job',
@@ -183,7 +186,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     setJobStatus: {
         soapAction: 'setJobStatus',
         endpoint: ENDPOINT,
-        uiName: 'Update Status',
+        uiName: 'Update Job Status',
         subtitleName: 'update status: job',
         titleName: 'Update Job Status',
         resource: RESOURCE,
@@ -236,12 +239,12 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     addPriceLine: {
         soapAction: 'insertPriceLine',
         endpoint: ENDPOINT,
-        uiName: 'Add Price Line',
-        subtitleName: 'add price line: job',
-        titleName: 'Add Price Line',
+        uiName: 'Create Price Line',
+        subtitleName: 'create price line: job',
+        titleName: 'Create Price Line',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
-        description: 'Add a new price line to a job',
+        description: 'Create a new price line in a job',
         returnType: 'PriceLine',
         paramOrder: ['jobID', 'projectType', ...PRICE_LINE_IN_FIELDS, 'createAsFirstItem'],
         active: true,
@@ -289,9 +292,9 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     setPricelist: {
         soapAction: 'setPricelist',
         endpoint: ENDPOINT,
-        uiName: 'Update',
-        subtitleName: 'update: job',
-        titleName: 'Update',
+        uiName: 'Update Pricelist',
+        subtitleName: 'update pricelist: job',
+        titleName: 'Update Pricelist',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update the pricelist for a job',
@@ -300,27 +303,28 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         active: true,
     },
     setPricelistById: {
+        // This has been deprecated in the API
         soapAction: 'setPriceListeID',
         endpoint: ENDPOINT,
-        uiName: 'Update',
-        subtitleName: 'update: job',
-        titleName: 'Update',
+        uiName: 'Update PricelistID',
+        subtitleName: 'update pricelistid: job',
+        titleName: 'Update PricelistID',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update the pricelist for a job by ID',
         returnType: 'Void',
         paramOrder: ['projectType', 'priceListID', 'jobID'],    
-        active: true,
+        active: false,
     },
     getPricelists: {
         soapAction: 'getPricelist_List',
         endpoint: ENDPOINT,
-        uiName: 'Get Pricelists (Job)',
-        subtitleName: 'get pricelists job: job',
-        titleName: 'Get Pricelists for Job',
+        uiName: 'Get all available Pricelists (Job)',
+        subtitleName: 'get availablepricelists job: job',
+        titleName: 'Get all available Pricelists for Job',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
-        description: 'Retrieve all pricelists for a job',
+        description: 'Retrieve all available pricelists for a job',
         returnType: 'PricelistList',
         paramOrder: ['jobID', 'projectType'],
         active: true,
@@ -328,12 +332,12 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     getPricelistEntries: {
         soapAction: 'getPricelistEntry_List',
         endpoint: ENDPOINT,
-        uiName: 'Get Pricelist Entries',
-        subtitleName: 'get pricelist entries: job',
-        titleName: 'Get Pricelist Entries',
+        uiName: 'Get all Pricelist Entries',
+        subtitleName: 'get all pricelist entries: job',
+        titleName: 'Get all Pricelist Entries',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
-        description: 'Retrieve pricelist entries for a pricelist',
+        description: 'Retrieve all pricelist entries for a pricelist',
         returnType: 'PricelistEntryList',
         paramOrder: ['PricelistID', 'SourceLanguage', 'TargetLanguage'],
         active: true,
@@ -342,12 +346,12 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     getPriceUnits: {
         soapAction: 'getPriceUnit_List',
         endpoint: ENDPOINT,
-        uiName: 'Get Price Units',
-        subtitleName: 'get price units: job',
-        titleName: 'Get Price Units',
+        uiName: 'Get all available Price Units',
+        subtitleName: 'get all available price units: job',
+        titleName: 'Get all available Price Units',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
-        description: 'Retrieve available price units',
+        description: 'Retrieve all available price units',
         returnType: 'PriceUnitList',
         paramOrder: ['languageCode', 'service'],
         active: true,
@@ -369,12 +373,12 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     getServices: {
         soapAction: 'getServices_List',
         endpoint: ENDPOINT,
-        uiName: 'Get Services',
-        subtitleName: 'get services: job',
-        titleName: 'Get Services',
+        uiName: 'Get all available Services',
+        subtitleName: 'get all available services: job',
+        titleName: 'Get all available Services',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
-        description: 'Retrieve available services',
+        description: 'Retrieve all available services',
         returnType: 'StringArray',
         paramOrder: ['languageCode'],
         active: true,
@@ -409,28 +413,29 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     addJobTrackingTime: {
         soapAction: 'addJobTrackingTime',
         endpoint: ENDPOINT,
-        uiName: 'Add Job Tracking Time',
-        subtitleName: 'add job tracking time: job',
-        titleName: 'Add Job Tracking Time',
+        uiName: 'Create Job Tracking Time',
+        subtitleName: 'create job tracking time: job',
+        titleName: 'Create Job Tracking Time',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
-        description: 'Add tracking time to a job',
+        description: 'Create tracking time for a job',
         returnType: 'Void',
         paramOrder: ['jobID', 'projectType', ...JOB_TRACKING_TIME_IN_FIELDS],
         active: true,
     },
     addJobTrackingTimesList: {
+        // not necessary operation
         soapAction: 'addJobTrackingTimesList',
         endpoint: ENDPOINT,
-        uiName: 'Add Job Tracking Times (List)',
-        subtitleName: 'add job tracking times list: job',
-        titleName: 'Add Job Tracking Times List',
+        uiName: 'Create Job Tracking Times (List)',
+        subtitleName: 'create job tracking times list: job',
+        titleName: 'Create Job Tracking Times List',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
-        description: 'Add multiple tracking times to a job',
+        description: 'Create multiple tracking times for a job',
         returnType: 'Void',
         paramOrder: ['jobID', 'projectType', 'JobTrackingTimeListIN'],
-        active: true,
+        active: false,
     },
     getJobTrackingTimes: {
         soapAction: 'getJobTrackingTimesList',
@@ -462,9 +467,9 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     setComment: {
         soapAction: 'setComment',
         endpoint: ENDPOINT,
-        uiName: 'Update',
-        subtitleName: 'update: job',
-        titleName: 'Update',
+        uiName: 'Update Comment',
+        subtitleName: 'update comment: job',
+        titleName: 'Update Comment',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update comment for a job',
@@ -488,9 +493,9 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     setDescription: {
         soapAction: 'setDescription',
         endpoint: ENDPOINT,
-        uiName: 'Update',
-        subtitleName: 'update: job',
-        titleName: 'Update',
+        uiName: 'Update Description',
+        subtitleName: 'update description: job',
+        titleName: 'Update Description',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update description for a job',
@@ -514,9 +519,9 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     setDueDate: {
         soapAction: 'setDueDate',
         endpoint: ENDPOINT,
-        uiName: 'Update',
-        subtitleName: 'update: job',
-        titleName: 'Update',
+        uiName: 'Update Due Date',
+        subtitleName: 'update due date: job',
+        titleName: 'Update Due Date',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update due date for a job',
@@ -592,9 +597,9 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     setResourceId: {
         soapAction: 'setResourceID',
         endpoint: ENDPOINT,
-        uiName: 'Update',
-        subtitleName: 'update: job',
-        titleName: 'Update',
+        uiName: 'Update Resource ID',
+        subtitleName: 'update resource id: job',
+        titleName: 'Update Resource ID',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update resource ID for a job',
@@ -618,9 +623,9 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     setContactPersonId: {
         soapAction: 'setContactPersonID',
         endpoint: ENDPOINT,
-        uiName: 'Update',
-        subtitleName: 'update: job',
-        titleName: 'Update',
+        uiName: 'Update Contact Person ID',
+        subtitleName: 'update contact person id: job',
+        titleName: 'Update Contact Person ID',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update contact person ID for a job',
@@ -644,9 +649,9 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     setResourceContactPersonId: {
         soapAction: 'setResourceContactPersonID',
         endpoint: ENDPOINT,
-        uiName: 'Update',
-        subtitleName: 'update: job',
-        titleName: 'Update',
+        uiName: 'Update Resource Contact Person ID',
+        subtitleName: 'update resource contact person id: job',
+        titleName: 'Update Resource Contact Person ID',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update resource contact person ID for a job',
@@ -670,9 +675,9 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     setDeliveryNote: {
         soapAction: 'setDeliveryNote',
         endpoint: ENDPOINT,
-        uiName: 'Update',
-        subtitleName: 'update: job',
-        titleName: 'Update',
+        uiName: 'Update Delivery Note',
+        subtitleName: 'update delivery note: job',
+        titleName: 'Update Delivery Note',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update delivery note for a job',
@@ -748,9 +753,9 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     setItemId: {
         soapAction: 'setItemID',
         endpoint: ENDPOINT,
-        uiName: 'Update',
-        subtitleName: 'update: job',
-        titleName: 'Update',
+        uiName: 'Update Item ID for Job',
+        subtitleName: 'update item id: job',
+        titleName: 'Update Item ID',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update item ID for a job',
@@ -773,24 +778,25 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     },
     // CAT Report Operations
     setCatReport: {
+        // This has been deprecated in the API
         soapAction: 'setCatReport',
         endpoint: ENDPOINT,
-        uiName: 'Update',
-        subtitleName: 'update: job',
-        titleName: 'Update',
+        uiName: 'Update CAT Report',
+        subtitleName: 'update cat report: job',
+        titleName: 'Update CAT Report',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update CAT report for a job',
         returnType: 'Void',
         paramOrder: ['pathOrUrl', 'overwriteExistingPriceLines', 'catType', 'projectType', 'analyzeAndCopyResultToJob', 'jobID'],
-        active: true,
+        active: false,
     },
     setCatReport2: {
         soapAction: 'setCatReport2',
         endpoint: ENDPOINT,
-        uiName: 'Update',
-        subtitleName: 'update: job',
-        titleName: 'Update',
+        uiName: 'Update CAT Report',
+        subtitleName: 'update cat report: job',
+        titleName: 'Update CAT Report',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update CAT report for a job using file stream',
@@ -921,7 +927,7 @@ const extraProperties: INodeProperties[] = [
     
     // Collection field for optional fields - exactly like customer/resource operations
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
-        if (op !== 'insert3') return [];
+        if (op !== 'insert3' && op !== 'update') return [];
 
         const mandatoryFields = MANDATORY_FIELDS[op] || [];
         // Only include the specific JobIN fields from the SOAP envelope
@@ -995,7 +1001,7 @@ const extraProperties: INodeProperties[] = [
     
     // Standard properties for other operations
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
-        if (op === 'insert3') return []; // Skip insert3 as it's handled above
+        if (op === 'insert3' || op === 'update') return []; // Skip insert3 and update as they're handled above
         
         return params.map<INodeProperties>((p) => {
             // 1) enableNullOrEmptyValues → boolean
@@ -1180,6 +1186,50 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 jobInXml += '</JobIN>';
                 
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${jobInXml}\n<JobTypeShort>${escapeXml(jobTypeShort)}</JobTypeShort>`;
+            } else if (op === 'update') {
+                // Get mandatory fields
+                const jobID = itemParams.jobID as number;
+                
+                // Get additional fields from collection
+                const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
+                
+                // Filter out empty values like customer service does
+                const selectedOptionalFields = Object.keys(additionalFields).filter(key => 
+                    additionalFields[key] !== '' && 
+                    additionalFields[key] !== null && 
+                    additionalFields[key] !== undefined
+                );
+                
+                // Build JobIN XML with mandatory and optional fields
+                let jobInXml = '<JobIN>';
+                
+                // Add mandatory jobID field
+                jobInXml += `<jobID>${escapeXml(String(jobID))}</jobID>`;
+                
+                // Add optional fields from collection (only non-empty ones)
+                selectedOptionalFields.forEach(key => {
+                    const value = additionalFields[key];
+                    let xmlValue: string;
+                    
+                    // Handle datetime fields properly
+                    if (key === 'startDate' || key === 'dueDate') {
+                        if (value instanceof Date) {
+                            xmlValue = value.toISOString();
+                        } else if (typeof value === 'string' && value) {
+                            xmlValue = value;
+                        } else {
+                            return; // Skip if not a valid date
+                        }
+                    } else {
+                        xmlValue = toSoapParamValue(value, key);
+                    }
+                    
+                    jobInXml += `<${key}>${escapeXml(xmlValue)}</${key}>`;
+                });
+                
+                jobInXml += '</JobIN>';
+                
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n${jobInXml}`;
             }
             return null; // No custom body building needed for other operations
         },
