@@ -259,7 +259,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update an existing price line',
         returnType: 'PriceLine',
-        paramOrder: ['jobID', 'projectType', 'amount', 'amount_perUnit', 'priceUnitID', 'unit_price', 'taxType'],
+        paramOrder: ['jobID', 'projectType', 'priceLineID', 'amount', 'amount_perUnit', 'priceUnitID', 'unit_price', 'taxType'],
         active: true,
     },
     deletePriceLine: {
@@ -925,90 +925,6 @@ const extraProperties: INodeProperties[] = [
         });
     }),
     
-    // Collection field for optional fields - exactly like customer/resource operations
-    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
-        if (op !== 'insert3' && op !== 'update' && op !== 'insertPriceLine' && op !== 'updatePriceLine') return [];
-
-        const mandatoryFields = MANDATORY_FIELDS[op] || [];
-        
-        let optionalFields: string[];
-        if (op === 'insertPriceLine' || op === 'updatePriceLine') {
-            // Only include the specific PriceLineIN fields from the SOAP envelope
-            const priceLineInFields = ['memo', 'priceLineID', 'time_perUnit'];
-            optionalFields = priceLineInFields.filter(f => 
-                !mandatoryFields.includes(f)
-            );
-        } else {
-            // Only include the specific JobIN fields from the SOAP envelope
-            const jobInFields = ['contactPersonID', 'dueDate', 'itemID', 'jobID', 'startDate', 'status'];
-            optionalFields = jobInFields.filter(f => 
-                !mandatoryFields.includes(f) && 
-                f !== 'jobID' // jobID is auto-generated
-            );
-        }
-
-        // Create options for the collection
-        const collectionOptions = optionalFields.map(field => {
-            const displayName = labelize(field);
-
-            // Handle specific JobIN fields
-            if (field === 'status') {
-                return {
-                    displayName: 'Status',
-                    name: field,
-                    type: 'options' as const,
-                    options: [
-                        { name: 'Please select...', value: '' },
-                        ...JobStatusOptions
-                    ],
-                    default: '',
-                    description: `${field} parameter (JobStatus enum)`,
-                };
-            }
-            
-            if (field === 'startDate' || field === 'dueDate') {
-                return {
-                    displayName: displayName,
-                    name: field,
-                    type: 'dateTime' as const,
-                    default: '',
-                    description: `${field} parameter (date)`,
-                };
-            }
-            
-            if (field === 'contactPersonID' || field === 'itemID') {
-                return {
-                    displayName: displayName,
-                    name: field,
-                    type: 'number' as const,
-                    default: 0,
-                    typeOptions: { minValue: 0, step: 1 },
-                    description: `${field} parameter (number)`,
-                };
-            }
-            
-            // Default string field
-            return {
-                displayName: displayName,
-                name: field,
-                type: 'string' as const,
-                default: '',
-                description: `${field} parameter (string)`,
-            };
-        });
-
-        return [{
-            displayName: 'Additional Fields',
-            name: 'additionalFields',
-            type: 'collection' as const,
-            placeholder: 'Add Field',
-            default: {},
-            options: collectionOptions,
-            description: 'Additional job fields to include (optional)',
-            displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-        }];
-    }),
-    
     // Standard properties for other operations
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
         if (op === 'insert3' || op === 'update') return []; // Skip insert3 and update as they're handled above
@@ -1126,6 +1042,96 @@ const extraProperties: INodeProperties[] = [
             displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
         };
         });
+    }),
+    
+    // Collection field for optional fields - exactly like customer/resource operations
+    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
+        if (op !== 'insert3' && op !== 'update' && op !== 'insertPriceLine' && op !== 'updatePriceLine') return [];
+
+        const mandatoryFields = MANDATORY_FIELDS[op] || [];
+        
+        let optionalFields: string[];
+        if (op === 'insertPriceLine') {
+            // Only include the specific PriceLineIN fields from the SOAP envelope
+            const priceLineInFields = ['memo', 'priceLineID', 'time_perUnit'];
+            optionalFields = priceLineInFields.filter(f => 
+                !mandatoryFields.includes(f)
+            );
+        } else if (op === 'updatePriceLine') {
+            // For updatePriceLine, priceLineID is mandatory, so only include memo and time_perUnit
+            const priceLineInFields = ['memo', 'time_perUnit'];
+            optionalFields = priceLineInFields.filter(f => 
+                !mandatoryFields.includes(f)
+            );
+        } else {
+            // Only include the specific JobIN fields from the SOAP envelope
+            const jobInFields = ['contactPersonID', 'dueDate', 'itemID', 'jobID', 'startDate', 'status'];
+            optionalFields = jobInFields.filter(f => 
+                !mandatoryFields.includes(f) && 
+                f !== 'jobID' // jobID is auto-generated
+            );
+        }
+
+        // Create options for the collection
+        const collectionOptions = optionalFields.map(field => {
+            const displayName = labelize(field);
+
+            // Handle specific JobIN fields
+            if (field === 'status') {
+                return {
+                    displayName: 'Status',
+                    name: field,
+                    type: 'options' as const,
+                    options: [
+                        { name: 'Please select...', value: '' },
+                        ...JobStatusOptions
+                    ],
+                    default: '',
+                    description: `${field} parameter (JobStatus enum)`,
+                };
+            }
+            
+            if (field === 'startDate' || field === 'dueDate') {
+                return {
+                    displayName: displayName,
+                    name: field,
+                    type: 'dateTime' as const,
+                    default: '',
+                    description: `${field} parameter (date)`,
+                };
+            }
+            
+            if (field === 'contactPersonID' || field === 'itemID') {
+                return {
+                    displayName: displayName,
+                    name: field,
+                    type: 'number' as const,
+                    default: 0,
+                    typeOptions: { minValue: 0, step: 1 },
+                    description: `${field} parameter (number)`,
+                };
+            }
+            
+            // Default string field
+            return {
+                displayName: displayName,
+                name: field,
+                type: 'string' as const,
+                default: '',
+                description: `${field} parameter (string)`,
+            };
+        });
+
+        return [{
+            displayName: 'Additional Fields',
+            name: 'additionalFields',
+            type: 'collection' as const,
+            placeholder: 'Add Field',
+            default: {},
+            options: collectionOptions,
+            description: 'Additional job fields to include (optional)',
+            displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+        }];
     }),
 ];
 
@@ -1297,6 +1303,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 // Get mandatory fields
                 const jobID = itemParams.jobID as number;
                 const projectType = itemParams.projectType as number;
+                const priceLineID = itemParams.priceLineID as number;
                 const amount = itemParams.amount as number;
                 const amount_perUnit = itemParams.amount_perUnit as number;
                 const priceUnitID = itemParams.priceUnitID as number;
@@ -1317,6 +1324,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 let priceLineInXml = '<priceLineIN>';
                 
                 // Add mandatory fields
+                priceLineInXml += `<priceLineID>${escapeXml(String(priceLineID))}</priceLineID>`;
                 priceLineInXml += `<amount>${escapeXml(String(amount))}</amount>`;
                 priceLineInXml += `<amount_perUnit>${escapeXml(String(amount_perUnit))}</amount_perUnit>`;
                 priceLineInXml += `<priceUnitID>${escapeXml(String(priceUnitID))}</priceUnitID>`;
