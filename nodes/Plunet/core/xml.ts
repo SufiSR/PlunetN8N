@@ -1,4 +1,5 @@
 import { XMLParser } from 'fast-xml-parser';
+import { findFirstTagBlock, findAllTagBlocks } from './parsers/common';
 
 /** Common status fields present on Plunet Result types */
 export type ResultBase = {
@@ -331,27 +332,19 @@ export function parseDateResult(xml: string): {
 export function parseStringArrayResult(xml: string): { data: string[]; statusMessage?: string; statusCode?: number } {
     const base = extractResultBase(xml);
 
-    // 1) Prefer <StringArrayResult>…<data>…<string>… OR <item>…</item>
-    const body =
-        xml.match(/<(?:\w+:)?StringArrayResult[\s\S]*?<(?:\w+:)?data>([\s\S]*?)<\/(?:\w+:)?data>[\s\S]*?<\/(?:\w+:)?StringArrayResult>/i)?.[1] ??
-        xml;
-
-    const items: string[] = [];
-    // common SOAP array item shapes
-    const regexes = [
-        /<(?:\w+:)?string>([\s\S]*?)<\/(?:\w+:)?string>/gi,
-        /<(?:\w+:)?item>([\s\S]*?)<\/(?:\w+:)?item>/gi,
-        /<(?:\w+:)?entry>([\s\S]*?)<\/(?:\w+:)?entry>/gi,
-    ];
-
-    for (const rx of regexes) {
-        let m: RegExpExecArray | null;
-        while ((m = rx.exec(body))) {
-            const val = (m[1] ?? '').trim();
-            if (val !== '') items.push(val);
-        }
-        if (items.length) break; // stop at first matching shape
+    // Look for StringArrayResult scope first
+    const stringArrayResultScope = findFirstTagBlock(xml, 'StringArrayResult');
+    if (!stringArrayResultScope) {
+        return { data: [], statusMessage: base.statusMessage, statusCode: base.statusCode };
     }
+    
+    // Look for data elements within StringArrayResult
+    const dataElements = findAllTagBlocks(stringArrayResultScope, 'data');
+    const items = dataElements.map(dataXml => {
+        // For string arrays, extract just the text content between the tags
+        const textContent = dataXml.replace(/<\/?data>/g, '').trim();
+        return textContent;
+    });
 
     return { data: items, statusMessage: base.statusMessage, statusCode: base.statusCode };
 }
