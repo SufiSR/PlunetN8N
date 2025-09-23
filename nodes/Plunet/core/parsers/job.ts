@@ -37,22 +37,26 @@ function mapJob(jobXml: string) {
 }
 
 function mapAmount(amountXml: string) {
-    const o = objectify(amountXml);
+    const o = deepObjectify(amountXml);
+    // Handle nested structure created by deepObjectify
+    const amountData = o.amounts || o;
     return {
-        baseUnitName: o.baseUnitName ?? o.BaseUnitName ?? undefined,
-        grossQuantity: o.grossQuantity ?? o.GrossQuantity ?? undefined,
-        netQuantity: o.netQuantity ?? o.NetQuantity ?? undefined,
-        serviceType: o.serviceType ?? o.ServiceType ?? undefined,
+        baseUnitName: amountData.baseUnitName ?? amountData.BaseUnitName ?? undefined,
+        grossQuantity: amountData.grossQuantity ?? amountData.GrossQuantity ?? undefined,
+        netQuantity: amountData.netQuantity ?? amountData.NetQuantity ?? undefined,
+        serviceType: amountData.serviceType ?? amountData.ServiceType ?? undefined,
     };
 }
 
 function mapJobMetric(metricXml: string) {
-    const o = objectify(metricXml);
+    const o = deepObjectify(metricXml);
+    // Handle nested structure created by deepObjectify
+    const metricData = o.data || o;
     const amountsScope = findFirstTagBlock(metricXml, 'amounts') ?? metricXml;
     const amounts = findAllTagBlocks(amountsScope, 'amounts').map(mapAmount);
     return {
-        totalPrice: o.totalPrice ?? o.TotalPrice ?? undefined,
-        totalPriceJobCurrency: o.totalPriceJobCurrency ?? o.TotalPriceJobCurrency ?? undefined,
+        totalPrice: metricData.totalPrice ?? metricData.TotalPrice ?? undefined,
+        totalPriceJobCurrency: metricData.totalPriceJobCurrency ?? metricData.TotalPriceJobCurrency ?? undefined,
         amounts,
     };
 }
@@ -71,17 +75,19 @@ function mapPriceUnit(unitXml: string) {
 }
 
 function mapPriceLine(lineXml: string) {
-    const o = objectify(lineXml);
+    const o = deepObjectify(lineXml);
+    // Handle nested structure created by deepObjectify
+    const lineData = o.data || o;
     return {
-        PriceUnitID: o.PriceUnitID ?? o.priceUnitID ?? undefined,
-        PriceLineID: o.PriceLineID ?? o.priceLineID ?? undefined,
-        Memo: o.Memo ?? o.memo ?? undefined,
-        Amount: o.Amount ?? o.amount ?? undefined,
-        Amount_perUnit: o.Amount_perUnit ?? o.amount_perUnit ?? undefined,
-        Time_perUnit: o.Time_perUnit ?? o.time_perUnit ?? undefined,
-        Unit_price: o.Unit_price ?? o.unit_price ?? undefined,
-        TaxType: o.TaxType ?? o.taxType ?? undefined,
-        Sequence: o.Sequence ?? o.sequence ?? undefined,
+        PriceUnitID: lineData.PriceUnitID ?? lineData.priceUnitID ?? undefined,
+        PriceLineID: lineData.PriceLineID ?? lineData.priceLineID ?? undefined,
+        Memo: lineData.Memo ?? lineData.memo ?? undefined,
+        Amount: lineData.Amount ?? lineData.amount ?? undefined,
+        Amount_perUnit: lineData.Amount_perUnit ?? lineData.amount_perUnit ?? undefined,
+        Time_perUnit: lineData.Time_perUnit ?? lineData.time_perUnit ?? undefined,
+        Unit_price: lineData.Unit_price ?? lineData.unit_price ?? undefined,
+        TaxType: lineData.TaxType ?? lineData.taxType ?? undefined,
+        Sequence: lineData.Sequence ?? lineData.sequence ?? undefined,
     };
 }
 
@@ -132,9 +138,18 @@ export function parseJobListResult(xml: string) {
 
 export function parseJobMetricResult(xml: string) {
     const base = extractResultBase(xml);
-    const scope = scopeToData(xml, 'JobMetricResult');
-    const metricXml = findFirstTagBlock(scope, 'JobMetric');
-    const jobMetric = metricXml ? mapJobMetric(metricXml) : undefined;
+    const jobMetricResultScope = findFirstTagBlock(xml, 'JobMetricResult');
+    if (!jobMetricResultScope) {
+        return { jobMetric: undefined, statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    // The data is directly under JobMetricResult, not in a separate JobMetric tag
+    const dataScope = findFirstTagBlock(jobMetricResultScope, 'data');
+    if (!dataScope) {
+        return { jobMetric: undefined, statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    const jobMetric = mapJobMetric(dataScope);
     return { jobMetric, statusMessage: base.statusMessage, statusCode: base.statusCode };
 }
 
@@ -163,8 +178,14 @@ export function parsePriceLineResult(xml: string) {
 
 export function parsePriceLineListResult(xml: string) {
     const base = extractResultBase(xml);
-    const scope = scopeToData(xml, 'PriceLineListResult');
-    const list = findAllTagBlocks(scope, 'PriceLine').map(mapPriceLine);
+    const priceLineListResultScope = findFirstTagBlock(xml, 'PriceLineListResult');
+    if (!priceLineListResultScope) {
+        return { priceLines: [], statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    // Look for data elements within PriceLineListResult
+    const dataElements = findAllTagBlocks(priceLineListResultScope, 'data');
+    const list = dataElements.map(mapPriceLine);
     return { priceLines: list, statusMessage: base.statusMessage, statusCode: base.statusCode };
 }
 
