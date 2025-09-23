@@ -158,30 +158,35 @@ export function parsePricelistListResult(xml: string): ResultBase & { pricelists
 
 export function parsePricelistResult(xml: string) {
     const base = extractResultBase(xml);
-    const scope = scopeToData(xml, 'PricelistResult');
-    const block = findFirstTagBlock(scope, 'Pricelist');
-    const pricelist = block ? deepObjectify(block) : undefined;
-
+    const pricelistResultScope = findFirstTagBlock(xml, 'PricelistResult');
+    if (!pricelistResultScope) {
+        return { pricelist: undefined, statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    // The data is directly under PricelistResult, not in a separate Pricelist tag
+    const dataScope = findFirstTagBlock(pricelistResultScope, 'data');
+    if (!dataScope) {
+        return { pricelist: undefined, statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    const o = deepObjectify(dataScope);
+    const pricelist = o.data || o; // Flatten the structure like other parsers
     return { pricelist, statusMessage: base.statusMessage, statusCode: base.statusCode };
 }
 
 export function parsePricelistEntryListResult(xml: string) {
     const base = extractResultBase(xml);
-    const scope = scopeToData(xml, 'PricelistEntryListResult');
-
-    let blocks = findAllTagBlocks(scope, 'PricelistEntry');
-
-    if (blocks.length === 0) {
-        const fallback: string[] = [];
-        const anyEntryRx = /<(?:\w+:)?([A-Za-z0-9_]*Entry)\b[^>]*>[\s\S]*?<\/(?:\w+:)?\1>/gi;
-        let m: RegExpExecArray | null;
-        while ((m = anyEntryRx.exec(scope))) {
-            fallback.push(m[0]);
-        }
-        blocks = fallback;
+    const pricelistEntryListScope = findFirstTagBlock(xml, 'PricelistEntryList');
+    if (!pricelistEntryListScope) {
+        return { entries: [], statusMessage: base.statusMessage, statusCode: base.statusCode };
     }
-
-    const entries = blocks.map(deepObjectify);
+    
+    // Look for data elements within PricelistEntryList
+    const dataElements = findAllTagBlocks(pricelistEntryListScope, 'data');
+    const entries = dataElements.map(entryXml => {
+        const o = deepObjectify(entryXml);
+        return o.data || o; // Flatten the structure like other parsers
+    });
 
     return { entries, statusMessage: base.statusMessage, statusCode: base.statusCode };
 }
