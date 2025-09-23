@@ -138,7 +138,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Create a new job from a complete job object',
         returnType: 'Integer',
-        paramOrder: ['projectID', 'projectType', 'itemID', 'jobTypeShort'],
+        paramOrder: ['projectID', 'projectType', 'jobTypeShort'],
         active: true,
     },
     updateJob: {
@@ -906,17 +906,6 @@ const extraProperties: INodeProperties[] = [
                 };
             }
             
-            if (p === 'itemID') {
-                return {
-                    displayName: 'Item ID',
-                    name: p,
-                    type: 'number',
-                    default: 0,
-                    typeOptions: { minValue: 0, step: 1 },
-                    description: `${p} parameter for ${op} (number)`,
-                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-                };
-            }
             
             // Default for other mandatory fields
             return {
@@ -936,7 +925,7 @@ const extraProperties: INodeProperties[] = [
 
         const mandatoryFields = MANDATORY_FIELDS[op] || [];
         // Only include the specific JobIN fields from the SOAP envelope
-        const jobInFields = ['contactPersonID', 'dueDate', 'jobID', 'startDate', 'status'];
+        const jobInFields = ['contactPersonID', 'dueDate', 'itemID', 'jobID', 'startDate', 'status'];
         const optionalFields = jobInFields.filter(f => 
             !mandatoryFields.includes(f) && 
             f !== 'jobID' // jobID is auto-generated
@@ -1152,7 +1141,6 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 // Get mandatory fields
                 const projectID = itemParams.projectID as number;
                 const projectType = itemParams.projectType as number;
-                const itemID = itemParams.itemID as number;
                 const jobTypeShort = itemParams.jobTypeShort as string;
                 
                 // Get additional fields from collection
@@ -1164,12 +1152,25 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 // Add mandatory fields
                 jobInXml += `<projectID>${escapeXml(String(projectID))}</projectID>`;
                 jobInXml += `<projectType>${escapeXml(String(projectType))}</projectType>`;
-                jobInXml += `<itemID>${escapeXml(String(itemID))}</itemID>`;
                 
                 // Add optional fields from collection
                 Object.entries(additionalFields).forEach(([key, value]) => {
                     if (value !== '' && value !== null && value !== undefined) {
-                        const xmlValue = toSoapParamValue(value, key);
+                        let xmlValue: string;
+                        
+                        // Handle datetime fields properly
+                        if (key === 'startDate' || key === 'dueDate') {
+                            if (value instanceof Date) {
+                                xmlValue = value.toISOString();
+                            } else if (typeof value === 'string' && value) {
+                                xmlValue = value;
+                            } else {
+                                return; // Skip if not a valid date
+                            }
+                        } else {
+                            xmlValue = toSoapParamValue(value, key);
+                        }
+                        
                         jobInXml += `<${key}>${escapeXml(xmlValue)}</${key}>`;
                     }
                 });
