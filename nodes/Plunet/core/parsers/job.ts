@@ -172,9 +172,18 @@ export function parsePriceUnitListResult(xml: string) {
 
 export function parsePriceLineResult(xml: string) {
     const base = extractResultBase(xml);
-    const scope = scopeToData(xml, 'PriceLineResult');
-    const lineXml = findFirstTagBlock(scope, 'PriceLine');
-    const priceLine = lineXml ? mapPriceLine(lineXml) : undefined;
+    const priceLineResultScope = findFirstTagBlock(xml, 'PriceLineResult');
+    if (!priceLineResultScope) {
+        return { priceLine: undefined, statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    // The data is directly under PriceLineResult, not in a separate PriceLine tag
+    const dataScope = findFirstTagBlock(priceLineResultScope, 'data');
+    if (!dataScope) {
+        return { priceLine: undefined, statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    const priceLine = mapPriceLine(dataScope);
     return { priceLine, statusMessage: base.statusMessage, statusCode: base.statusCode };
 }
 

@@ -259,7 +259,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update an existing price line',
         returnType: 'PriceLine',
-        paramOrder: ['jobID', 'projectType', ...PRICE_LINE_IN_FIELDS],  
+        paramOrder: ['jobID', 'projectType', 'amount', 'amount_perUnit', 'priceUnitID', 'unit_price', 'taxType'],
         active: true,
     },
     deletePriceLine: {
@@ -927,12 +927,12 @@ const extraProperties: INodeProperties[] = [
     
     // Collection field for optional fields - exactly like customer/resource operations
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
-        if (op !== 'insert3' && op !== 'update' && op !== 'insertPriceLine') return [];
+        if (op !== 'insert3' && op !== 'update' && op !== 'insertPriceLine' && op !== 'updatePriceLine') return [];
 
         const mandatoryFields = MANDATORY_FIELDS[op] || [];
         
         let optionalFields: string[];
-        if (op === 'insertPriceLine') {
+        if (op === 'insertPriceLine' || op === 'updatePriceLine') {
             // Only include the specific PriceLineIN fields from the SOAP envelope
             const priceLineInFields = ['memo', 'priceLineID', 'time_perUnit'];
             optionalFields = priceLineInFields.filter(f => 
@@ -1011,7 +1011,7 @@ const extraProperties: INodeProperties[] = [
     
     // Standard properties for other operations
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
-        if (op === 'insert3' || op === 'update' || op === 'insertPriceLine') return []; // Skip insert3, update, and insertPriceLine as they're handled above
+        if (op === 'insert3' || op === 'update' || op === 'insertPriceLine' || op === 'updatePriceLine') return []; // Skip insert3, update, insertPriceLine, and updatePriceLine as they're handled above
         
         return params.map<INodeProperties>((p) => {
         // 1) enableNullOrEmptyValues → boolean
@@ -1293,6 +1293,46 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 priceLineInXml += '</priceLineIN>';
                 
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n<jobID>${escapeXml(String(jobID))}</jobID>\n<projectType>${escapeXml(String(projectType))}</projectType>\n${priceLineInXml}\n<createAsFirstItem>${createAsFirstItem ? '1' : '0'}</createAsFirstItem>`;
+            } else if (op === 'updatePriceLine') {
+                // Get mandatory fields
+                const jobID = itemParams.jobID as number;
+                const projectType = itemParams.projectType as number;
+                const amount = itemParams.amount as number;
+                const amount_perUnit = itemParams.amount_perUnit as number;
+                const priceUnitID = itemParams.priceUnitID as number;
+                const unit_price = itemParams.unit_price as number;
+                const taxType = itemParams.taxType as number;
+                
+                // Get additional fields from collection
+                const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
+                
+                // Filter out empty values like customer service does
+                const selectedOptionalFields = Object.keys(additionalFields).filter(key => 
+                    additionalFields[key] !== '' && 
+                    additionalFields[key] !== null && 
+                    additionalFields[key] !== undefined
+                );
+                
+                // Build PriceLineIN XML with mandatory and optional fields
+                let priceLineInXml = '<priceLineIN>';
+                
+                // Add mandatory fields
+                priceLineInXml += `<amount>${escapeXml(String(amount))}</amount>`;
+                priceLineInXml += `<amount_perUnit>${escapeXml(String(amount_perUnit))}</amount_perUnit>`;
+                priceLineInXml += `<priceUnitID>${escapeXml(String(priceUnitID))}</priceUnitID>`;
+                priceLineInXml += `<taxType>${escapeXml(String(taxType))}</taxType>`;
+                priceLineInXml += `<unit_price>${escapeXml(String(unit_price))}</unit_price>`;
+                
+                // Add optional fields from collection (only non-empty ones)
+                selectedOptionalFields.forEach(key => {
+                    const value = additionalFields[key];
+                    const xmlValue = toSoapParamValue(value, key);
+                    priceLineInXml += `<${key}>${escapeXml(xmlValue)}</${key}>`;
+                });
+                
+                priceLineInXml += '</priceLineIN>';
+                
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n<jobID>${escapeXml(String(jobID))}</jobID>\n<projectType>${escapeXml(String(projectType))}</projectType>\n${priceLineInXml}`;
             }
             return null; // No custom body building needed for other operations
         },

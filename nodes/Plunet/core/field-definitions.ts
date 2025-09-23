@@ -181,6 +181,7 @@ export const MANDATORY_FIELDS: Record<string, string[]> = {
     'deleteJob': ['jobID', 'projectType'],
     'getJob_ForView': ['jobID', 'projectType'],
     'insertPriceLine': ['jobID', 'projectType', 'amount', 'amount_perUnit', 'priceUnitID', 'unit_price', 'taxType', 'createAsFirstItem'],
+    'updatePriceLine': ['jobID', 'projectType', 'amount', 'amount_perUnit', 'priceUnitID', 'unit_price', 'taxType'],
     
     // Payment operations
     'setPaymentInformation': ['customerID', 'paymentMethodID'],
