@@ -75,6 +75,8 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         active: true,
     },
     getJobsByIds: {
+        // This is not a necessary operation and can be replaced by multiple GetJob_forView operations;
+        // Also the parameter job list must be handled in the following format "17;18;19" so a list separated by semicolons
         soapAction: 'getJobList_ForView',
         endpoint: ENDPOINT,
         uiName: 'Get Many Jobs (by IDs)',
@@ -85,7 +87,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Retrieve multiple jobs by their IDs',
         returnType: 'JobList',
         paramOrder: ['jobIDs', 'projectType'],
-        active: true,
+        active: false,
     },
     getJobsForItem: {
         soapAction: 'getJobListOfItem_ForView',

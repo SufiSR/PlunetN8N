@@ -106,6 +106,16 @@ export function parseJobResult(xml: string) {
 export function parseJobListResult(xml: string) {
     const base = extractResultBase(xml);
     const scope = scopeToData(xml, 'JobListResult');
+    
+    // Check if this is the new format with 'data' elements (for getJobListOfItem_ForView)
+    const dataElements = findAllTagBlocks(scope, 'data');
+    if (dataElements.length > 0) {
+        // New format: data elements contain job information directly
+        const list = dataElements.map(mapJob);
+        return { jobs: list, statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    // Legacy format: Job elements
     const list = findAllTagBlocks(scope, 'Job').map(mapJob);
     return { jobs: list, statusMessage: base.statusMessage, statusCode: base.statusCode };
 }
