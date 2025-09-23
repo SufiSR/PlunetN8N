@@ -5,6 +5,7 @@ import { DataCustomer30MiscService } from './services/dataCustomer30.misc';
 import { DataResource30CoreService } from './services/dataResource30.core';
 import { DataResource30MiscService } from './services/dataResource30.misc';
 import { DataJob30Service } from './services/dataJob30';
+import { DataJob30Service_2_0 } from './services/datajob30.new';
 import { buildSubtitleLookup } from './core/service-utils';
 
 
@@ -15,6 +16,7 @@ const services = [
     DataCustomer30MiscService,
     DataResource30MiscService,
     DataJob30Service,
+    DataJob30Service_2_0,
 ] as const;
 
 const resourceOptions = services.map((s) => ({
@@ -43,7 +45,7 @@ const resourceLabelByValue = Object.fromEntries(
 const opLabelByResource = Object.fromEntries(
     services.map(s => [
         s.resource,
-        Object.fromEntries(s.operationOptions.map(o => [String(o.value), String(o.name)])),
+        Object.fromEntries(s.operationOptions.map((o: any) => [String(o.value), String(o.name)])),
     ]),
 );
 
@@ -64,7 +66,7 @@ const createSubtitleExpression = (): string => {
     // Add conditions for each service with operation registry
     Object.entries(subtitleLookupByResource).forEach(([resource, lookup]) => {
         const resourceConditions: string[] = [];
-        Object.entries(lookup).forEach(([operation, subtitle]) => {
+        Object.entries(lookup as Record<string, string>).forEach(([operation, subtitle]) => {
             resourceConditions.push(`$parameter["operation"] === "${operation}" ? "${subtitle}"`);
         });
         resourceConditions.push('$parameter["operation"]');
@@ -79,7 +81,7 @@ const createSubtitleExpression = (): string => {
         const lookup = opLabelByResource[resource];
         if (lookup) {
             const resourceConditions: string[] = [];
-            Object.entries(lookup).forEach(([operation, subtitle]) => {
+            Object.entries(lookup as Record<string, string>).forEach(([operation, subtitle]) => {
                 resourceConditions.push(`$parameter["operation"] === "${operation}" ? "${subtitle}"`);
             });
             resourceConditions.push('$parameter["operation"]');

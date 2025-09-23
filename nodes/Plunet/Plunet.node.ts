@@ -14,6 +14,7 @@ import { DataCustomer30MiscService } from './services/dataCustomer30.misc';
 import { DataResource30CoreService } from './services/dataResource30.core';
 import { DataResource30MiscService } from './services/dataResource30.misc';
 import { DataJob30Service} from "./services/dataJob30";
+import { DataJob30Service_2_0 } from './services/datajob30.new';
 
 const registry: Record<string, Service> = {
     [PlunetApiService.resource]: PlunetApiService,
@@ -22,6 +23,7 @@ const registry: Record<string, Service> = {
     [DataCustomer30MiscService.resource]: DataCustomer30MiscService,
     [DataResource30MiscService.resource]: DataResource30MiscService,
     [DataJob30Service.resource]: DataJob30Service,
+    [DataJob30Service_2_0.resource]: DataJob30Service_2_0,
 };
 
 export class Plunet implements INodeType {
