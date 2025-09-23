@@ -6,6 +6,7 @@ import {
     findFirstTagBlock,
     findAllTagBlocks,
     objectify,
+    deepObjectify,
     scopeToData,
     coerceScalar,
 } from './common';
@@ -15,7 +16,8 @@ import {
 // ============================================================================
 
 function mapJob(jobXml: string) {
-    const o = objectify(jobXml);
+    const o = deepObjectify(jobXml);
+    
     return {
         JobID: o.JobID ?? o.jobID ?? undefined,
         ProjectID: o.ProjectID ?? o.projectID ?? undefined,
