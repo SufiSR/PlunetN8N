@@ -105,10 +105,15 @@ export function parseJobResult(xml: string) {
 
 export function parseJobListResult(xml: string) {
     const base = extractResultBase(xml);
-    const scope = scopeToData(xml, 'JobListResult');
+    
+    // First, try to find JobListResult scope
+    const jobListResultScope = findFirstTagBlock(xml, 'JobListResult');
+    if (!jobListResultScope) {
+        return { jobs: [], statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
     
     // Check if this is the new format with 'data' elements (for getJobListOfItem_ForView)
-    const dataElements = findAllTagBlocks(scope, 'data');
+    const dataElements = findAllTagBlocks(jobListResultScope, 'data');
     if (dataElements.length > 0) {
         // New format: data elements contain job information directly
         const list = dataElements.map(mapJob);
@@ -116,7 +121,7 @@ export function parseJobListResult(xml: string) {
     }
     
     // Legacy format: Job elements
-    const list = findAllTagBlocks(scope, 'Job').map(mapJob);
+    const list = findAllTagBlocks(jobListResultScope, 'Job').map(mapJob);
     return { jobs: list, statusMessage: base.statusMessage, statusCode: base.statusCode };
 }
 
