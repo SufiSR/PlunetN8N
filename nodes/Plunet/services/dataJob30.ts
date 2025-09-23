@@ -138,7 +138,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Create a new job from a complete job object',
         returnType: 'Integer',
-        paramOrder: [...JOB_IN_FIELDS, 'JobTypeShort'],
+        paramOrder: ['projectID', 'projectType', 'jobTypeShort'],
         active: true,
     },
     updateJob: {
@@ -861,110 +861,257 @@ const isNumericParam = (op: string, p: string) =>
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptionsFromRegistry(OPERATION_REGISTRY);
 
-// Make update.enableNullOrEmptyValues a boolean; plus enum dropdowns
-const extraProperties: INodeProperties[] = Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
-    params.map<INodeProperties>((p) => {
-        // 1) enableNullOrEmptyValues → boolean
-        if (isEnableEmptyParam(op, p)) {
-            return {
-                displayName: 'Overwrite with Empty Values',
-                name: p,
-                type: 'boolean',
-                default: false,
-                description:
-                    'If enabled, empty inputs overwrite existing values in Plunet. If disabled, empty inputs are ignored and existing values are preserved.',
-                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-            };
-        }
-
-        // 2) projectType → dropdown everywhere it appears
-        if (isProjectTypeParam(p)) {
-            return {
-                displayName: 'Project Type',
-                name: p,
-                type: 'options',
-                options: ProjectTypeOptions,   // QUOTE(1), ORDER(3)
-                default: 3,                    // ORDER
-                description: `${p} parameter for ${op} (ProjectType enum)`,
-                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-            };
-        }
-
-        // 3) currencyType → dropdown on getPriceLine_ListByCurrencyType
-        if (isCurrencyTypeParam(op, p)) {
-            return {
-                displayName: 'Currency Type',
-                name: p,
-                type: 'options',
-                options: CurrencyTypeOptions,  // PROJECTCURRENCY(1), HOMECURRENCY(2)
-                default: 1,
-                description: `${p} parameter for ${op} (CurrencyType enum)`,
-                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-            };
-        }
-
-        // 4) catType → dropdown on CAT endpoints
-        if (isCatTypeParam(op, p)) {
-            return {
-                displayName: 'CAT Type',
-                name: p,
-                type: 'options',
-                options: CatTypeOptions,       // TRADOS(1) ... PHRASE(16)
-                default: 1,                    // TRADOS
-                description: `${p} parameter for ${op} (CatType enum)`,
-                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-            };
-        }
-
-        // 5) status → dropdown on setJobStatus
-        if (isJobStatusParam(op, p)) {
-            return {
-                displayName: 'Status',
-                name: p,
-                type: 'options',
-                options: JobStatusOptions,     // IN_PREPERATION(0) ... OVERDUE(13)
-                default: 0,                    // IN_PREPERATION
-                description: `${p} parameter for ${op} (JobStatus enum)`,
-                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-            };
-        }
-
-        // 6) boolean flags → boolean
-        if (isBooleanFlagParam(op, p)) {
+// Enhanced properties with mandatory/optional field pattern for insert3
+const extraProperties: INodeProperties[] = [
+    
+    // Mandatory fields for insert3 operation
+    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
+        if (op !== 'insert3') return [];
+        
+        const mandatoryFields = MANDATORY_FIELDS[op] || [];
+        return mandatoryFields.map<INodeProperties>((p) => {
+            // Handle special cases for mandatory fields
+            if (isProjectTypeParam(p)) {
+                return {
+                    displayName: 'Project Type',
+                    name: p,
+                    type: 'options',
+                    options: ProjectTypeOptions,
+                    default: 3, // ORDER
+                    description: `${p} parameter for ${op} (ProjectType enum)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+            
+            if (p === 'projectID') {
+                return {
+                    displayName: 'Project ID',
+                    name: p,
+                    type: 'number',
+                    default: 0,
+                    typeOptions: { minValue: 0, step: 1 },
+                    description: `${p} parameter for ${op} (number)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+            
+            if (p === 'jobTypeShort') {
+                return {
+                    displayName: 'Job Type Short',
+                    name: p,
+                    type: 'string',
+                    default: '',
+                    description: `${p} parameter for ${op} (string)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+            
+            // Default for other mandatory fields
             return {
                 displayName: p,
                 name: p,
-                type: 'boolean',
-                default: false,
-                description: `${p} parameter for ${op} (boolean)`,
+                type: 'string',
+                default: '',
+                description: `${p} parameter for ${op}`,
                 displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
             };
-        }
-
-        // 7) numeric params (IDs + Filesize) → number
-        if (isNumericParam(op, p)) {
-            return {
-                displayName: p,
-                name: p,
-                type: 'number',
-                default: 0,
-                typeOptions: { minValue: 0, step: 1 },
-                description: `${p} parameter for ${op} (number)`,
-                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-            };
-        }
-
-        // 8) default: plain string
-        return {
-            displayName: p,
-            name: p,
-            type: 'string',
-            default: '',
-            description: `${p} parameter for ${op}`,
-            displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
-        };
+        });
     }),
-);
+    
+    // Collection field for optional fields - exactly like customer/resource operations
+    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
+        if (op !== 'insert3') return [];
+
+        const mandatoryFields = MANDATORY_FIELDS[op] || [];
+        const optionalFields = JOB_IN_FIELDS.filter(f => 
+            !mandatoryFields.includes(f) && 
+            f !== 'jobID' // jobID is auto-generated
+        );
+
+        // Create options for the collection
+        const collectionOptions = optionalFields.map(field => {
+            const fieldType = FIELD_TYPES[field] || 'string';
+            const displayName = labelize(field);
+
+            // Handle special enum fields
+            if (isJobStatusParam(op, field)) {
+                return {
+                    displayName: 'Status',
+                    name: field,
+                    type: 'options' as const,
+                    options: [
+                        { name: 'Please select...', value: '' },
+                        ...JobStatusOptions
+                    ],
+                    default: '',
+                    description: `${field} parameter (JobStatus enum)`,
+                };
+            }
+            
+            if (fieldType === 'number') {
+                return {
+                    displayName: displayName,
+                    name: field,
+                    type: 'number' as const,
+                    default: 0,
+                    typeOptions: { minValue: 0, step: 1 },
+                    description: `${field} parameter (number)`,
+                };
+            }
+            
+            if (fieldType === 'date') {
+                return {
+                    displayName: displayName,
+                    name: field,
+                    type: 'dateTime' as const,
+                    default: '',
+                    description: `${field} parameter (date)`,
+                };
+            }
+            
+            if (fieldType === 'boolean') {
+                return {
+                    displayName: displayName,
+                    name: field,
+                    type: 'boolean' as const,
+                    default: false,
+                    description: `${field} parameter (boolean)`,
+                };
+            }
+            
+            // Default string field
+            return {
+                displayName: displayName,
+                name: field,
+                type: 'string' as const,
+                default: '',
+                description: `${field} parameter (string)`,
+            };
+        });
+
+        return [{
+            displayName: 'Additional Fields',
+            name: 'additionalFields',
+            type: 'collection' as const,
+            placeholder: 'Add Field',
+            default: {},
+            typeOptions: {
+                multipleValues: true,
+                sortable: true,
+            },
+            options: collectionOptions,
+            description: 'Additional job fields to include (optional)',
+            displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+        }];
+    }),
+    
+    // Standard properties for other operations
+    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
+        if (op === 'insert3') return []; // Skip insert3 as it's handled above
+        
+        return params.map<INodeProperties>((p) => {
+            // 1) enableNullOrEmptyValues → boolean
+            if (isEnableEmptyParam(op, p)) {
+                return {
+                    displayName: 'Overwrite with Empty Values',
+                    name: p,
+                    type: 'boolean',
+                    default: false,
+                    description:
+                        'If enabled, empty inputs overwrite existing values in Plunet. If disabled, empty inputs are ignored and existing values are preserved.',
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // 2) projectType → dropdown everywhere it appears
+            if (isProjectTypeParam(p)) {
+                return {
+                    displayName: 'Project Type',
+                    name: p,
+                    type: 'options',
+                    options: ProjectTypeOptions,   // QUOTE(1), ORDER(3)
+                    default: 3,                    // ORDER
+                    description: `${p} parameter for ${op} (ProjectType enum)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // 3) currencyType → dropdown on getPriceLine_ListByCurrencyType
+            if (isCurrencyTypeParam(op, p)) {
+                return {
+                    displayName: 'Currency Type',
+                    name: p,
+                    type: 'options',
+                    options: CurrencyTypeOptions,  // PROJECTCURRENCY(1), HOMECURRENCY(2)
+                    default: 1,
+                    description: `${p} parameter for ${op} (CurrencyType enum)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // 4) catType → dropdown on CAT endpoints
+            if (isCatTypeParam(op, p)) {
+                return {
+                    displayName: 'CAT Type',
+                    name: p,
+                    type: 'options',
+                    options: CatTypeOptions,       // TRADOS(1) ... PHRASE(16)
+                    default: 1,                    // TRADOS
+                    description: `${p} parameter for ${op} (CatType enum)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // 5) status → dropdown on setJobStatus
+            if (isJobStatusParam(op, p)) {
+                return {
+                    displayName: 'Status',
+                    name: p,
+                    type: 'options',
+                    options: JobStatusOptions,     // IN_PREPERATION(0) ... OVERDUE(13)
+                    default: 0,                    // IN_PREPERATION
+                    description: `${p} parameter for ${op} (JobStatus enum)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // 6) boolean flags → boolean
+            if (isBooleanFlagParam(op, p)) {
+                return {
+                    displayName: p,
+                    name: p,
+                    type: 'boolean',
+                    default: false,
+                    description: `${p} parameter for ${op} (boolean)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // 7) numeric params (IDs + Filesize) → number
+            if (isNumericParam(op, p)) {
+                return {
+                    displayName: p,
+                    name: p,
+                    type: 'number',
+                    default: 0,
+                    typeOptions: { minValue: 0, step: 1 },
+                    description: `${p} parameter for ${op} (number)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // 8) default: plain string
+            return {
+                displayName: p,
+                name: p,
+                type: 'string',
+                default: '',
+                description: `${p} parameter for ${op}`,
+                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+            };
+        });
+    }),
+];
 
 function toSoapParamValue(raw: unknown, paramName: string): string {
     if (raw == null) return '';               // guard null/undefined
@@ -997,7 +1144,37 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
         getSessionId: async (ctx: IExecuteFunctions) => {
             return await ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, 0);
         },
-        buildCustomBodyXml: () => null, // No custom body building needed for job operations
+        buildCustomBodyXml: (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
+            if (op === 'insert3') {
+                // Get mandatory fields
+                const projectID = itemParams.projectID as number;
+                const projectType = itemParams.projectType as number;
+                const jobTypeShort = itemParams.jobTypeShort as string;
+                
+                // Get additional fields from collection
+                const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
+                
+                // Build JobIN XML with mandatory and optional fields
+                let jobInXml = '<JobIN>';
+                
+                // Add mandatory fields
+                jobInXml += `<projectID>${escapeXml(String(projectID))}</projectID>`;
+                jobInXml += `<projectType>${escapeXml(String(projectType))}</projectType>`;
+                
+                // Add optional fields from collection
+                Object.entries(additionalFields).forEach(([key, value]) => {
+                    if (value !== '' && value !== null && value !== undefined) {
+                        const xmlValue = toSoapParamValue(value, key);
+                        jobInXml += `<${key}>${escapeXml(xmlValue)}</${key}>`;
+                    }
+                });
+                
+                jobInXml += '</JobIN>';
+                
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n${jobInXml}\n<JobTypeShort>${escapeXml(jobTypeShort)}</JobTypeShort>`;
+            }
+            return null; // No custom body building needed for other operations
+        },
         parseResult: (xml: string, op: string) => {
             const rt = RETURN_TYPE[op] as R | undefined;
             let payload: IDataObject;
