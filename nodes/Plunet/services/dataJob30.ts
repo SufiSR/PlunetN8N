@@ -923,18 +923,19 @@ const extraProperties: INodeProperties[] = [
         if (op !== 'insert3') return [];
 
         const mandatoryFields = MANDATORY_FIELDS[op] || [];
-        const optionalFields = JOB_IN_FIELDS.filter(f => 
+        // Only include the specific JobIN fields from the SOAP envelope
+        const jobInFields = ['contactPersonID', 'dueDate', 'itemID', 'jobID', 'startDate', 'status'];
+        const optionalFields = jobInFields.filter(f => 
             !mandatoryFields.includes(f) && 
             f !== 'jobID' // jobID is auto-generated
         );
 
         // Create options for the collection
         const collectionOptions = optionalFields.map(field => {
-            const fieldType = FIELD_TYPES[field] || 'string';
             const displayName = labelize(field);
 
-            // Handle special enum fields
-            if (isJobStatusParam(op, field)) {
+            // Handle specific JobIN fields
+            if (field === 'status') {
                 return {
                     displayName: 'Status',
                     name: field,
@@ -948,18 +949,7 @@ const extraProperties: INodeProperties[] = [
                 };
             }
             
-            if (fieldType === 'number') {
-                return {
-                    displayName: displayName,
-                    name: field,
-                    type: 'number' as const,
-                    default: 0,
-                    typeOptions: { minValue: 0, step: 1 },
-                    description: `${field} parameter (number)`,
-                };
-            }
-            
-            if (fieldType === 'date') {
+            if (field === 'startDate' || field === 'dueDate') {
                 return {
                     displayName: displayName,
                     name: field,
@@ -969,13 +959,14 @@ const extraProperties: INodeProperties[] = [
                 };
             }
             
-            if (fieldType === 'boolean') {
+            if (field === 'contactPersonID' || field === 'itemID') {
                 return {
                     displayName: displayName,
                     name: field,
-                    type: 'boolean' as const,
-                    default: false,
-                    description: `${field} parameter (boolean)`,
+                    type: 'number' as const,
+                    default: 0,
+                    typeOptions: { minValue: 0, step: 1 },
+                    description: `${field} parameter (number)`,
                 };
             }
             
