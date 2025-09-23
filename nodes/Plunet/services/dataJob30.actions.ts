@@ -145,6 +145,216 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptionsFromRegistry(OPERATION_REGISTRY);
 
+// Helper functions for field type detection
+const isProjectTypeParam = (p: string) => p === 'projectType';
+const isNumericParam = (op: string, p: string) => {
+    const numericParams = ['jobID', 'projectID', 'itemID', 'projectType'];
+    return numericParams.includes(p);
+};
+const isDateParam = (p: string) => 
+    p === 'startDate' || p === 'dueDate' || p === 'deliveryDate' || p === 'endDate' || p === 'dateInitialContact';
+
+// Enhanced properties with mandatory/optional field pattern for insert3
+const extraProperties: INodeProperties[] = [
+    
+    // Mandatory fields for insert3 operation
+    ...Object.entries(OPERATION_REGISTRY).flatMap(([op, meta]) => {
+        if (op !== 'createJobFromObject') return [];
+        
+        const mandatoryFields = ['projectID', 'projectType', 'jobTypeShort'];
+        
+        return mandatoryFields.map<INodeProperties>((p) => {
+            // Handle special cases for mandatory fields
+            if (isProjectTypeParam(p)) {
+                return {
+                    displayName: 'Project Type',
+                    name: p,
+                    type: 'options',
+                    options: ProjectTypeOptions,
+                    default: 3, // ORDER
+                    description: `${p} parameter for ${op} (ProjectType enum)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+            
+            if (p === 'projectID') {
+                return {
+                    displayName: 'Project ID',
+                    name: p,
+                    type: 'number',
+                    default: 0,
+                    typeOptions: { minValue: 0, step: 1 },
+                    description: `${p} parameter for ${op} (number)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+            
+            if (p === 'jobTypeShort') {
+                return {
+                    displayName: 'Job Type Short',
+                    name: p,
+                    type: 'string',
+                    default: '',
+                    description: `${p} parameter for ${op} (string)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+            
+            // Default for other mandatory fields
+            return {
+                displayName: p,
+                name: p,
+                type: 'string',
+                default: '',
+                description: `${p} parameter for ${op}`,
+                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+            };
+        });
+    }),
+    
+    // Standard properties for other operations
+    ...Object.entries(OPERATION_REGISTRY).flatMap(([op, meta]) => {
+        if (op === 'createJobFromObject') return []; // Skip createJobFromObject as it's handled above
+        
+        return meta.paramOrder.map<INodeProperties>((p) => {
+            // projectType → dropdown everywhere it appears
+            if (isProjectTypeParam(p)) {
+                return {
+                    displayName: 'Project Type',
+                    name: p,
+                    type: 'options',
+                    options: ProjectTypeOptions,
+                    default: 3, // ORDER
+                    description: `${p} parameter for ${op} (ProjectType enum)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // numeric params (IDs) → number
+            if (isNumericParam(op, p)) {
+                return {
+                    displayName: p,
+                    name: p,
+                    type: 'number',
+                    default: 0,
+                    typeOptions: { minValue: 0, step: 1 },
+                    description: `${p} parameter for ${op} (number)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // date parameters → dateTime
+            if (isDateParam(p)) {
+                return {
+                    displayName: p,
+                    name: p,
+                    type: 'dateTime',
+                    default: '',
+                    description: `${p} parameter for ${op} (date)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // languageCode → string with default 'EN'
+            if (p === 'languageCode') {
+                return {
+                    displayName: 'Language Code',
+                    name: p,
+                    type: 'string',
+                    default: 'EN',
+                    description: `${p} parameter for ${op} (defaults to EN)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // default: plain string
+            return {
+                displayName: p,
+                name: p,
+                type: 'string',
+                default: '',
+                description: `${p} parameter for ${op}`,
+                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+            };
+        });
+    }),
+    
+    // Collection field for optional fields
+    ...Object.entries(OPERATION_REGISTRY).flatMap(([op, meta]) => {
+        if (op !== 'createJobFromObject' && op !== 'updateJob') return [];
+
+        const mandatoryFields = ['projectID', 'projectType', 'jobTypeShort'];
+        
+        // Only include the specific JobIN fields from the SOAP envelope
+        const jobInFields = ['contactPersonID', 'dueDate', 'itemID', 'jobID', 'startDate', 'status'];
+        const optionalFields = jobInFields.filter(f => 
+            !mandatoryFields.includes(f) && 
+            f !== 'jobID' // jobID is auto-generated
+        );
+
+        // Create options for the collection
+        const collectionOptions = optionalFields.map(field => {
+            const displayName = labelize(field);
+
+            // Handle specific JobIN fields
+            if (field === 'status') {
+                return {
+                    displayName: 'Status',
+                    name: field,
+                    type: 'options' as const,
+                    options: [
+                        { name: 'Please select...', value: '' },
+                        // Add JobStatusOptions here when available
+                    ],
+                    default: '',
+                    description: `${field} parameter (JobStatus enum)`,
+                };
+            }
+            
+            if (field === 'startDate' || field === 'dueDate') {
+                return {
+                    displayName: displayName,
+                    name: field,
+                    type: 'dateTime' as const,
+                    default: '',
+                    description: `${field} parameter (date)`,
+                };
+            }
+            
+            if (field === 'contactPersonID' || field === 'itemID') {
+                return {
+                    displayName: displayName,
+                    name: field,
+                    type: 'number' as const,
+                    default: 0,
+                    typeOptions: { minValue: 0, step: 1 },
+                    description: `${field} parameter (number)`,
+                };
+            }
+            
+            // Default string field
+            return {
+                displayName: displayName,
+                name: field,
+                type: 'string' as const,
+                default: '',
+                description: `${field} parameter (string)`,
+            };
+        });
+
+        return [{
+            displayName: 'Additional Fields',
+            name: 'additionalFields',
+            type: 'collection' as const,
+            placeholder: 'Add Field',
+            default: {},
+            options: collectionOptions,
+            description: 'Additional job fields to include (optional)',
+            displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+        }];
+    }),
+];
+
 export const DataJob30ActionsService: Service = {
     resource: RESOURCE,
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
@@ -152,7 +362,7 @@ export const DataJob30ActionsService: Service = {
     endpoint: ENDPOINT,
     operationRegistry: OPERATION_REGISTRY,
     operationOptions,
-    extraProperties: [],
+    extraProperties,
     async execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex) {
         const paramOrder = Object.fromEntries(
             Object.entries(OPERATION_REGISTRY).map(([op, meta]) => [op, meta.paramOrder])

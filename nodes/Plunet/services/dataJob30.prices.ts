@@ -219,6 +219,84 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptionsFromRegistry(OPERATION_REGISTRY);
 
+// Helper functions for field type detection
+const isProjectTypeParam = (p: string) => p === 'projectType';
+const isNumericParam = (op: string, p: string) => {
+    const numericParams = ['jobID', 'projectID', 'itemID', 'projectType', 'priceLineID', 'priceListID', 'PriceUnitID'];
+    return numericParams.includes(p);
+};
+const isDateParam = (p: string) => 
+    p === 'startDate' || p === 'dueDate' || p === 'deliveryDate' || p === 'endDate' || p === 'dateInitialContact';
+
+// Enhanced properties for price operations
+const extraProperties: INodeProperties[] = [
+    
+    // Standard properties for all operations
+    ...Object.entries(OPERATION_REGISTRY).flatMap(([op, meta]) => {
+        return meta.paramOrder.map<INodeProperties>((p) => {
+            // projectType → dropdown everywhere it appears
+            if (isProjectTypeParam(p)) {
+                return {
+                    displayName: 'Project Type',
+                    name: p,
+                    type: 'options',
+                    options: ProjectTypeOptions,
+                    default: 3, // ORDER
+                    description: `${p} parameter for ${op} (ProjectType enum)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // numeric params (IDs) → number
+            if (isNumericParam(op, p)) {
+                return {
+                    displayName: p,
+                    name: p,
+                    type: 'number',
+                    default: 0,
+                    typeOptions: { minValue: 0, step: 1 },
+                    description: `${p} parameter for ${op} (number)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // date parameters → dateTime
+            if (isDateParam(p)) {
+                return {
+                    displayName: p,
+                    name: p,
+                    type: 'dateTime',
+                    default: '',
+                    description: `${p} parameter for ${op} (date)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // languageCode → string with default 'EN'
+            if (p === 'languageCode') {
+                return {
+                    displayName: 'Language Code',
+                    name: p,
+                    type: 'string',
+                    default: 'EN',
+                    description: `${p} parameter for ${op} (defaults to EN)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // default: plain string
+            return {
+                displayName: p,
+                name: p,
+                type: 'string',
+                default: '',
+                description: `${p} parameter for ${op}`,
+                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+            };
+        });
+    }),
+];
+
 export const DataJob30PricesService: Service = {
     resource: RESOURCE,
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
@@ -226,7 +304,7 @@ export const DataJob30PricesService: Service = {
     endpoint: ENDPOINT,
     operationRegistry: OPERATION_REGISTRY,
     operationOptions,
-    extraProperties: [],
+    extraProperties,
     async execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex) {
         const paramOrder = Object.fromEntries(
             Object.entries(OPERATION_REGISTRY).map(([op, meta]) => [op, meta.paramOrder])
