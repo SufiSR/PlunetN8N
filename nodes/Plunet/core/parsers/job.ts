@@ -49,7 +49,7 @@ function mapAmount(amountXml: string) {
 function mapJobMetric(metricXml: string) {
     const o = objectify(metricXml);
     const amountsScope = findFirstTagBlock(metricXml, 'amounts') ?? metricXml;
-    const amounts = findAllTagBlocks(amountsScope, 'Amount').map(mapAmount);
+    const amounts = findAllTagBlocks(amountsScope, 'amounts').map(mapAmount);
     return {
         totalPrice: o.totalPrice ?? o.TotalPrice ?? undefined,
         totalPriceJobCurrency: o.totalPriceJobCurrency ?? o.TotalPriceJobCurrency ?? undefined,

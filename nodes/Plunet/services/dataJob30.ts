@@ -1094,7 +1094,19 @@ const extraProperties: INodeProperties[] = [
                 };
             }
 
-            // 8) default: plain string
+            // 8) languageCode → string with default 'EN'
+            if (p === 'languageCode') {
+                return {
+                    displayName: 'Language Code',
+                    name: p,
+                    type: 'string',
+                    default: 'EN',
+                    description: `${p} parameter for ${op} (defaults to EN)`,
+                    displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+                };
+            }
+
+            // 9) default: plain string
             return {
                 displayName: p,
                 name: p,
