@@ -19,17 +19,17 @@ function mapJob(jobXml: string) {
     const o = deepObjectify(jobXml);
     
     return {
-        JobID: o.JobID ?? o.jobID ?? undefined,
-        ProjectID: o.ProjectID ?? o.projectID ?? undefined,
-        ResourceID: o.ResourceID ?? o.resourceID ?? undefined,
-        ProjectType: o.ProjectType ?? o.projectType ?? undefined,
-        Status: o.Status ?? o.status ?? undefined,
-        JobTypeFull: o.JobTypeFull ?? o.jobTypeFull ?? undefined,
-        JobTypeShort: o.JobTypeShort ?? o.jobTypeShort ?? undefined,
-        CountSourceFiles: o.CountSourceFiles ?? o.countSourceFiles ?? undefined,
-        ItemID: o.ItemID ?? o.itemID ?? undefined,
-        StartDate: o.StartDate ?? o.startDate ?? undefined,
-        DueDate: o.DueDate ?? o.dueDate ?? undefined,
+        JobID: o.jobID ?? o.JobID ?? undefined,
+        ProjectID: o.projectID ?? o.ProjectID ?? undefined,
+        ResourceID: o.resourceID ?? o.ResourceID ?? undefined,
+        ProjectType: o.projectType ?? o.ProjectType ?? undefined,
+        Status: o.status ?? o.Status ?? undefined,
+        JobTypeFull: o.jobTypeFull ?? o.JobTypeFull ?? undefined,
+        JobTypeShort: o.jobTypeShort ?? o.JobTypeShort ?? undefined,
+        CountSourceFiles: o.countSourceFiles ?? o.CountSourceFiles ?? undefined,
+        ItemID: o.itemID ?? o.ItemID ?? undefined,
+        StartDate: o.startDate ?? o.StartDate ?? undefined,
+        DueDate: o.dueDate ?? o.DueDate ?? undefined,
     };
 }
 
