@@ -292,12 +292,12 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     setPricelist: {
         soapAction: 'setPricelist',
         endpoint: ENDPOINT,
-        uiName: 'Update Pricelist',
-        subtitleName: 'update pricelist: job',
-        titleName: 'Update Pricelist',
+        uiName: 'Update Pricelist ID',
+        subtitleName: 'update pricelistid: job',
+        titleName: 'Update Pricelist ID',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
-        description: 'Update the pricelist for a job',
+        description: 'Update the pricelist ID for a job',
         returnType: 'Void',
         paramOrder: ['jobID', 'projectType', 'priceListID'],
         active: true,
@@ -384,6 +384,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         active: true,
     },
     getActionLink: {
+        // Not necessary operation
         soapAction: 'getActionLink',
         endpoint: ENDPOINT,
         uiName: 'Get Action Link',
@@ -394,7 +395,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get an action link for a job',
         returnType: 'String',
         paramOrder: ['projectType', 'jobID', 'userID', 'actionLinkType'],
-        active: true,
+        active: false,
     },
     runAutomaticJob: {
         soapAction: 'runAutomaticJob',
@@ -411,6 +412,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     },
     // Job Tracking Time Operations
     addJobTrackingTime: {
+        // Not necessary operation
         soapAction: 'addJobTrackingTime',
         endpoint: ENDPOINT,
         uiName: 'Create Job Tracking Time',
@@ -421,7 +423,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Create tracking time for a job',
         returnType: 'Void',
         paramOrder: ['jobID', 'projectType', ...JOB_TRACKING_TIME_IN_FIELDS],
-        active: true,
+        active: false,
     },
     addJobTrackingTimesList: {
         // not necessary operation
@@ -438,6 +440,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         active: false,
     },
     getJobTrackingTimes: {
+        // Not necessary operation
         soapAction: 'getJobTrackingTimesList',
         endpoint: ENDPOINT,
         uiName: 'Get Job Tracking Times',
@@ -448,7 +451,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Retrieve tracking times for a job',
         returnType: 'JobTrackingTimeList',
         paramOrder: ['jobID', 'projectType'],
-        active: true,
+        active: false,
     },
     // Additional Job Information Operations
     getComment: {
@@ -725,6 +728,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         active: true,
     },
     getDownloadUrlSourceData: {
+        // Not necessary operation
         soapAction: 'getDownloadUrl_SourceData',
         endpoint: ENDPOINT,
         uiName: 'Get Download URL (Source Data)',
@@ -735,7 +739,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get download URL for source data',
         returnType: 'String',
         paramOrder: ['targetFileName', 'projectType', 'jobID'],
-        active: true,
+        active: false,
     },
     getItemIndependentJobs: {
         soapAction: 'getItemIndependentJobs',
@@ -766,9 +770,9 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     setStartDate: {
         soapAction: 'setStartDate',
         endpoint: ENDPOINT,
-        uiName: 'Update',
-        subtitleName: 'update: job',
-        titleName: 'Update',
+        uiName: 'Update Start Date',
+        subtitleName: 'update start date: job',
+        titleName: 'Update Start Date',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Update start date for a job',
@@ -864,6 +868,10 @@ const NUMERIC_PARAM_NAMES = new Set([
 
 const isNumericParam = (op: string, p: string) =>
     (op === 'setCatReport2' && p === 'Filesize') || NUMERIC_PARAM_NAMES.has(p);
+
+// Date parameters that should be rendered as dateTime fields
+const isDateParam = (p: string) => 
+    p === 'startDate' || p === 'dueDate' || p === 'deliveryDate' || p === 'endDate' || p === 'dateInitialContact';
 
 const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptionsFromRegistry(OPERATION_REGISTRY);
 
@@ -1020,7 +1028,19 @@ const extraProperties: INodeProperties[] = [
             };
         }
 
-            // 8) languageCode → string with default 'EN'
+        // 8) date parameters → dateTime
+        if (isDateParam(p)) {
+            return {
+                displayName: p,
+                name: p,
+                type: 'dateTime',
+                default: '',
+                description: `${p} parameter for ${op} (date)`,
+                displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
+            };
+        }
+
+            // 10) languageCode → string with default 'EN'
             if (p === 'languageCode') {
                 return {
                     displayName: 'Language Code',
@@ -1032,7 +1052,7 @@ const extraProperties: INodeProperties[] = [
                 };
             }
 
-            // 9) default: plain string
+            // 11) default: plain string
         return {
             displayName: p,
             name: p,
