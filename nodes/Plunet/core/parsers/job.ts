@@ -157,17 +157,37 @@ export function parseJobMetricResult(xml: string) {
 
 export function parsePriceUnitResult(xml: string) {
     const base = extractResultBase(xml);
-    const scope = scopeToData(xml, 'PriceUnitResult');
-    const unitXml = findFirstTagBlock(scope, 'PriceUnit');
-    const priceUnit = unitXml ? mapPriceUnit(unitXml) : undefined;
+    const priceUnitResultScope = findFirstTagBlock(xml, 'PriceUnitResult');
+    if (!priceUnitResultScope) {
+        return { priceUnit: undefined, statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    // The data is directly under PriceUnitResult, not in a separate PriceUnit tag
+    const dataScope = findFirstTagBlock(priceUnitResultScope, 'data');
+    if (!dataScope) {
+        return { priceUnit: undefined, statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    const o = deepObjectify(dataScope);
+    const priceUnit = o.data || o; // Flatten the structure like other parsers
     return { priceUnit, statusMessage: base.statusMessage, statusCode: base.statusCode };
 }
 
 export function parsePriceUnitListResult(xml: string) {
     const base = extractResultBase(xml);
-    const scope = scopeToData(xml, 'PriceUnitListResult');
-    const list = findAllTagBlocks(scope, 'PriceUnit').map(mapPriceUnit);
-    return { priceUnits: list, statusMessage: base.statusMessage, statusCode: base.statusCode };
+    const priceUnitListResultScope = findFirstTagBlock(xml, 'PriceUnitListResult');
+    if (!priceUnitListResultScope) {
+        return { priceUnits: [], statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    // Look for data elements within PriceUnitListResult
+    const dataElements = findAllTagBlocks(priceUnitListResultScope, 'data');
+    const priceUnits = dataElements.map(unitXml => {
+        const o = deepObjectify(unitXml);
+        return o.data || o; // Flatten the structure like other parsers
+    });
+
+    return { priceUnits, statusMessage: base.statusMessage, statusCode: base.statusCode };
 }
 
 export function parsePriceLineResult(xml: string) {
@@ -216,4 +236,22 @@ export function parseJobTrackingTimeListResult(xml: string) {
     const completed = completedRaw != null ? coerceScalar(completedRaw) : undefined;
 
     return { times, completed, statusMessage: base.statusMessage, statusCode: base.statusCode };
+}
+
+export function parseServicesListResult(xml: string) {
+    const base = extractResultBase(xml);
+    const stringArrayResultScope = findFirstTagBlock(xml, 'StringArrayResult');
+    if (!stringArrayResultScope) {
+        return { data: [], statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    // Look for data elements within StringArrayResult
+    const dataElements = findAllTagBlocks(stringArrayResultScope, 'data');
+    const services = dataElements.map(dataXml => {
+        // For string arrays, extract just the text content between the tags
+        const textContent = dataXml.replace(/<\/?data>/g, '').trim();
+        return textContent;
+    });
+
+    return { data: services, statusMessage: base.statusMessage, statusCode: base.statusCode };
 }
