@@ -127,4 +127,136 @@ export const description: INodeTypeDescription = {
         ...operationProperties,
         ...extraProps,
     ],
+    hints: [
+        {
+            message: 'You selected <b>Request</b> folder — Main ID should be a Request ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 1 }}',
+        },
+        {
+            message: 'You selected <b>Quote</b> folder — Main ID should be a Quote ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 2 }}',
+        },
+        {
+            message: 'You selected <b>Order Reference</b> folder — Main ID should be an Order ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 3 }}',
+        },
+        {
+            message: 'You selected <b>Order Job Out</b> folder — Main ID should be a Job ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 4 }}',
+        },
+        {
+            message: 'You selected <b>Order Job In</b> folder — Main ID should be a Job ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 5 }}',
+        },
+        {
+            message: 'You selected <b>Customer</b> folder — Main ID should be a Customer ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 6 }}',
+        },
+        {
+            message: 'You selected <b>Resource</b> folder — Main ID should be a Resource ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 7 }}',
+        },
+        {
+            message: 'You selected <b>Project</b> folder — Main ID should be a Project ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 8 }}',
+        },
+        {
+            message: 'You selected <b>Invoice</b> folder — Main ID should be an Invoice ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 9 }}',
+        },
+        {
+            message: 'You selected <b>Credit Note</b> folder — Main ID should be a Credit Note ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 10 }}',
+        },
+        {
+            message: 'You selected <b>Payable</b> folder — Main ID should be a Payable ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 11 }}',
+        },
+        {
+            message: 'You selected <b>Item</b> folder — Main ID should be an Item ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 12 }}',
+        },
+        {
+            message: 'You selected <b>User</b> folder — Main ID should be a User ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 13 }}',
+        },
+        {
+            message: 'You selected <b>Workflow</b> folder — Main ID should be a Workflow ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 14 }}',
+        },
+        {
+            message: 'You selected <b>Quality Manager</b> folder — Main ID should be a Quality Manager ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 15 }}',
+        },
+        {
+            message: 'You selected <b>Admin</b> folder — Main ID should be an Admin ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 16 }}',
+        },
+        {
+            message: 'You selected <b>Custom Fields</b> folder — Main ID should be a Custom Fields ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 17 }}',
+        },
+        {
+            message: 'You selected <b>Document</b> folder — Main ID should be a Document ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 18 }}',
+        },
+        {
+            message: 'You selected <b>Outgoing Invoice</b> folder — Main ID should be an Outgoing Invoice ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 19 }}',
+        },
+        {
+            message: 'You selected <b>Job Round</b> folder — Main ID should be a Job Round ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 20 }}',
+        },
+        {
+            message: 'You selected <b>Customer Address</b> folder — Main ID should be a Customer Address ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 21 }}',
+        },
+        {
+            message: 'You selected <b>Customer Contact</b> folder — Main ID should be a Customer Contact ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 22 }}',
+        },
+        {
+            message: 'You selected <b>Order Job Out</b> folder — Main ID should be a Job ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 23 }}',
+        },
+        {
+            message: 'You selected <b>Resource Address</b> folder — Main ID should be a Resource Address ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 24 }}',
+        },
+        {
+            message: 'You selected <b>Resource Contact</b> folder — Main ID should be a Resource Contact ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 25 }}',
+        },
+        {
+            message: 'You selected <b>Order Job In</b> folder — Main ID should be a Job ID.',
+            location: 'inputPane',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 26 }}',
+        },
+    ],
 };

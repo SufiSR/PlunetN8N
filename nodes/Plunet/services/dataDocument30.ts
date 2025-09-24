@@ -120,12 +120,12 @@ const extraProperties: INodeProperties[] = [
   },
   // Dynamic Main ID field based on folder type
   {
-    displayName: 'Main ID (Job ID, Order ID, Customer ID, etc.)',
+    displayName: 'Main ID',
     name: 'mainID',
     type: 'number',
     default: 0,
     typeOptions: { minValue: 0, step: 1 },
-    description: 'The main ID for the selected folder type. The label changes based on folder type: Job ID for Order Job Out, Order ID for Order Reference, Customer ID for Customer, etc.',
+    description: 'The main ID for the selected folder type',
     displayOptions: { show: { resource: [RESOURCE], operation: ['getFileList', 'download_Document'] } },
   },
   // File Path Name for download
@@ -194,12 +194,12 @@ const extraProperties: INodeProperties[] = [
     displayOptions: { show: { resource: [RESOURCE], operation: ['upload_Document'] } },
   },
   {
-    displayName: 'Main ID (Job ID, Order ID, Customer ID, etc.)',
+    displayName: 'Main ID',
     name: 'mainID',
     type: 'number',
     default: 0,
     typeOptions: { minValue: 0, step: 1 },
-    description: 'The main ID for the selected folder type. The label changes based on folder type: Job ID for Order Job Out, Order ID for Order Reference, Customer ID for Customer, etc.',
+    description: 'The main ID for the selected folder type',
     displayOptions: { show: { resource: [RESOURCE], operation: ['upload_Document'] } },
   },
   {
