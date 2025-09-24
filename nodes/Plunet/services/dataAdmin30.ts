@@ -13,7 +13,7 @@ import { PropertyUsageAreaOptions } from '../enums/property-usage-area';
 import { generateOperationOptionsFromRegistry } from '../core/service-utils';
 
 const RESOURCE = 'DataAdmin30';
-const ENDPOINT = 'PlunetAPI';
+const ENDPOINT = 'DataAdmin30';
 const RESOURCE_DISPLAY_NAME = 'Admin';
 
 /** ─ Centralized Operation Registry ─ */
