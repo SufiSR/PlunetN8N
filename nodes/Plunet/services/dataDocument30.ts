@@ -77,17 +77,17 @@ const extraProperties: INodeProperties[] = [
     options: FolderTypeOptions,
     default: 1,
     description: 'Select the type of folder to get files from',
-    displayOptions: { show: { resource: [RESOURCE], operation: ['getFileList', 'downloadDocument'] } },
+    displayOptions: { show: { resource: [RESOURCE], operation: ['getFileList', 'download_Document'] } },
   },
   // Dynamic Main ID field based on folder type
   {
-    displayName: 'Main ID',
+    displayName: 'Main ID (Job ID, Order ID, Customer ID, etc.)',
     name: 'mainID',
     type: 'number',
     default: 0,
     typeOptions: { minValue: 0, step: 1 },
-    description: 'The main ID for the selected folder type (e.g., Job ID, Order ID, Customer ID, etc.)',
-    displayOptions: { show: { resource: [RESOURCE], operation: ['getFileList', 'downloadDocument'] } },
+    description: 'The main ID for the selected folder type. The label changes based on folder type: Job ID for Order Job Out, Order ID for Order Reference, Customer ID for Customer, etc.',
+    displayOptions: { show: { resource: [RESOURCE], operation: ['getFileList', 'download_Document'] } },
   },
   // File Path Name for download
   {
@@ -96,7 +96,7 @@ const extraProperties: INodeProperties[] = [
     type: 'string',
     default: '',
     description: 'The path and name of the file to download (e.g., \\test.txt)',
-    displayOptions: { show: { resource: [RESOURCE], operation: ['downloadDocument'] } },
+    displayOptions: { show: { resource: [RESOURCE], operation: ['download_Document'] } },
   },
 ];
 
