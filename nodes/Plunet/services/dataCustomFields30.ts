@@ -43,7 +43,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
     description: 'Get a specific custom property value',
     returnType: 'Property',
-    paramOrder: ['propertyName', 'usageArea', 'mainID'],
+    paramOrder: ['PropertyNameEnglish', 'PropertyUsageArea', 'MainID'],
     active: true,
   },
   setProperty: {
@@ -56,7 +56,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
     description: 'Set a custom property value',
     returnType: 'Void',
-    paramOrder: ['usageArea', 'mainID', 'propertyName', 'propertyValue'],
+    paramOrder: ['PropertyUsageArea', 'MainID', 'PropertyNameEnglish', 'propertyValue'],
     active: true,
   },
   getTextModuleList: {
