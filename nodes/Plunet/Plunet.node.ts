@@ -79,8 +79,9 @@ function createAdminExecuteConfig(creds: Creds, url: string, baseUrl: string, ti
                 }
             });
             
+            // Return as StringArray format (same as parseStringArrayResult)
             return {
-                propertyNames,
+                data: propertyNames,
                 statusMessage: base.statusMessage,
                 statusCode: base.statusCode
             };
