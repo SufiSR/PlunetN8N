@@ -382,6 +382,50 @@ export function parseFileResult(xml: string): {
     };
 }
 
+export function parsePropertyResult(xml: string): { 
+    availablePropertyValueIDList?: number[]; 
+    propertyNameEnglish?: string; 
+    propertyType?: number; 
+    selectedPropertyValueID?: number; 
+    statusMessage?: string; 
+    statusCode?: number 
+} {
+    const base = extractResultBase(xml);
+
+    // Look for PropertyResult scope first
+    const propertyResultScope = findFirstTagBlock(xml, 'PropertyResult');
+    if (!propertyResultScope) {
+        return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    // Extract property information from PropertyResult
+    const propertyNameEnglishMatch = propertyResultScope.match(/<propertyNameEnglish>(.*?)<\/propertyNameEnglish>/);
+    const propertyTypeMatch = propertyResultScope.match(/<propertyType>(.*?)<\/propertyType>/);
+    const selectedPropertyValueIDMatch = propertyResultScope.match(/<selectedPropertyValueID>(.*?)<\/selectedPropertyValueID>/);
+    
+    // Extract available property value ID list
+    const availablePropertyValueIDMatches = propertyResultScope.match(/<avaliablePropertyValueIDList>(.*?)<\/avaliablePropertyValueIDList>/g);
+    const availablePropertyValueIDList = availablePropertyValueIDMatches 
+        ? availablePropertyValueIDMatches.map(match => {
+            const idMatch = match.match(/<avaliablePropertyValueIDList>(.*?)<\/avaliablePropertyValueIDList>/);
+            return idMatch ? parseInt(idMatch[1] || '0', 10) : 0;
+          }).filter(id => !isNaN(id))
+        : undefined;
+    
+    const propertyNameEnglish = propertyNameEnglishMatch ? propertyNameEnglishMatch[1] : undefined;
+    const propertyType = propertyTypeMatch ? parseInt(propertyTypeMatch[1] || '0', 10) : undefined;
+    const selectedPropertyValueID = selectedPropertyValueIDMatch ? parseInt(selectedPropertyValueIDMatch[1] || '0', 10) : undefined;
+
+    return { 
+        availablePropertyValueIDList, 
+        propertyNameEnglish, 
+        propertyType, 
+        selectedPropertyValueID, 
+        statusMessage: base.statusMessage, 
+        statusCode: base.statusCode 
+    };
+}
+
 /** -------- Back-compat helpers used by session/plunetApi -------- */
 
 /** Extracts a UUID from typical & atypical Plunet login responses */

@@ -5,10 +5,14 @@ import {
     INodeTypeDescription,
     IDataObject,
     IBinaryData,
+    ILoadOptionsFunctions,
 } from 'n8n-workflow';
 
 import { description } from './description';
 import { Creds, Service } from './core/types';
+import { executeOperation, type ExecuteConfig } from './core/executor';
+import { NUMERIC_BOOLEAN_PARAMS } from './core/constants';
+import { extractStatusMessage } from './core/xml';
 
 // Simple base64 decoder for Node.js environment
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -38,6 +42,70 @@ function base64ToUint8Array(base64: string): Uint8Array {
     }
     return bytes;
 }
+
+// Create execute config for DataAdmin30 service
+function createAdminExecuteConfig(creds: Creds, url: string, baseUrl: string, timeoutMs: number): ExecuteConfig {
+    return {
+        url,
+        soapActionFor: (op: string) => `http://API.Integration/${op}`,
+        paramOrder: { getAvailableProperties: ['usageArea', 'mainID'] },
+        numericBooleans: NUMERIC_BOOLEAN_PARAMS,
+        getSessionId: async (ctx: IExecuteFunctions) => {
+            const { ensureSession } = await import('./core/session');
+            return ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, 0);
+        },
+        parseResult: (xml: string, op: string) => {
+            // Parse PropertyListResult for getAvailableProperties
+            const base = extractResultBase(xml);
+            
+            // Look for PropertyListResult scope
+            const propertyListResultScope = findFirstTagBlock(xml, 'PropertyListResult');
+            if (!propertyListResultScope) {
+                return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+            }
+            
+            // Extract all m_Data blocks
+            const mDataMatches = propertyListResultScope.match(/<m_Data>[\s\S]*?<\/m_Data>/g);
+            if (!mDataMatches) {
+                return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+            }
+            
+            const propertyNames: string[] = [];
+            
+            mDataMatches.forEach(mDataBlock => {
+                const propertyNameMatch = mDataBlock.match(/<propertyNameEnglish>(.*?)<\/propertyNameEnglish>/);
+                if (propertyNameMatch && propertyNameMatch[1]) {
+                    propertyNames.push(propertyNameMatch[1]);
+                }
+            });
+            
+            return {
+                propertyNames,
+                statusMessage: base.statusMessage,
+                statusCode: base.statusCode
+            };
+        },
+    };
+}
+
+// Helper function to find first tag block
+function findFirstTagBlock(xml: string, tagName: string): string | null {
+    const regex = new RegExp(`<${tagName}[^>]*>([\\s\\S]*?)<\\/${tagName}>`, 'i');
+    const match = xml.match(regex);
+    return match ? match[0] : null;
+}
+
+// Helper function to extract result base
+function extractResultBase(xml: string): { statusMessage?: string; statusCode?: number } {
+    const statusCodeMatch = xml.match(/<statusCode>(.*?)<\/statusCode>/);
+    const statusMessageMatch = xml.match(/<statusMessage>(.*?)<\/statusMessage>/);
+    
+    return {
+        statusCode: statusCodeMatch ? parseInt(statusCodeMatch[1] || '0', 10) : undefined,
+        statusMessage: statusMessageMatch ? statusMessageMatch[1] : undefined
+    };
+}
+
 import { PlunetApiService } from './services/plunetApi';
 import { DataCustomer30CoreService } from './services/dataCustomer30.core';
 import { DataCustomer30MiscService } from './services/dataCustomer30.misc';
@@ -47,6 +115,7 @@ import { DataJob30PricesService } from './services/dataJob30.prices';
 import { DataResource30CoreService } from './services/dataResource30.core';
 import { DataResource30MiscService } from './services/dataResource30.misc';
 import { DataDocument30Service } from './services/dataDocument30';
+import { DataCustomFields30Service } from './services/dataCustomFields30';
 // import { DataJob30Service } from './services/dataJob30';
 
 
@@ -57,6 +126,7 @@ const registry: Record<string, Service> = {
     [DataJob30CoreService.resource]: DataJob30CoreService,
     [DataJob30PricesService.resource]: DataJob30PricesService,
     [DataDocument30Service.resource]: DataDocument30Service,
+    [DataCustomFields30Service.resource]: DataCustomFields30Service,
     [DataCustomer30MiscService.resource]: DataCustomer30MiscService,
     [DataResource30MiscService.resource]: DataResource30MiscService,    
     [DataJob30MiscService.resource]: DataJob30MiscService,
@@ -65,6 +135,80 @@ const registry: Record<string, Service> = {
 
 export class Plunet implements INodeType {
     description: INodeTypeDescription = description;
+
+    methods = {
+        loadOptions: {
+            async getAvailablePropertyNames(this: ILoadOptionsFunctions) {
+                const usageArea = this.getCurrentNodeParameter('usageArea') as number;
+                const mainID = this.getCurrentNodeParameter('mainID') as number;
+                
+                if (!usageArea || !mainID) {
+                    return [];
+                }
+                
+                try {
+                    // Get credentials
+                    const creds = await this.getCredentials('plunetApi') as Creds;
+                    const scheme = creds.useHttps ? 'https' : 'http';
+                    const baseUrl = `${scheme}://${creds.baseHost.replace(/\/$/, '')}`;
+                    const url = `${baseUrl}/PlunetAPI/DataAdmin30`;
+                    const timeoutMs = creds.timeout ?? 30000;
+                    
+                    // Create execute config for DataAdmin30
+                    const config = createAdminExecuteConfig(creds, url, baseUrl, timeoutMs);
+                    const itemParams: IDataObject = {
+                        usageArea,
+                        mainID
+                    };
+                    
+                    // Call getAvailableProperties using a different approach
+                    // We need to make a direct SOAP call since executeOperation expects IExecuteFunctions
+                    const sessionId = await config.getSessionId(this as any, 0);
+                    const soapAction = config.soapActionFor('getAvailableProperties');
+                    
+                    // Build SOAP envelope
+                    const envelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
+   <soap:Header/>
+   <soap:Body>
+      <api:getAvailableProperties>
+         <UUID>${sessionId}</UUID>
+         <PropertyUsageArea>${usageArea}</PropertyUsageArea>
+         <MainID>${mainID}</MainID>
+      </api:getAvailableProperties>
+   </soap:Body>
+</soap:Envelope>`;
+                    
+                    // Make SOAP request
+                    const response = await this.helpers.request({
+                        method: 'POST',
+                        url: config.url,
+                        headers: {
+                            'Content-Type': 'application/soap+xml; charset=utf-8',
+                            'SOAPAction': soapAction,
+                        },
+                        body: envelope,
+                    });
+                    
+                    // Parse response
+                    const parsed = config.parseResult(response, 'getAvailableProperties') as IDataObject;
+                    
+                    if (parsed.propertyNames && Array.isArray(parsed.propertyNames)) {
+                        const propertyNames = parsed.propertyNames as string[];
+                        return propertyNames.map((name: string) => ({
+                            name: name,
+                            value: name
+                        }));
+                    }
+                    
+                    return [];
+                } catch (error) {
+                    // Return empty array on error
+                    return [];
+                }
+            },
+        },
+    };
 
     async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
         const items = this.getInputData();

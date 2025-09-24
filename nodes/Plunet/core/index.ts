@@ -21,6 +21,8 @@ export {
     parseStringArrayResult,
     parseVoidResult,
     parseDateResult,
+    parseFileResult,
+    parsePropertyResult,
     asNum,
     asStr,
     toArray,
