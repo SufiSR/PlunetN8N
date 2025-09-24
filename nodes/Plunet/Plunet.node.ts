@@ -94,18 +94,15 @@ export class Plunet implements INodeType {
                         const mimeType = this.getNodeParameter('mimeType', i) as string;
                         
                         try {
-                            // Convert base64 string to Uint8Array
-                            const fileBuffer = base64ToUint8Array(fileContent);
+                            // Create a data URL from the base64 content
+                            const dataUrl = `data:${mimeType || 'application/octet-stream'};base64,${fileContent}`;
                             
-                            // Convert Uint8Array to Buffer for n8n compatibility
-                            const buffer = new Uint8Array(fileBuffer);
-                            
-                            // Prepare binary data for n8n
-                            const binaryData = await this.helpers.prepareBinaryData(
-                                buffer, 
-                                fileName || 'converted_file',
-                                mimeType || 'application/octet-stream'
-                            );
+                            // Create a simple object that n8n can handle
+                            const binaryData = {
+                                data: dataUrl,
+                                fileName: fileName || 'converted_file',
+                                mimeType: mimeType || 'application/octet-stream'
+                            };
 
                             result = { 
                                 success: true,
