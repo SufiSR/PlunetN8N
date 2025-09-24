@@ -94,15 +94,16 @@ export class Plunet implements INodeType {
                         const mimeType = this.getNodeParameter('mimeType', i) as string;
                         
                         try {
-                            // Create a data URL from the base64 content
-                            const dataUrl = `data:${mimeType || 'application/octet-stream'};base64,${fileContent}`;
+                            // Convert base64 string to Buffer using global Buffer
+                            // @ts-ignore - Buffer is available globally in Node.js
+                            const buffer = Buffer.from(fileContent, 'base64');
                             
-                            // Create a simple object that n8n can handle
-                            const binaryData = {
-                                data: dataUrl,
-                                fileName: fileName || 'converted_file',
-                                mimeType: mimeType || 'application/octet-stream'
-                            };
+                            // Use prepareBinaryData with the Buffer
+                            const binaryData = await this.helpers.prepareBinaryData(
+                                buffer,
+                                fileName || 'converted_file',
+                                mimeType || 'application/octet-stream'
+                            );
 
                             result = { 
                                 success: true,
