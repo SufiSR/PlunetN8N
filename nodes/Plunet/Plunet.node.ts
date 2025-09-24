@@ -203,7 +203,7 @@ export class Plunet implements INodeType {
                         return [
                             {
                                 name: `API Error: ${parsed.statusMessage || 'Unknown error'} (Code: ${parsed.statusCode})`,
-                                value: '',
+                                value: ' ',
                                 disabled: true
                             }
                         ];
@@ -222,7 +222,7 @@ export class Plunet implements INodeType {
                     return [
                         {
                             name: 'No properties found for this Usage Area and Main ID combination',
-                            value: '',
+                            value: ' ',
                             disabled: true
                         }
                     ];
@@ -232,7 +232,7 @@ export class Plunet implements INodeType {
                     return [
                         {
                             name: `Error loading properties: ${errorMessage}`,
-                            value: '',
+                            value: ' ',
                             disabled: true
                         }
                     ];
