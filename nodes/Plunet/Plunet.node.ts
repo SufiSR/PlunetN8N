@@ -159,7 +159,7 @@ export class Plunet implements INodeType {
                     const creds = await this.getCredentials('plunetApi') as Creds;
                     const scheme = creds.useHttps ? 'https' : 'http';
                     const baseUrl = `${scheme}://${creds.baseHost.replace(/\/$/, '')}`;
-                    const url = `${baseUrl}/PlunetAPI`;
+                    const url = `${baseUrl}/DataAdmin30`;
                     const timeoutMs = creds.timeout ?? 30000;
                     
                     // Create execute config for DataAdmin30
@@ -208,8 +208,8 @@ export class Plunet implements INodeType {
                         ];
                     }
                     
-                    if (parsed.propertyNames && Array.isArray(parsed.propertyNames) && parsed.propertyNames.length > 0) {
-                        const propertyNames = parsed.propertyNames as string[];
+                    if (parsed.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
+                        const propertyNames = parsed.data as string[];
                         return propertyNames.map((name: string) => ({
                             name: name,
                             value: name
