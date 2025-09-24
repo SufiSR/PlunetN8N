@@ -131,7 +131,8 @@ const extraProperties: INodeProperties[] = [
       loadOptionsDependsOn: ['usageArea', 'mainID'],
     },
     default: '',
-    description: 'Select from available custom properties for the selected usage area and main ID',
+    required: false,
+    description: 'Select from available custom properties for the selected usage area and main ID. Make sure to set Usage Area and Main ID first.',
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 

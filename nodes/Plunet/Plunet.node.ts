@@ -143,7 +143,13 @@ export class Plunet implements INodeType {
                 const mainID = this.getCurrentNodeParameter('mainID') as number;
                 
                 if (!usageArea || !mainID) {
-                    return [];
+                    return [
+                        {
+                            name: 'Please set Usage Area and Main ID first',
+                            value: '',
+                            disabled: true
+                        }
+                    ];
                 }
                 
                 try {
@@ -203,8 +209,14 @@ export class Plunet implements INodeType {
                     
                     return [];
                 } catch (error) {
-                    // Return empty array on error
-                    return [];
+                    // Return helpful message on error
+                    return [
+                        {
+                            name: 'Error loading properties - check your connection',
+                            value: '',
+                            disabled: true
+                        }
+                    ];
                 }
             },
         },
