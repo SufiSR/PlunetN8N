@@ -16,7 +16,7 @@ import { generateOperationOptionsFromRegistry } from '../core/service-utils';
 
 const RESOURCE = 'DataCustomFields30';
 const ENDPOINT = 'DataCustomFields30';
-const RESOURCE_DISPLAY_NAME = 'Custom Fields';
+const RESOURCE_DISPLAY_NAME = 'Custom Fields (Beta)';
 
 /** ─ Centralized Operation Registry ─ */
 const OPERATION_REGISTRY: ServiceOperationRegistry = {

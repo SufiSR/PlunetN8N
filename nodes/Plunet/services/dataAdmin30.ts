@@ -13,7 +13,7 @@ import { PropertyUsageAreaOptions } from '../enums/property-usage-area';
 import { generateOperationOptionsFromRegistry } from '../core/service-utils';
 
 const RESOURCE = 'DataAdmin30';
-const ENDPOINT = 'DataAdmin30';
+const ENDPOINT = 'PlunetAPI';
 const RESOURCE_DISPLAY_NAME = 'Admin';
 
 /** ─ Centralized Operation Registry ─ */
@@ -28,7 +28,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
     description: 'Get available custom properties for a specific usage area and main ID',
     returnType: 'StringArray',
-    paramOrder: ['usageArea', 'mainID'],
+    paramOrder: ['PropertyUsageArea', 'MainID'],
     active: true,
   },
 };
@@ -57,7 +57,7 @@ const extraProperties: INodeProperties[] = [
   // Property Usage Area
   {
     displayName: 'Property Usage Area',
-    name: 'usageArea',
+    name: 'PropertyUsageArea',
     type: 'options',
     options: PropertyUsageAreaOptions,
     default: 5,
@@ -72,7 +72,7 @@ const extraProperties: INodeProperties[] = [
   // Main ID field
   {
     displayName: 'Main ID',
-    name: 'mainID',
+    name: 'MainID',
     type: 'number',
     default: 0,
     typeOptions: { minValue: 0, step: 1 },
