@@ -157,15 +157,11 @@ export class Plunet implements INodeType {
                     const creds = await this.getCredentials('plunetApi') as Creds;
                     const scheme = creds.useHttps ? 'https' : 'http';
                     const baseUrl = `${scheme}://${creds.baseHost.replace(/\/$/, '')}`;
-                    const url = `${baseUrl}/PlunetAPI/DataAdmin30`;
+                    const url = `${baseUrl}/PlunetAPI`;
                     const timeoutMs = creds.timeout ?? 30000;
                     
                     // Create execute config for DataAdmin30
                     const config = createAdminExecuteConfig(creds, url, baseUrl, timeoutMs);
-                    const itemParams: IDataObject = {
-                        usageArea,
-                        mainID
-                    };
                     
                     // Call getAvailableProperties using a different approach
                     // We need to make a direct SOAP call since executeOperation expects IExecuteFunctions
@@ -199,7 +195,18 @@ export class Plunet implements INodeType {
                     // Parse response
                     const parsed = config.parseResult(response, 'getAvailableProperties') as IDataObject;
                     
-                    if (parsed.propertyNames && Array.isArray(parsed.propertyNames)) {
+                    // Debug: Check what we got
+                    if (parsed.statusCode && parsed.statusCode !== 0) {
+                        return [
+                            {
+                                name: `API Error: ${parsed.statusMessage || 'Unknown error'} (Code: ${parsed.statusCode})`,
+                                value: '',
+                                disabled: true
+                            }
+                        ];
+                    }
+                    
+                    if (parsed.propertyNames && Array.isArray(parsed.propertyNames) && parsed.propertyNames.length > 0) {
                         const propertyNames = parsed.propertyNames as string[];
                         return propertyNames.map((name: string) => ({
                             name: name,
@@ -207,12 +214,20 @@ export class Plunet implements INodeType {
                         }));
                     }
                     
-                    return [];
-                } catch (error) {
-                    // Return helpful message on error
+                    // If no properties found, show helpful message
                     return [
                         {
-                            name: 'Error loading properties - check your connection',
+                            name: 'No properties found for this Usage Area and Main ID combination',
+                            value: '',
+                            disabled: true
+                        }
+                    ];
+                } catch (error) {
+                    // Return helpful message on error with more details
+                    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+                    return [
+                        {
+                            name: `Error loading properties: ${errorMessage}`,
                             value: '',
                             disabled: true
                         }
