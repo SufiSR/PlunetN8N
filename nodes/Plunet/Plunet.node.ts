@@ -211,10 +211,19 @@ export class Plunet implements INodeType {
                     
                     if (parsed.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
                         const propertyNames = parsed.data as string[];
-                        return propertyNames.map((name: string) => ({
-                            name: name,
-                            value: name
-                        }));
+                        // Add a "Please select" option at the top
+                        const options = [
+                            {
+                                name: 'Please select a property...',
+                                value: '',
+                                disabled: true
+                            },
+                            ...propertyNames.map((name: string) => ({
+                                name: name,
+                                value: name
+                            }))
+                        ];
+                        return options;
                     }
                     
                     // If no properties found, show helpful message
