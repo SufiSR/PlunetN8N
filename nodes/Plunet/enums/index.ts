@@ -5,6 +5,7 @@ import { WorkingStatusOptions } from './working-status';
 export * from './types';
 export * from './customer-status';
 export * from './working-status';
+export * from './folder-types';
 // export * from './order';   // later
 // export * from './common';  // later
 

@@ -4,10 +4,40 @@ import {
     INodeType,
     INodeTypeDescription,
     IDataObject,
+    IBinaryData,
 } from 'n8n-workflow';
 
 import { description } from './description';
 import { Creds, Service } from './core/types';
+
+// Simple base64 decoder for Node.js environment
+function base64ToUint8Array(base64: string): Uint8Array {
+    // Manual base64 decoding
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    let result = '';
+    let i = 0;
+    
+    base64 = base64.replace(/[^A-Za-z0-9+/]/g, '');
+    
+    while (i < base64.length) {
+        const encoded1 = chars.indexOf(base64.charAt(i++));
+        const encoded2 = chars.indexOf(base64.charAt(i++));
+        const encoded3 = chars.indexOf(base64.charAt(i++));
+        const encoded4 = chars.indexOf(base64.charAt(i++));
+        
+        const bitmap = (encoded1 << 18) | (encoded2 << 12) | (encoded3 << 6) | encoded4;
+        
+        result += String.fromCharCode((bitmap >> 16) & 255);
+        if (encoded3 !== 64) result += String.fromCharCode((bitmap >> 8) & 255);
+        if (encoded4 !== 64) result += String.fromCharCode(bitmap & 255);
+    }
+    
+    const bytes = new Uint8Array(result.length);
+    for (let i = 0; i < result.length; i++) {
+        bytes[i] = result.charCodeAt(i);
+    }
+    return bytes;
+}
 import { PlunetApiService } from './services/plunetApi';
 import { DataCustomer30CoreService } from './services/dataCustomer30.core';
 import { DataCustomer30MiscService } from './services/dataCustomer30.misc';
@@ -16,6 +46,7 @@ import { DataJob30MiscService } from './services/dataJob30.misc';
 import { DataJob30PricesService } from './services/dataJob30.prices';
 import { DataResource30CoreService } from './services/dataResource30.core';
 import { DataResource30MiscService } from './services/dataResource30.misc';
+import { DataDocument30Service } from './services/dataDocument30';
 // import { DataJob30Service } from './services/dataJob30';
 
 
@@ -24,10 +55,11 @@ const registry: Record<string, Service> = {
     [DataCustomer30CoreService.resource]: DataCustomer30CoreService,
     [DataResource30CoreService.resource]: DataResource30CoreService,
     [DataJob30CoreService.resource]: DataJob30CoreService,
+    [DataJob30PricesService.resource]: DataJob30PricesService,
+    [DataDocument30Service.resource]: DataDocument30Service,
     [DataCustomer30MiscService.resource]: DataCustomer30MiscService,
     [DataResource30MiscService.resource]: DataResource30MiscService,    
     [DataJob30MiscService.resource]: DataJob30MiscService,
-    [DataJob30PricesService.resource]: DataJob30PricesService,
     //[DataJob30Service.resource]: DataJob30Service,
 };
 
@@ -54,8 +86,40 @@ export class Plunet implements INodeType {
 
                 const payload = await svc.execute(operation, this, creds, url, baseUrl, timeoutMs, i);
 
-                // Services already include success/resource/operation; forward as-is.
-                out.push({ json: payload as IDataObject });
+                // Special handling for download operations that return binary data
+                if (resource === 'DataDocument30' && operation === 'downloadDocument' && payload.fileContent) {
+                    try {
+                        // Convert base64 string to Uint8Array
+                        const fileBuffer = base64ToUint8Array(String(payload.fileContent));
+                        
+                        // Prepare binary data for n8n
+                        const binaryData = await this.helpers.prepareBinaryData(
+                            fileBuffer, 
+                            String(payload.filename || 'downloaded_file'),
+                            'application/octet-stream'
+                        );
+
+                        // Return both JSON metadata and binary data
+                        out.push({ 
+                            json: { 
+                                success: payload.success,
+                                resource: payload.resource,
+                                operation: payload.operation,
+                                fileSize: payload.fileSize,
+                                filename: payload.filename,
+                                statusMessage: payload.statusMessage,
+                                statusCode: payload.statusCode
+                            } as IDataObject,
+                            binary: { data: binaryData }
+                        });
+                    } catch (binaryError) {
+                        // If binary conversion fails, return the raw data
+                        out.push({ json: payload as IDataObject });
+                    }
+                } else {
+                    // Services already include success/resource/operation; forward as-is.
+                    out.push({ json: payload as IDataObject });
+                }
             } catch (err) {
                 if (this.continueOnFail()) {
                     out.push({ json: { success: false, error: (err as Error).message } });

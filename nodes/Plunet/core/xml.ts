@@ -349,6 +349,39 @@ export function parseStringArrayResult(xml: string): { data: string[]; statusMes
     return { data: items, statusMessage: base.statusMessage, statusCode: base.statusCode };
 }
 
+export function parseFileResult(xml: string): { 
+    fileContent?: string; 
+    fileSize?: number; 
+    filename?: string; 
+    statusMessage?: string; 
+    statusCode?: number 
+} {
+    const base = extractResultBase(xml);
+
+    // Look for FileResult scope first
+    const fileResultScope = findFirstTagBlock(xml, 'FileResult');
+    if (!fileResultScope) {
+        return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    // Extract file information from FileResult
+    const fileContentMatch = fileResultScope.match(/<fileContent>(.*?)<\/fileContent>/);
+    const fileSizeMatch = fileResultScope.match(/<fileSize>(.*?)<\/fileSize>/);
+    const filenameMatch = fileResultScope.match(/<filename>(.*?)<\/filename>/);
+    
+    const fileContent = fileContentMatch ? fileContentMatch[1] : undefined;
+    const fileSize = fileSizeMatch ? parseInt(fileSizeMatch[1] || '0', 10) : undefined;
+    const filename = filenameMatch ? filenameMatch[1] : undefined;
+
+    return { 
+        fileContent, 
+        fileSize, 
+        filename, 
+        statusMessage: base.statusMessage, 
+        statusCode: base.statusCode 
+    };
+}
+
 /** -------- Back-compat helpers used by session/plunetApi -------- */
 
 /** Extracts a UUID from typical & atypical Plunet login responses */

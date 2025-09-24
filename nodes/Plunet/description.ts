@@ -8,6 +8,7 @@ import { DataJob30CoreService } from './services/dataJob30.core';
 import { DataJob30MiscService } from './services/dataJob30.misc';
 import { DataJob30PricesService } from './services/dataJob30.prices';
 import { DataJob30Service } from './services/dataJob30';
+import { DataDocument30Service } from './services/dataDocument30';
 import { buildSubtitleLookup } from './core/service-utils';
 
 
@@ -17,6 +18,7 @@ const services = [
     DataResource30CoreService,
     DataJob30CoreService,
     DataJob30PricesService,
+    DataDocument30Service,
     DataCustomer30MiscService,
     DataResource30MiscService,    
     DataJob30MiscService,    
