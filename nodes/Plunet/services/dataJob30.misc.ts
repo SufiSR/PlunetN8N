@@ -256,19 +256,6 @@ import {
       paramOrder: ['jobID', 'projectType'],
       active: true,
     },
-    getItemIndependentJobs: {
-      soapAction: 'getItemIndependentJobs',
-      endpoint: ENDPOINT,
-      uiName: 'Get Item Independent Jobs',
-      subtitleName: 'get item independent jobs: job',
-      titleName: 'Get Item Independent Jobs',
-      resource: RESOURCE,
-      resourceDisplayName: RESOURCE_DISPLAY_NAME,
-      description: 'Get jobs that are independent of items',
-      returnType: 'JobList',
-      paramOrder: ['projectType', 'projectId'],
-      active: true,
-    },
     setCatReport2: {
       soapAction: 'setCatReport2',
       endpoint: ENDPOINT,
@@ -546,7 +533,16 @@ import {
           }
           case 'Integer': {
             const r = parseIntegerResult(xml);
-            payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            // Special handling for getResourceID when resource is missing (status -94)
+            if (op === 'getResourceID' && r.statusCode === -94 && r.statusMessage?.includes('Resource is missing')) {
+              payload = { value: null, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            }
+            // Special handling for getPayableID when job is not invoiced (status 14017)
+            else if (op === 'getPayableID' && r.statusCode === 14017 && r.statusMessage?.includes('Job is not invoiced')) {
+              payload = { value: null, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            } else {
+              payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            }
             break;
           }
           case 'Date': {
@@ -576,7 +572,7 @@ import {
   export const DataJob30MiscService: Service = {
     resource: RESOURCE,
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
-    resourceDescription: 'Job-related endpoints',
+    resourceDescription: 'Non-Core operations for DataJob30',
     endpoint: ENDPOINT,
     operationRegistry: OPERATION_REGISTRY,
     operationOptions,

@@ -196,6 +196,19 @@ import {
       paramOrder: ['projectType', 'priceListID', 'jobID'],
       active: false,
     },
+    getServices: {
+      soapAction: 'getServices_List',
+      endpoint: ENDPOINT,
+      uiName: 'Get all available Services',
+      subtitleName: 'get all available services: job',
+      titleName: 'Get all available Services',
+      resource: RESOURCE,
+      resourceDisplayName: RESOURCE_DISPLAY_NAME,
+      description: 'Retrieve all available services',
+      returnType: 'StringArray',
+      paramOrder: ['languageCode'],
+      active: true,
+  },
   };
   
   /** ─ Derived mappings (actives only) ─ */
@@ -415,7 +428,7 @@ import {
   export const DataJob30PricesService: Service = {
     resource: RESOURCE,
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
-    resourceDescription: 'Job-related endpoints',
+    resourceDescription: 'Non-Core operations for Prices in DataJob30',
     endpoint: ENDPOINT,
     operationRegistry: OPERATION_REGISTRY,
     operationOptions,

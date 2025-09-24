@@ -315,7 +315,7 @@ import {
   export const DataJob30CoreService: Service = {
     resource: RESOURCE,
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
-    resourceDescription: 'Job-related endpoints',
+    resourceDescription: 'Core operations for DataJob30',
     endpoint: ENDPOINT,
     operationRegistry: OPERATION_REGISTRY,
     operationOptions,

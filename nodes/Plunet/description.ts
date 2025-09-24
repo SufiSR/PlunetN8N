@@ -15,11 +15,11 @@ const services = [
     PlunetApiService,
     DataCustomer30CoreService,
     DataResource30CoreService,
-    DataCustomer30MiscService,
-    DataResource30MiscService,
     DataJob30CoreService,
-    DataJob30MiscService,
     DataJob30PricesService,
+    DataCustomer30MiscService,
+    DataResource30MiscService,    
+    DataJob30MiscService,    
     //DataJob30Service, // not used
 ] as const;
 
