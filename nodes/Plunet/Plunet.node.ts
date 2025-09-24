@@ -141,9 +141,9 @@ export class Plunet implements INodeType {
 
     methods = {
         loadOptions: {
-            async getAvailablePropertyNames(this: ILoadOptionsFunctions) {
-                const usageArea = this.getCurrentNodeParameter('usageArea') as number;
-                const mainID = this.getCurrentNodeParameter('mainID') as number;
+        async getAvailablePropertyNames(this: ILoadOptionsFunctions) {
+            const usageArea = this.getCurrentNodeParameter('PropertyUsageArea') as number;
+            const mainID = this.getCurrentNodeParameter('MainID') as number;
                 
                 if (!usageArea || !mainID) {
                     return [
@@ -203,7 +203,7 @@ export class Plunet implements INodeType {
                         return [
                             {
                                 name: `API Error: ${parsed.statusMessage || 'Unknown error'} (Code: ${parsed.statusCode})`,
-                                value: ' ',
+                                value: 0,
                                 disabled: true
                             }
                         ];
@@ -222,7 +222,7 @@ export class Plunet implements INodeType {
                     return [
                         {
                             name: 'No properties found for this Usage Area and Main ID combination',
-                            value: ' ',
+                            value: 0,
                             disabled: true
                         }
                     ];
@@ -232,7 +232,7 @@ export class Plunet implements INodeType {
                     return [
                         {
                             name: `Error loading properties: ${errorMessage}`,
-                            value: ' ',
+                            value: 0,
                             disabled: true
                         }
                     ];

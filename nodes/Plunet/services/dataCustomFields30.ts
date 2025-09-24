@@ -124,11 +124,11 @@ const extraProperties: INodeProperties[] = [
   // Property Name for getProperty operation
   {
     displayName: 'Property Name',
-    name: 'propertyName',
+    name: 'PropertyNameEnglish',
     type: 'options',
     typeOptions: {
       loadOptionsMethod: 'getAvailablePropertyNames',
-      loadOptionsDependsOn: ['usageArea', 'mainID'],
+      loadOptionsDependsOn: ['PropertyUsageArea', 'MainID'],
     },
     default: '',
     required: false,
@@ -143,7 +143,7 @@ const extraProperties: INodeProperties[] = [
   // Property Usage Area for property operations
   {
     displayName: 'Property Usage Area',
-    name: 'usageArea',
+    name: 'PropertyUsageArea',
     type: 'options',
     options: PropertyUsageAreaOptions,
     default: 5,
@@ -173,7 +173,7 @@ const extraProperties: INodeProperties[] = [
   // Main ID field for operations that require it
   {
     displayName: 'Main ID',
-    name: 'mainID',
+    name: 'MainID',
     type: 'number',
     default: 0,
     typeOptions: { minValue: 0, step: 1 },
