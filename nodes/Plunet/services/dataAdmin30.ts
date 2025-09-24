@@ -27,7 +27,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     resource: RESOURCE,
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
     description: 'Get available custom properties for a specific usage area and main ID',
-    returnType: 'PropertyList',
+    returnType: 'StringArray',
     paramOrder: ['usageArea', 'mainID'],
     active: true,
   },
@@ -40,7 +40,7 @@ const PARAM_ORDER: Record<string, string[]> = Object.fromEntries(
     .map(op => [op.soapAction, op.paramOrder])
 );
 
-type R = 'PropertyList';
+type R = 'StringArray';
 const RETURN_TYPE: Record<string, R> = Object.fromEntries(
   Object.values(OPERATION_REGISTRY)
     .filter(op => op.active)
@@ -110,8 +110,8 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
       let payload: IDataObject;
 
       switch (rt) {
-        case 'PropertyList': {
-          payload = parsePropertyListResult(xml);
+        case 'StringArray': {
+          payload = parsePropertyNamesArray(xml);
           break;
         }
         default: {
@@ -124,36 +124,37 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
   };
 }
 
-// Parse PropertyListResult to extract property names
-function parsePropertyListResult(xml: string): IDataObject {
-  const base = extractResultBase(xml);
-  
-  // Look for PropertyListResult scope
-  const propertyListResultScope = findFirstTagBlock(xml, 'PropertyListResult');
-  if (!propertyListResultScope) {
-    return { statusMessage: base.statusMessage, statusCode: base.statusCode };
-  }
-  
-  // Extract all m_Data blocks
-  const mDataMatches = propertyListResultScope.match(/<m_Data>[\s\S]*?<\/m_Data>/g);
-  if (!mDataMatches) {
-    return { statusMessage: base.statusMessage, statusCode: base.statusCode };
-  }
-  
-  const propertyNames: string[] = [];
-  
-  mDataMatches.forEach(mDataBlock => {
-    const propertyNameMatch = mDataBlock.match(/<propertyNameEnglish>(.*?)<\/propertyNameEnglish>/);
-    if (propertyNameMatch && propertyNameMatch[1]) {
-      propertyNames.push(propertyNameMatch[1]);
+// Parse PropertyListResult to extract property names as StringArray
+function parsePropertyNamesArray(xml: string): IDataObject {
+    const base = extractResultBase(xml);
+    
+    // Look for PropertyListResult scope
+    const propertyListResultScope = findFirstTagBlock(xml, 'PropertyListResult');
+    if (!propertyListResultScope) {
+        return { statusMessage: base.statusMessage, statusCode: base.statusCode };
     }
-  });
-  
-  return {
-    propertyNames,
-    statusMessage: base.statusMessage,
-    statusCode: base.statusCode
-  };
+    
+    // Extract all m_Data blocks
+    const mDataMatches = propertyListResultScope.match(/<m_Data>[\s\S]*?<\/m_Data>/g);
+    if (!mDataMatches) {
+        return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    const propertyNames: string[] = [];
+    
+    mDataMatches.forEach(mDataBlock => {
+        const propertyNameMatch = mDataBlock.match(/<propertyNameEnglish>(.*?)<\/propertyNameEnglish>/);
+        if (propertyNameMatch && propertyNameMatch[1]) {
+            propertyNames.push(propertyNameMatch[1]);
+        }
+    });
+    
+    // Return as StringArray format (same as parseStringArrayResult)
+    return {
+        data: propertyNames,
+        statusMessage: base.statusMessage,
+        statusCode: base.statusCode
+    };
 }
 
 // Helper function to find first tag block
