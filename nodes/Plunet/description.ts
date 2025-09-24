@@ -4,8 +4,10 @@ import { DataCustomer30CoreService } from './services/dataCustomer30.core';
 import { DataCustomer30MiscService } from './services/dataCustomer30.misc';
 import { DataResource30CoreService } from './services/dataResource30.core';
 import { DataResource30MiscService } from './services/dataResource30.misc';
+import { DataJob30CoreService } from './services/dataJob30.core';
+import { DataJob30MiscService } from './services/dataJob30.misc';
+import { DataJob30PricesService } from './services/dataJob30.prices';
 import { DataJob30Service } from './services/dataJob30';
-import { DataJob30Service_2_0 } from './services/datajob30.new';
 import { buildSubtitleLookup } from './core/service-utils';
 
 
@@ -15,8 +17,10 @@ const services = [
     DataResource30CoreService,
     DataCustomer30MiscService,
     DataResource30MiscService,
-    DataJob30Service,
-    DataJob30Service_2_0,
+    DataJob30CoreService,
+    DataJob30MiscService,
+    DataJob30PricesService,
+    //DataJob30Service, // not used
 ] as const;
 
 const resourceOptions = services.map((s) => ({
