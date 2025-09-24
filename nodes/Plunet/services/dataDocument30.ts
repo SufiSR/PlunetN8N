@@ -151,6 +151,18 @@ const extraProperties: INodeProperties[] = [
   },
   // Convert Binary to Bytestream parameters
   {
+    displayName: 'Input Type',
+    name: 'inputType',
+    type: 'options',
+    options: [
+      { name: 'Binary Data from Previous Node', value: 'binary' },
+      { name: 'Base64 String', value: 'base64' }
+    ],
+    default: 'binary',
+    description: 'Select the type of input data you have',
+    displayOptions: { show: { resource: [RESOURCE], operation: ['convertBinaryToBytestream'] } },
+  },
+  {
     displayName: 'Binary Data',
     name: 'binaryData',
     type: 'string',

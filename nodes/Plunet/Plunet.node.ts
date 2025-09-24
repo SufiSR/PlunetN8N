@@ -93,29 +93,37 @@ export class Plunet implements INodeType {
                         const fileName = this.getNodeParameter('fileName', i) as string;
                         const mimeType = this.getNodeParameter('mimeType', i) as string;
                         
-                        // Convert base64 string to Buffer
-                        const fileBuffer = base64ToUint8Array(fileContent);
-                        
-                        // Prepare binary data for n8n
-                        const binaryData = await this.helpers.prepareBinaryData(
-                            fileBuffer, 
-                            fileName || 'converted_file',
-                            mimeType || 'application/octet-stream'
-                        );
+                        try {
+                            // Convert base64 string to Uint8Array
+                            const fileBuffer = base64ToUint8Array(fileContent);
+                            
+                            // Convert Uint8Array to Buffer for n8n compatibility
+                            const buffer = new Uint8Array(fileBuffer);
+                            
+                            // Prepare binary data for n8n
+                            const binaryData = await this.helpers.prepareBinaryData(
+                                buffer, 
+                                fileName || 'converted_file',
+                                mimeType || 'application/octet-stream'
+                            );
 
-                        result = { 
-                            success: true,
-                            resource: 'DataDocument30',
-                            operation: 'convertBytestreamToBinary',
-                            message: 'Successfully converted bytestream to binary data',
-                            fileName: fileName,
-                            mimeType: mimeType
-                        };
-                        
-                        out.push({ 
-                            json: result,
-                            binary: { data: binaryData }
-                        });
+                            result = { 
+                                success: true,
+                                resource: 'DataDocument30',
+                                operation: 'convertBytestreamToBinary',
+                                message: 'Successfully converted bytestream to binary data',
+                                fileName: fileName,
+                                mimeType: mimeType
+                            };
+                            
+                            out.push({ 
+                                json: result,
+                                binary: { data: binaryData }
+                            });
+                        } catch (conversionError) {
+                            const errorMessage = conversionError instanceof Error ? conversionError.message : String(conversionError);
+                            throw new Error(`Failed to convert bytestream to binary: ${errorMessage}`);
+                        }
                         continue;
                         
                     } else if (operation === 'convertBinaryToBytestream') {
@@ -126,21 +134,40 @@ export class Plunet implements INodeType {
                             throw new Error('No binary data found in input. Please connect a node that provides binary data.');
                         }
                         
-                        // Get the binary buffer
-                        const buffer = await this.helpers.getBinaryDataBuffer(i, 'data');
-                        
-                        // Convert to base64 string
-                        const base64String = buffer.toString('base64');
-                        
-                        result = { 
-                            success: true,
-                            resource: 'DataDocument30',
-                            operation: 'convertBinaryToBytestream',
-                            message: 'Successfully converted binary data to bytestream',
-                            fileContent: base64String,
-                            fileName: binaryData.fileName || 'converted_file',
-                            mimeType: binaryData.mimeType || 'application/octet-stream'
-                        };
+                        try {
+                            // Get the binary buffer
+                            const buffer = await this.helpers.getBinaryDataBuffer(i, 'data');
+                            
+                            // Convert to base64 string
+                            const base64String = buffer.toString('base64');
+                            
+                            result = { 
+                                success: true,
+                                resource: 'DataDocument30',
+                                operation: 'convertBinaryToBytestream',
+                                message: 'Successfully converted binary data to bytestream',
+                                fileContent: base64String,
+                                fileName: binaryData.fileName || 'converted_file',
+                                mimeType: binaryData.mimeType || 'application/octet-stream'
+                            };
+                        } catch (bufferError) {
+                            // If getBinaryDataBuffer fails, try to get the data directly from the binary object
+                            if (binaryData.data) {
+                                const base64String = binaryData.data;
+                                result = { 
+                                    success: true,
+                                    resource: 'DataDocument30',
+                                    operation: 'convertBinaryToBytestream',
+                                    message: 'Successfully converted binary data to bytestream (direct method)',
+                                    fileContent: base64String,
+                                    fileName: binaryData.fileName || 'converted_file',
+                                    mimeType: binaryData.mimeType || 'application/octet-stream'
+                                };
+                            } else {
+                                const errorMessage = bufferError instanceof Error ? bufferError.message : String(bufferError);
+                                throw new Error(`Failed to convert binary data: ${errorMessage}`);
+                            }
+                        }
                         
                         out.push({ json: result });
                         continue;
