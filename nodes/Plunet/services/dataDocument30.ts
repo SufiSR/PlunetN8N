@@ -126,6 +126,7 @@ const extraProperties: INodeProperties[] = [
     default: 0,
     typeOptions: { minValue: 0, step: 1 },
     description: 'The main ID for the selected folder type',
+    hint: 'TEST: This is a hint for the Main ID field',
     displayOptions: { show: { resource: [RESOURCE], operation: ['getFileList', 'download_Document'] } },
   },
   // File Path Name for download

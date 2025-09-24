@@ -129,9 +129,15 @@ export const description: INodeTypeDescription = {
     ],
     hints: [
         {
+            message: 'TEST: This hint should always show for DataDocument30',
+            type: 'info',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" }}',
+        },
+        {
             message: 'You selected <b>Request</b> folder — Main ID should be a Request ID.',
+            type: 'info',
             location: 'inputPane',
-            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] === 1 }}',
+            displayCondition: '={{ $parameter["resource"] === "DataDocument30" && $parameter["folderType"] == 1 }}',
         },
         {
             message: 'You selected <b>Quote</b> folder — Main ID should be a Quote ID.',
