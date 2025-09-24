@@ -72,6 +72,19 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     paramOrder: ['binaryData'],
     active: true,
   },
+  uploadDocument: {
+    soapAction: 'upload_Document',
+    endpoint: ENDPOINT,
+    uiName: 'Upload Document',
+    subtitleName: 'upload document: files',
+    titleName: 'Upload Document',
+    resource: RESOURCE,
+    resourceDisplayName: RESOURCE_DISPLAY_NAME,
+    description: 'Upload a document to a specific folder',
+    returnType: 'Void',
+    paramOrder: ['folderType', 'mainID', 'fileByteStream', 'filePathName', 'fileSize'],
+    active: true,
+  },
 };
 
 /** ─ Legacy compatibility mappings ─ */
@@ -81,7 +94,7 @@ const PARAM_ORDER: Record<string, string[]> = Object.fromEntries(
     .map(op => [op.soapAction, op.paramOrder])
 );
 
-type R = 'StringArray' | 'File' | 'Binary' | 'String';
+type R = 'StringArray' | 'File' | 'Binary' | 'String' | 'Void';
 const RETURN_TYPE: Record<string, R> = Object.fromEntries(
   Object.values(OPERATION_REGISTRY)
     .filter(op => op.active)
@@ -170,6 +183,50 @@ const extraProperties: INodeProperties[] = [
     description: 'The binary data from a previous n8n node (usually from binary.data)',
     displayOptions: { show: { resource: [RESOURCE], operation: ['convertBinaryToBytestream'] } },
   },
+  // Upload Document parameters
+  {
+    displayName: 'Folder Type',
+    name: 'folderType',
+    type: 'options',
+    options: FolderTypeOptions,
+    default: 1,
+    description: 'Select the type of folder to upload the file to',
+    displayOptions: { show: { resource: [RESOURCE], operation: ['upload_Document'] } },
+  },
+  {
+    displayName: 'Main ID (Job ID, Order ID, Customer ID, etc.)',
+    name: 'mainID',
+    type: 'number',
+    default: 0,
+    typeOptions: { minValue: 0, step: 1 },
+    description: 'The main ID for the selected folder type. The label changes based on folder type: Job ID for Order Job Out, Order ID for Order Reference, Customer ID for Customer, etc.',
+    displayOptions: { show: { resource: [RESOURCE], operation: ['upload_Document'] } },
+  },
+  {
+    displayName: 'File Byte Stream',
+    name: 'fileByteStream',
+    type: 'string',
+    default: '',
+    description: 'The base64 encoded file content to upload',
+    displayOptions: { show: { resource: [RESOURCE], operation: ['upload_Document'] } },
+  },
+  {
+    displayName: 'File Path Name',
+    name: 'filePathName',
+    type: 'string',
+    default: '',
+    description: 'The name of the file to upload (e.g., document.pdf)',
+    displayOptions: { show: { resource: [RESOURCE], operation: ['upload_Document'] } },
+  },
+  {
+    displayName: 'File Size (Optional)',
+    name: 'fileSize',
+    type: 'number',
+    default: 0,
+    typeOptions: { minValue: 0, step: 1 },
+    description: 'The size of the file in bytes. If not provided, it will be calculated automatically from the byte stream.',
+    displayOptions: { show: { resource: [RESOURCE], operation: ['upload_Document'] } },
+  },
 ];
 
 function toSoapParamValue(raw: unknown, paramName: string): string {
@@ -208,6 +265,33 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
 <MainID>${escapeXml(String(mainID))}</MainID>
 <FolderType>${escapeXml(String(folderType))}</FolderType>
 <FilePathName>${escapeXml(filePathName)}</FilePathName>`;
+      } else if (op === 'upload_Document') {
+        const folderType = itemParams.folderType as number;
+        const mainID = itemParams.mainID as number;
+        const fileByteStream = itemParams.fileByteStream as string;
+        const filePathName = itemParams.filePathName as string;
+        const fileSize = itemParams.fileSize as number;
+        
+        // Calculate file size from byte stream if not provided or is 0
+        let calculatedFileSize = fileSize;
+        if (!fileSize || fileSize === 0) {
+          // Decode base64 to get the actual file size
+          try {
+            // @ts-ignore - Buffer is available globally in Node.js
+            const buffer = Buffer.from(fileByteStream, 'base64');
+            calculatedFileSize = buffer.length;
+          } catch (error) {
+            // Fallback: estimate from base64 string length
+            calculatedFileSize = Math.floor((fileByteStream.length * 3) / 4);
+          }
+        }
+        
+        return `<UUID>${escapeXml(sessionId)}</UUID>
+<MainID>${escapeXml(String(mainID))}</MainID>
+<FolderType>${escapeXml(String(folderType))}</FolderType>
+<FileByteStream>${escapeXml(fileByteStream)}</FileByteStream>
+<FilePathName>${escapeXml(filePathName)}</FilePathName>
+<FileSize>${escapeXml(String(calculatedFileSize))}</FileSize>`;
       }
       return null;
     },
@@ -240,6 +324,16 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
         case 'String': {
           // This case should not be reached as string operations are handled in main node
           payload = { message: 'String conversion handled in main node' };
+          break;
+        }
+        case 'Void': {
+          // Handle void results (like upload operations)
+          const statusMessage = extractStatusMessage(xml);
+          payload = { 
+            success: true,
+            message: 'Operation completed successfully',
+            statusMessage: statusMessage
+          };
           break;
         }
         default: {
