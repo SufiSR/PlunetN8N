@@ -46,6 +46,32 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     paramOrder: ['folderType', 'mainID', 'filePathName'],
     active: true,
   },
+  convertBytestreamToBinary: {
+    soapAction: 'convertBytestreamToBinary',
+    endpoint: ENDPOINT,
+    uiName: 'Convert Bytestream to Binary',
+    subtitleName: 'convert bytestream to binary: files',
+    titleName: 'Convert Bytestream to Binary',
+    resource: RESOURCE,
+    resourceDisplayName: RESOURCE_DISPLAY_NAME,
+    description: 'Convert a file byte stream to n8n binary data format',
+    returnType: 'Binary',
+    paramOrder: ['fileContent', 'fileName', 'mimeType'],
+    active: true,
+  },
+  convertBinaryToBytestream: {
+    soapAction: 'convertBinaryToBytestream',
+    endpoint: ENDPOINT,
+    uiName: 'Convert Binary to Bytestream',
+    subtitleName: 'convert binary to bytestream: files',
+    titleName: 'Convert Binary to Bytestream',
+    resource: RESOURCE,
+    resourceDisplayName: RESOURCE_DISPLAY_NAME,
+    description: 'Convert n8n binary data to file byte stream format',
+    returnType: 'String',
+    paramOrder: ['binaryData'],
+    active: true,
+  },
 };
 
 /** ─ Legacy compatibility mappings ─ */
@@ -55,7 +81,7 @@ const PARAM_ORDER: Record<string, string[]> = Object.fromEntries(
     .map(op => [op.soapAction, op.paramOrder])
 );
 
-type R = 'StringArray' | 'File';
+type R = 'StringArray' | 'File' | 'Binary' | 'String';
 const RETURN_TYPE: Record<string, R> = Object.fromEntries(
   Object.values(OPERATION_REGISTRY)
     .filter(op => op.active)
@@ -97,6 +123,40 @@ const extraProperties: INodeProperties[] = [
     default: '',
     description: 'The path and name of the file to download (e.g., \\test.txt)',
     displayOptions: { show: { resource: [RESOURCE], operation: ['download_Document'] } },
+  },
+  // Convert Bytestream to Binary parameters
+  {
+    displayName: 'File Content',
+    name: 'fileContent',
+    type: 'string',
+    default: '',
+    description: 'The base64 encoded file content from a previous download operation',
+    displayOptions: { show: { resource: [RESOURCE], operation: ['convertBytestreamToBinary'] } },
+  },
+  {
+    displayName: 'File Name',
+    name: 'fileName',
+    type: 'string',
+    default: '',
+    description: 'The name of the file (e.g., document.pdf)',
+    displayOptions: { show: { resource: [RESOURCE], operation: ['convertBytestreamToBinary'] } },
+  },
+  {
+    displayName: 'MIME Type',
+    name: 'mimeType',
+    type: 'string',
+    default: 'application/octet-stream',
+    description: 'The MIME type of the file (e.g., application/pdf, image/jpeg)',
+    displayOptions: { show: { resource: [RESOURCE], operation: ['convertBytestreamToBinary'] } },
+  },
+  // Convert Binary to Bytestream parameters
+  {
+    displayName: 'Binary Data',
+    name: 'binaryData',
+    type: 'string',
+    default: '',
+    description: 'The binary data from a previous n8n node (usually from binary.data)',
+    displayOptions: { show: { resource: [RESOURCE], operation: ['convertBinaryToBytestream'] } },
   },
 ];
 
@@ -158,6 +218,16 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             statusMessage: r.statusMessage, 
             statusCode: r.statusCode 
           };
+          break;
+        }
+        case 'Binary': {
+          // This case should not be reached as binary operations are handled in main node
+          payload = { message: 'Binary conversion handled in main node' };
+          break;
+        }
+        case 'String': {
+          // This case should not be reached as string operations are handled in main node
+          payload = { message: 'String conversion handled in main node' };
           break;
         }
         default: {

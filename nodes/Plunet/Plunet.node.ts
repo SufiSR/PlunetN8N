@@ -84,6 +84,69 @@ export class Plunet implements INodeType {
                 const url = `${baseUrl}/${svc.endpoint}`;
                 const timeoutMs = creds.timeout ?? 30000;
 
+                // Special handling for conversion operations that don't use SOAP
+                if (resource === 'DataDocument30' && (operation === 'convertBytestreamToBinary' || operation === 'convertBinaryToBytestream')) {
+                    let result: IDataObject;
+                    
+                    if (operation === 'convertBytestreamToBinary') {
+                        const fileContent = this.getNodeParameter('fileContent', i) as string;
+                        const fileName = this.getNodeParameter('fileName', i) as string;
+                        const mimeType = this.getNodeParameter('mimeType', i) as string;
+                        
+                        // Convert base64 string to Buffer
+                        const fileBuffer = base64ToUint8Array(fileContent);
+                        
+                        // Prepare binary data for n8n
+                        const binaryData = await this.helpers.prepareBinaryData(
+                            fileBuffer, 
+                            fileName || 'converted_file',
+                            mimeType || 'application/octet-stream'
+                        );
+
+                        result = { 
+                            success: true,
+                            resource: 'DataDocument30',
+                            operation: 'convertBytestreamToBinary',
+                            message: 'Successfully converted bytestream to binary data',
+                            fileName: fileName,
+                            mimeType: mimeType
+                        };
+                        
+                        out.push({ 
+                            json: result,
+                            binary: { data: binaryData }
+                        });
+                        continue;
+                        
+                    } else if (operation === 'convertBinaryToBytestream') {
+                        // Get binary data from input
+                        const inputData = this.getInputData()[i];
+                        const binaryData = inputData?.binary?.data;
+                        if (!binaryData) {
+                            throw new Error('No binary data found in input. Please connect a node that provides binary data.');
+                        }
+                        
+                        // Get the binary buffer
+                        const buffer = await this.helpers.getBinaryDataBuffer(i, 'data');
+                        
+                        // Convert to base64 string
+                        const base64String = buffer.toString('base64');
+                        
+                        result = { 
+                            success: true,
+                            resource: 'DataDocument30',
+                            operation: 'convertBinaryToBytestream',
+                            message: 'Successfully converted binary data to bytestream',
+                            fileContent: base64String,
+                            fileName: binaryData.fileName || 'converted_file',
+                            mimeType: binaryData.mimeType || 'application/octet-stream'
+                        };
+                        
+                        out.push({ json: result });
+                        continue;
+                    }
+                }
+
                 const payload = await svc.execute(operation, this, creds, url, baseUrl, timeoutMs, i);
 
                 // Special handling for download operations that return binary data
