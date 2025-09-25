@@ -43,7 +43,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
     description: 'Get a specific custom property value',
     returnType: 'Property',
-    paramOrder: ['PropertyNameEnglish', 'PropertyUsageArea', 'MainID'],
+    paramOrder: ['PropertyUsageArea', 'MainID', 'PropertyNameEnglish'],
     active: true,
   },
   getPropertyValueText: {
@@ -57,6 +57,19 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     description: 'Get the text value for a specific property value ID',
     returnType: 'String',
     paramOrder: ['PropertyNameEnglish', 'PropertyValueID', 'languageCode'],
+    active: true,
+  },
+  setPropertyValueList: {
+    soapAction: 'setPropertyValueList',
+    endpoint: ENDPOINT,
+    uiName: 'Update Property',
+    subtitleName: 'update property: custom fields',
+    titleName: 'Update Property',
+    resource: RESOURCE,
+    resourceDisplayName: RESOURCE_DISPLAY_NAME,
+    description: 'Update property values for a specific property',
+    returnType: 'Void',
+    paramOrder: ['PropertyUsageArea', 'MainID', 'PropertyNameEnglish', 'PropertyIDs'],
     active: true,
   },
   setProperty: {
@@ -284,6 +297,21 @@ const extraProperties: INodeProperties[] = [
       } 
     },
   },
+  // Property IDs for setPropertyValueList operation
+  {
+    displayName: 'Property IDs',
+    name: 'PropertyIDs',
+    type: 'string',
+    default: '',
+    typeOptions: { rows: 2 },
+    description: 'Comma-separated list of property value IDs (e.g., "1,2,3,4" or single value "1")',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['setPropertyValueList'] 
+      } 
+    },
+  },
 ];
 
 function toSoapParamValue(raw: unknown, paramName: string): string {
@@ -341,6 +369,34 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
       }
 
       return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
+    },
+    // Special body XML generation for setPropertyValueList
+    buildCustomBodyXml: (op: string, params: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
+      if (op === 'setPropertyValueList') {
+        // Parse PropertyIDs string into array
+        const propertyIDsStr = String(params.PropertyIDs || '');
+        const propertyIDs = propertyIDsStr
+          .split(',')
+          .map(id => id.trim())
+          .filter(id => id && !isNaN(Number(id)))
+          .map(id => Number(id));
+
+        // Generate PropertyValueList XML
+        const propertyValueListXml = propertyIDs
+          .map(id => `<integerList>${id}</integerList>`)
+          .join('\n');
+
+        return `<api:setPropertyValueList>
+         <UUID>${sessionId}</UUID>
+         <PropertyNameEnglish>${toSoapParamValue(params.PropertyNameEnglish, 'PropertyNameEnglish')}</PropertyNameEnglish>
+         <PropertyUsageArea>${toSoapParamValue(params.PropertyUsageArea, 'PropertyUsageArea')}</PropertyUsageArea>
+         <PropertyValueList>
+            ${propertyValueListXml}
+         </PropertyValueList>
+         <MainID>${toSoapParamValue(params.MainID, 'MainID')}</MainID>
+      </api:setPropertyValueList>`;
+      }
+      return null; // Use default body XML generation
     },
   };
 }
@@ -421,10 +477,24 @@ export const DataCustomFields30Service: Service = {
     for (const paramName of paramNames) itemParams[paramName] = ctx.getNodeParameter(paramName, itemIndex, '');
     const result = await executeOperation(ctx, operation, itemParams, config, itemIndex);
     
-    // Add PropertyNameEnglish to result for getPropertyValueText operation
+    // Add PropertyNameEnglish and PropertyValueID to result for getPropertyValueText operation
     if (operation === 'getPropertyValueText' && itemParams.PropertyNameEnglish) {
       const finalResult = Array.isArray(result) ? result[0] || {} : result;
-      return { ...finalResult, PropertyNameEnglish: itemParams.PropertyNameEnglish };
+      return { 
+        ...finalResult, 
+        PropertyNameEnglish: itemParams.PropertyNameEnglish,
+        PropertyValueID: itemParams.PropertyValueID
+      };
+    }
+    
+    // Add PropertyNameEnglish to result for setPropertyValueList operation
+    if (operation === 'setPropertyValueList' && itemParams.PropertyNameEnglish) {
+      const finalResult = Array.isArray(result) ? result[0] || {} : result;
+      return { 
+        ...finalResult, 
+        PropertyNameEnglish: itemParams.PropertyNameEnglish,
+        PropertyIDs: itemParams.PropertyIDs
+      };
     }
     
     return Array.isArray(result) ? result[0] || {} : result;

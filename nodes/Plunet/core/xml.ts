@@ -388,6 +388,7 @@ export function parsePropertyResult(xml: string): {
     propertyTypeEnglish?: string;
     selectedPropertyValueID?: number; 
     selected_properties?: number[];
+    availableProperties?: number[];
     statusMessage?: string; 
     statusCode?: number 
 } {
@@ -409,6 +410,15 @@ export function parsePropertyResult(xml: string): {
     const selected_properties = selectedPropertyValueListMatches 
         ? selectedPropertyValueListMatches.map(match => {
             const idMatch = match.match(/<selectedPropertyValueList>(.*?)<\/selectedPropertyValueList>/);
+            return idMatch ? parseInt(idMatch[1] || '0', 10) : 0;
+          }).filter(id => !isNaN(id))
+        : undefined;
+    
+    // Extract availablePropertyValueIDList array (note: API has typo "avaliable")
+    const availablePropertyValueIDListMatches = propertyResultScope.match(/<avaliablePropertyValueIDList>(.*?)<\/avaliablePropertyValueIDList>/g);
+    const availableProperties = availablePropertyValueIDListMatches 
+        ? availablePropertyValueIDListMatches.map(match => {
+            const idMatch = match.match(/<avaliablePropertyValueIDList>(.*?)<\/avaliablePropertyValueIDList>/);
             return idMatch ? parseInt(idMatch[1] || '0', 10) : 0;
           }).filter(id => !isNaN(id))
         : undefined;
@@ -438,6 +448,7 @@ export function parsePropertyResult(xml: string): {
         propertyTypeEnglish,
         selectedPropertyValueID, 
         selected_properties,
+        availableProperties,
         statusMessage: base.statusMessage, 
         statusCode: base.statusCode 
     };
