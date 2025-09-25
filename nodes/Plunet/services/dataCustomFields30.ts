@@ -72,19 +72,6 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     paramOrder: ['PropertyUsageArea', 'MainID', 'PropertyNameEnglish', 'PropertyIDs'],
     active: true,
   },
-  setProperty: {
-    soapAction: 'setProperty',
-    endpoint: ENDPOINT,
-    uiName: 'Set Property',
-    subtitleName: 'set property: custom fields',
-    titleName: 'Set Property',
-    resource: RESOURCE,
-    resourceDisplayName: RESOURCE_DISPLAY_NAME,
-    description: 'Set a custom property value',
-    returnType: 'Void',
-    paramOrder: ['PropertyUsageArea', 'MainID', 'PropertyNameEnglish', 'propertyValue'],
-    active: true,
-  },
   getTextModuleList: {
     soapAction: 'getTextModuleList',
     endpoint: ENDPOINT,
@@ -207,21 +194,7 @@ const extraProperties: INodeProperties[] = [
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 
-        operation: ['getProperty', 'setProperty', 'getTextModule', 'setTextModule'] 
-      } 
-    },
-  },
-  // Property Value for set property operation
-  {
-    displayName: 'Property Value',
-    name: 'propertyValue',
-    type: 'string',
-    default: '',
-    description: 'The value to set for the custom property',
-    displayOptions: { 
-      show: { 
-        resource: [RESOURCE], 
-        operation: ['setProperty'] 
+        operation: ['getProperty', 'getTextModule', 'setTextModule'] 
       } 
     },
   },
@@ -305,6 +278,57 @@ const extraProperties: INodeProperties[] = [
     default: '',
     typeOptions: { rows: 2 },
     description: 'Comma-separated list of property value IDs (e.g., "1,2,3,4" or single value "1")',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['setPropertyValueList'] 
+      } 
+    },
+  },
+  // Property Usage Area for setPropertyValueList operation
+  {
+    displayName: 'Property Usage Area',
+    name: 'PropertyUsageArea',
+    type: 'options',
+    typeOptions: {
+      loadOptionsMethod: 'getPropertyUsageAreaOptions',
+    },
+    default: '',
+    description: 'The usage area for the custom property',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['setPropertyValueList'] 
+      } 
+    },
+  },
+  // Main ID for setPropertyValueList operation
+  {
+    displayName: 'Main ID',
+    name: 'MainID',
+    type: 'number',
+    default: 0,
+    typeOptions: { minValue: 0, step: 1 },
+    description: 'The main ID for the selected usage area',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['setPropertyValueList'] 
+      } 
+    },
+  },
+  // Property Name English for setPropertyValueList operation
+  {
+    displayName: 'Property Name English',
+    name: 'PropertyNameEnglish',
+    type: 'options',
+    typeOptions: {
+      loadOptionsMethod: 'getAvailablePropertyNames',
+      loadOptionsDependsOn: ['PropertyUsageArea', 'MainID'],
+    },
+    default: '',
+    required: false,
+    description: 'The English name of the property to update',
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 
