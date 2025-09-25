@@ -149,7 +149,7 @@ const extraProperties: INodeProperties[] = [
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 
-        operation: ['getProperty'] 
+        operation: ['getProperty', 'setPropertyValueList'] 
       } 
     },
   },
@@ -164,7 +164,7 @@ const extraProperties: INodeProperties[] = [
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 
-        operation: ['getPropertyList', 'getProperty', 'setProperty'] 
+        operation: ['getPropertyList', 'getProperty', 'setPropertyValueList'] 
       } 
     },
   },
@@ -194,7 +194,7 @@ const extraProperties: INodeProperties[] = [
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 
-        operation: ['getProperty', 'getTextModule', 'setTextModule'] 
+        operation: ['getProperty', 'getTextModule', 'setTextModule', 'setPropertyValueList'] 
       } 
     },
   },
@@ -270,53 +270,6 @@ const extraProperties: INodeProperties[] = [
       } 
     },
   },
-  // Property IDs for setPropertyValueList operation
-  {
-    displayName: 'Property IDs',
-    name: 'PropertyIDs',
-    type: 'string',
-    default: '',
-    typeOptions: { rows: 2 },
-    description: 'Comma-separated list of property value IDs (e.g., "1,2,3,4" or single value "1")',
-    displayOptions: { 
-      show: { 
-        resource: [RESOURCE], 
-        operation: ['setPropertyValueList'] 
-      } 
-    },
-  },
-  // Property Usage Area for setPropertyValueList operation
-  {
-    displayName: 'Property Usage Area',
-    name: 'PropertyUsageArea',
-    type: 'options',
-    typeOptions: {
-      loadOptionsMethod: 'getPropertyUsageAreaOptions',
-    },
-    default: '',
-    description: 'The usage area for the custom property',
-    displayOptions: { 
-      show: { 
-        resource: [RESOURCE], 
-        operation: ['setPropertyValueList'] 
-      } 
-    },
-  },
-  // Main ID for setPropertyValueList operation
-  {
-    displayName: 'Main ID',
-    name: 'MainID',
-    type: 'number',
-    default: 0,
-    typeOptions: { minValue: 0, step: 1 },
-    description: 'The main ID for the selected usage area',
-    displayOptions: { 
-      show: { 
-        resource: [RESOURCE], 
-        operation: ['setPropertyValueList'] 
-      } 
-    },
-  },
   // Property Name English for setPropertyValueList operation
   {
     displayName: 'Property Name English',
@@ -329,6 +282,21 @@ const extraProperties: INodeProperties[] = [
     default: '',
     required: false,
     description: 'The English name of the property to update',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['setPropertyValueList'] 
+      } 
+    },
+  },
+  // Property IDs for setPropertyValueList operation
+  {
+    displayName: 'Property IDs',
+    name: 'PropertyIDs',
+    type: 'string',
+    default: '',
+    typeOptions: { rows: 2 },
+    description: 'Comma-separated list of property value IDs (e.g., "1,2,3,4" or single value "1")',
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 
