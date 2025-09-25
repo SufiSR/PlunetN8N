@@ -383,9 +383,9 @@ export function parseFileResult(xml: string): {
 }
 
 export function parsePropertyResult(xml: string): { 
-    availablePropertyValueIDList?: number[]; 
     propertyNameEnglish?: string; 
     propertyType?: number; 
+    propertyTypeEnglish?: string;
     selectedPropertyValueID?: number; 
     statusMessage?: string; 
     statusCode?: number 
@@ -403,23 +403,29 @@ export function parsePropertyResult(xml: string): {
     const propertyTypeMatch = propertyResultScope.match(/<propertyType>(.*?)<\/propertyType>/);
     const selectedPropertyValueIDMatch = propertyResultScope.match(/<selectedPropertyValueID>(.*?)<\/selectedPropertyValueID>/);
     
-    // Extract available property value ID list
-    const availablePropertyValueIDMatches = propertyResultScope.match(/<avaliablePropertyValueIDList>(.*?)<\/avaliablePropertyValueIDList>/g);
-    const availablePropertyValueIDList = availablePropertyValueIDMatches 
-        ? availablePropertyValueIDMatches.map(match => {
-            const idMatch = match.match(/<avaliablePropertyValueIDList>(.*?)<\/avaliablePropertyValueIDList>/);
-            return idMatch ? parseInt(idMatch[1] || '0', 10) : 0;
-          }).filter(id => !isNaN(id))
-        : undefined;
-    
     const propertyNameEnglish = propertyNameEnglishMatch ? propertyNameEnglishMatch[1] : undefined;
     const propertyType = propertyTypeMatch ? parseInt(propertyTypeMatch[1] || '0', 10) : undefined;
     const selectedPropertyValueID = selectedPropertyValueIDMatch ? parseInt(selectedPropertyValueIDMatch[1] || '0', 10) : undefined;
 
+    // Convert propertyType to English name
+    let propertyTypeEnglish: string | undefined;
+    if (propertyType !== undefined) {
+        switch (propertyType) {
+            case 1:
+                propertyTypeEnglish = 'Single Select';
+                break;
+            case 2:
+                propertyTypeEnglish = 'Multi Select';
+                break;
+            default:
+                propertyTypeEnglish = `Unknown (${propertyType})`;
+        }
+    }
+
     return { 
-        availablePropertyValueIDList, 
         propertyNameEnglish, 
         propertyType, 
+        propertyTypeEnglish,
         selectedPropertyValueID, 
         statusMessage: base.statusMessage, 
         statusCode: base.statusCode 
