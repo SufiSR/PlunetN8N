@@ -118,6 +118,7 @@ import { DataResource30MiscService } from './services/dataResource30.misc';
 import { DataDocument30Service } from './services/dataDocument30';
 import { DataCustomFields30Service } from './services/dataCustomFields30';
 import { DataAdmin30Service } from './services/dataAdmin30';
+import { getAvailablePropertyNames } from './services/loadOptions';
 // import { DataJob30Service } from './services/dataJob30';
 
 
@@ -141,103 +142,7 @@ export class Plunet implements INodeType {
 
     methods = {
         loadOptions: {
-        async getAvailablePropertyNames(this: ILoadOptionsFunctions) {
-            const usageArea = this.getCurrentNodeParameter('PropertyUsageArea') as number;
-            const mainID = this.getCurrentNodeParameter('MainID') as number;
-                
-                if (!usageArea || !mainID) {
-                    return [
-                        {
-                            name: 'Please set Usage Area and Main ID first',
-                            value: '',
-                            disabled: true
-                        }
-                    ];
-                }
-                
-                try {
-                    // Get credentials
-                    const creds = await this.getCredentials('plunetApi') as Creds;
-                    const scheme = creds.useHttps ? 'https' : 'http';
-                    const baseUrl = `${scheme}://${creds.baseHost.replace(/\/$/, '')}`;
-                    const url = `${baseUrl}/DataAdmin30`;
-                    const timeoutMs = creds.timeout ?? 30000;
-                    
-                    // Create execute config for DataAdmin30
-                    const config = createAdminExecuteConfig(creds, url, baseUrl, timeoutMs);
-                    
-                    // Call getAvailableProperties using a different approach
-                    // We need to make a direct SOAP call since executeOperation expects IExecuteFunctions
-                    const sessionId = await config.getSessionId(this as any, 0);
-                    const soapAction = config.soapActionFor('getAvailableProperties');
-                    
-                    // Build SOAP envelope
-                    const envelope = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
-   <soap:Header/>
-   <soap:Body>
-      <api:getAvailableProperties>
-         <UUID>${sessionId}</UUID>
-         <PropertyUsageArea>${usageArea}</PropertyUsageArea>
-         <MainID>${mainID}</MainID>
-      </api:getAvailableProperties>
-   </soap:Body>
-</soap:Envelope>`;
-                    
-                    // Make SOAP request
-                    const response = await this.helpers.request({
-                        method: 'POST',
-                        url: config.url,
-                        headers: {
-                            'Content-Type': 'application/soap+xml; charset=utf-8',
-                            'SOAPAction': soapAction,
-                        },
-                        body: envelope,
-                    });
-                    
-                    // Parse response
-                    const parsed = config.parseResult(response, 'getAvailableProperties') as IDataObject;
-                    
-                    // Debug: Check what we got
-                    if (parsed.statusCode && parsed.statusCode !== 0) {
-                        return [
-                            {
-                                name: `API Error: ${parsed.statusMessage || 'Unknown error'} (Code: ${parsed.statusCode})`,
-                                value: 0,
-                                disabled: true
-                            }
-                        ];
-                    }
-                    
-                    if (parsed.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
-                        const propertyNames = parsed.data as string[];
-                        // Return only the actual property names without placeholder
-                        return propertyNames.map((name: string) => ({
-                            name: name,
-                            value: name
-                        }));
-                    }
-                    
-                    // If no properties found, show helpful message
-                    return [
-                        {
-                            name: 'No properties found for this Usage Area and Main ID combination',
-                            value: 0,
-                            disabled: true
-                        }
-                    ];
-                } catch (error) {
-                    // Return helpful message on error with more details
-                    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-                    return [
-                        {
-                            name: `Error loading properties: ${errorMessage}`,
-                            value: 0,
-                            disabled: true
-                        }
-                    ];
-                }
-            },
+            getAvailablePropertyNames,
         },
     };
 
@@ -259,7 +164,7 @@ export class Plunet implements INodeType {
                 const url = `${baseUrl}/${svc.endpoint}`;
                 const timeoutMs = creds.timeout ?? 30000;
 
-                // Special handling for conversion operations that don't use SOAP
+                // Special handling for DataDocument30 conversion operations that don't use SOAP
                 if (resource === 'DataDocument30' && (operation === 'convertBytestreamToBinary' || operation === 'convertBinaryToBytestream')) {
                     let result: IDataObject;
                     
