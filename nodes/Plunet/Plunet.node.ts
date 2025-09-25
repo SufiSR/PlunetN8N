@@ -164,125 +164,26 @@ export class Plunet implements INodeType {
                 const url = `${baseUrl}/${svc.endpoint}`;
                 const timeoutMs = creds.timeout ?? 30000;
 
-                // Special handling for DataDocument30 conversion operations that don't use SOAP
-                if (resource === 'DataDocument30' && (operation === 'convertBytestreamToBinary' || operation === 'convertBinaryToBytestream')) {
-                    let result: IDataObject;
-                    
-                    if (operation === 'convertBytestreamToBinary') {
-                        const fileContent = this.getNodeParameter('fileContent', i) as string;
-                        const fileName = this.getNodeParameter('fileName', i) as string;
-                        const mimeType = this.getNodeParameter('mimeType', i) as string;
-                        
-                        try {
-                            // Convert base64 string to Buffer using global Buffer
-                            // @ts-ignore - Buffer is available globally in Node.js
-                            const buffer = Buffer.from(fileContent, 'base64');
-                            
-                            // Use prepareBinaryData with the Buffer
-                            const binaryData = await this.helpers.prepareBinaryData(
-                                buffer,
-                                fileName || 'converted_file',
-                                mimeType || 'application/octet-stream'
-                            );
-
-                            result = { 
-                                success: true,
-                                resource: 'DataDocument30',
-                                operation: 'convertBytestreamToBinary',
-                                message: 'Successfully converted bytestream to binary data',
-                                fileName: fileName,
-                                mimeType: mimeType
-                            };
-                            
-                            out.push({ 
-                                json: result,
-                                binary: { data: binaryData }
-                            });
-                        } catch (conversionError) {
-                            const errorMessage = conversionError instanceof Error ? conversionError.message : String(conversionError);
-                            throw new Error(`Failed to convert bytestream to binary: ${errorMessage}`);
-                        }
-                        continue;
-                        
-                    } else if (operation === 'convertBinaryToBytestream') {
-                        // Get binary data from input
-                        const inputData = this.getInputData()[i];
-                        const binaryData = inputData?.binary?.data;
-                        if (!binaryData) {
-                            throw new Error('No binary data found in input. Please connect a node that provides binary data.');
-                        }
-                        
-                        try {
-                            // Get the binary buffer
-                            const buffer = await this.helpers.getBinaryDataBuffer(i, 'data');
-                            
-                            // Convert to base64 string
-                            const base64String = buffer.toString('base64');
-                            
-                            result = { 
-                                success: true,
-                                resource: 'DataDocument30',
-                                operation: 'convertBinaryToBytestream',
-                                message: 'Successfully converted binary data to bytestream',
-                                fileContent: base64String,
-                                fileName: binaryData.fileName || 'converted_file',
-                                mimeType: binaryData.mimeType || 'application/octet-stream'
-                            };
-                        } catch (bufferError) {
-                            // If getBinaryDataBuffer fails, try to get the data directly from the binary object
-                            if (binaryData.data) {
-                                const base64String = binaryData.data;
-                                result = { 
-                                    success: true,
-                                    resource: 'DataDocument30',
-                                    operation: 'convertBinaryToBytestream',
-                                    message: 'Successfully converted binary data to bytestream (direct method)',
-                                    fileContent: base64String,
-                                    fileName: binaryData.fileName || 'converted_file',
-                                    mimeType: binaryData.mimeType || 'application/octet-stream'
-                                };
-                            } else {
-                                const errorMessage = bufferError instanceof Error ? bufferError.message : String(bufferError);
-                                throw new Error(`Failed to convert binary data: ${errorMessage}`);
-                            }
-                        }
-                        
-                        out.push({ json: result });
-                        continue;
+                // Check if this operation needs special handling (non-SOAP operations)
+                if (svc.needsSpecialHandling && svc.needsSpecialHandling(operation) && svc.handleSpecialOperation) {
+                    const result = await svc.handleSpecialOperation(operation, this, i);
+                    if (result.binary) {
+                        out.push({ json: result.json, binary: result.binary });
+                    } else {
+                        out.push({ json: result.json });
                     }
+                    continue;
                 }
 
                 const payload = await svc.execute(operation, this, creds, url, baseUrl, timeoutMs, i);
 
-                // Special handling for download operations that return binary data
-                if (resource === 'DataDocument30' && operation === 'downloadDocument' && payload.fileContent) {
-                    try {
-                        // Convert base64 string to Uint8Array
-                        const fileBuffer = base64ToUint8Array(String(payload.fileContent));
-                        
-                        // Prepare binary data for n8n
-                        const binaryData = await this.helpers.prepareBinaryData(
-                            fileBuffer, 
-                            String(payload.filename || 'downloaded_file'),
-                            'application/octet-stream'
-                        );
-
-                        // Return both JSON metadata and binary data
-                        out.push({ 
-                            json: { 
-                                success: payload.success,
-                                resource: payload.resource,
-                                operation: payload.operation,
-                                fileSize: payload.fileSize,
-                                filename: payload.filename,
-                                statusMessage: payload.statusMessage,
-                                statusCode: payload.statusCode
-                            } as IDataObject,
-                            binary: { data: binaryData }
-                        });
-                    } catch (binaryError) {
-                        // If binary conversion fails, return the raw data
-                        out.push({ json: payload as IDataObject });
+                // Check if the result needs special post-processing (e.g., binary data handling)
+                if (svc.needsPostProcessing && svc.needsPostProcessing(operation, payload) && svc.postProcessResult) {
+                    const processedResult = await svc.postProcessResult(operation, payload, this, i);
+                    if (processedResult.binary) {
+                        out.push({ json: processedResult.json, binary: processedResult.binary });
+                    } else {
+                        out.push({ json: processedResult.json });
                     }
                 } else {
                     // Services already include success/resource/operation; forward as-is.

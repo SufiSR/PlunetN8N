@@ -3,6 +3,7 @@ import {
     IExecuteFunctions,
     INodeProperties,
     INodePropertyOptions,
+    IBinaryData,
 } from 'n8n-workflow';
 
 export type NonEmptyArray<T> = [T, ...T[]];
@@ -73,4 +74,10 @@ export type Service = {
         timeoutMs: number,
         itemIndex: number,
     ): Promise<IDataObject>;
+
+    // Optional special handling methods
+    needsSpecialHandling?: (operation: string) => boolean;
+    handleSpecialOperation?: (operation: string, ctx: IExecuteFunctions, itemIndex: number) => Promise<{ json: IDataObject; binary?: { data: IBinaryData } }>;
+    needsPostProcessing?: (operation: string, payload: IDataObject) => boolean;
+    postProcessResult?: (operation: string, payload: IDataObject, ctx: IExecuteFunctions, itemIndex: number) => Promise<{ json: IDataObject; binary?: { data: IBinaryData } }>;
 };

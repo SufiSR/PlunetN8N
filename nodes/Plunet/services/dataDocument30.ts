@@ -14,6 +14,13 @@ import { extractStatusMessage, parseStringArrayResult, parseFileResult } from '.
 import { FolderTypeOptions, getMainIdFieldName } from '../enums/folder-types';
 import { generateOperationOptionsFromRegistry } from '../core/service-utils';
 
+// Helper function for base64 to Uint8Array conversion
+function base64ToUint8Array(base64: string): Uint8Array {
+  // @ts-ignore - Buffer is available globally in Node.js
+  const buffer = Buffer.from(base64, 'base64');
+  return new Uint8Array(buffer);
+}
+
 const RESOURCE = 'DataDocument30';
 const ENDPOINT = 'DataDocument30';
 const RESOURCE_DISPLAY_NAME = 'Files';
@@ -363,5 +370,135 @@ export const DataDocument30Service: Service = {
     for (const paramName of paramNames) itemParams[paramName] = ctx.getNodeParameter(paramName, itemIndex, '');
     const result = await executeOperation(ctx, operation, itemParams, config, itemIndex);
     return Array.isArray(result) ? result[0] || {} : result;
+  },
+  
+  // Check if operation needs special handling (non-SOAP operations)
+  needsSpecialHandling(operation: string): boolean {
+    return operation === 'convertBytestreamToBinary' || operation === 'convertBinaryToBytestream';
+  },
+  
+  // Handle special operations that don't use SOAP
+  async handleSpecialOperation(operation: string, ctx: IExecuteFunctions, itemIndex: number) {
+    if (operation === 'convertBytestreamToBinary') {
+      const fileContent = ctx.getNodeParameter('fileContent', itemIndex) as string;
+      const fileName = ctx.getNodeParameter('fileName', itemIndex) as string;
+      const mimeType = ctx.getNodeParameter('mimeType', itemIndex) as string;
+      
+      try {
+        // Convert base64 string to Buffer using global Buffer
+        // @ts-ignore - Buffer is available globally in Node.js
+        const buffer = Buffer.from(fileContent, 'base64');
+        
+        // Use prepareBinaryData with the Buffer
+        const binaryData = await ctx.helpers.prepareBinaryData(
+          buffer,
+          fileName || 'converted_file',
+          mimeType || 'application/octet-stream'
+        );
+
+        return {
+          json: { 
+            success: true,
+            resource: RESOURCE,
+            operation: 'convertBytestreamToBinary',
+            message: 'Successfully converted bytestream to binary data',
+            fileName: fileName,
+            mimeType: mimeType
+          },
+          binary: { data: binaryData }
+        };
+      } catch (conversionError) {
+        const errorMessage = conversionError instanceof Error ? conversionError.message : String(conversionError);
+        throw new Error(`Failed to convert bytestream to binary: ${errorMessage}`);
+      }
+    } else if (operation === 'convertBinaryToBytestream') {
+      // Get binary data from input
+      const inputData = ctx.getInputData()[itemIndex];
+      const binaryData = inputData?.binary?.data;
+      if (!binaryData) {
+        throw new Error('No binary data found in input. Please connect a node that provides binary data.');
+      }
+      
+      try {
+        // Get the binary buffer
+        const buffer = await ctx.helpers.getBinaryDataBuffer(itemIndex, 'data');
+        
+        // Convert to base64 string
+        const base64String = buffer.toString('base64');
+        
+        return {
+          json: { 
+            success: true,
+            resource: RESOURCE,
+            operation: 'convertBinaryToBytestream',
+            message: 'Successfully converted binary data to bytestream',
+            fileContent: base64String,
+            fileName: binaryData.fileName || 'converted_file',
+            mimeType: binaryData.mimeType || 'application/octet-stream'
+          }
+        };
+      } catch (bufferError) {
+        // If getBinaryDataBuffer fails, try to get the data directly from the binary object
+        if (binaryData.data) {
+          const base64String = binaryData.data;
+          return {
+            json: { 
+              success: true,
+              resource: RESOURCE,
+              operation: 'convertBinaryToBytestream',
+              message: 'Successfully converted binary data to bytestream (direct method)',
+              fileContent: base64String,
+              fileName: binaryData.fileName || 'converted_file',
+              mimeType: binaryData.mimeType || 'application/octet-stream'
+            }
+          };
+        } else {
+          const errorMessage = bufferError instanceof Error ? bufferError.message : String(bufferError);
+          throw new Error(`Failed to convert binary data: ${errorMessage}`);
+        }
+      }
+    }
+    
+    throw new Error(`Unsupported special operation: ${operation}`);
+  },
+  
+  // Check if result needs post-processing (e.g., binary data handling)
+  needsPostProcessing(operation: string, payload: IDataObject): boolean {
+    return operation === 'downloadDocument' && Boolean(payload.fileContent);
+  },
+  
+  // Post-process results (e.g., convert file content to binary data)
+  async postProcessResult(operation: string, payload: IDataObject, ctx: IExecuteFunctions, itemIndex: number) {
+    if (operation === 'downloadDocument' && payload.fileContent) {
+      try {
+        // Convert base64 string to Uint8Array
+        const fileBuffer = base64ToUint8Array(String(payload.fileContent));
+        
+        // Prepare binary data for n8n
+        const binaryData = await ctx.helpers.prepareBinaryData(
+          fileBuffer, 
+          String(payload.filename || 'downloaded_file'),
+          'application/octet-stream'
+        );
+
+        return {
+          json: { 
+            success: payload.success,
+            resource: payload.resource,
+            operation: payload.operation,
+            fileSize: payload.fileSize,
+            filename: payload.filename,
+            statusMessage: payload.statusMessage,
+            statusCode: payload.statusCode
+          },
+          binary: { data: binaryData }
+        };
+      } catch (binaryError) {
+        // If binary conversion fails, return the raw data
+        return { json: payload };
+      }
+    }
+    
+    return { json: payload };
   },
 };
