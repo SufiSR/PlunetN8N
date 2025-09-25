@@ -134,25 +134,6 @@ const operationOptions: NonEmptyArray<INodePropertyOptions> =
   generateOperationOptionsFromRegistry(OPERATION_REGISTRY);
 
 const extraProperties: INodeProperties[] = [
-  // Property Name for getProperty operation
-  {
-    displayName: 'Property Name',
-    name: 'PropertyNameEnglish',
-    type: 'options',
-    typeOptions: {
-      loadOptionsMethod: 'getAvailablePropertyNames',
-      loadOptionsDependsOn: ['PropertyUsageArea', 'MainID'],
-    },
-    default: '',
-    required: false,
-    description: 'Select from available custom properties for the selected usage area and main ID. Make sure to set Usage Area and Main ID first.',
-    displayOptions: { 
-      show: { 
-        resource: [RESOURCE], 
-        operation: ['getProperty', 'setPropertyValueList'] 
-      } 
-    },
-  },
   // Property Usage Area for property operations
   {
     displayName: 'Property Usage Area',
@@ -195,6 +176,25 @@ const extraProperties: INodeProperties[] = [
       show: { 
         resource: [RESOURCE], 
         operation: ['getProperty', 'getTextModule', 'setTextModule', 'setPropertyValueList'] 
+      } 
+    },
+  },
+  // Property Name for getProperty and setPropertyValueList operations
+  {
+    displayName: 'Property Name',
+    name: 'PropertyNameEnglish',
+    type: 'options',
+    typeOptions: {
+      loadOptionsMethod: 'getAvailablePropertyNames',
+      loadOptionsDependsOn: ['PropertyUsageArea', 'MainID'],
+    },
+    default: '',
+    required: false,
+    description: 'Select from available custom properties for the selected usage area and main ID. Make sure to set Usage Area and Main ID first.',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['getProperty', 'setPropertyValueList'] 
       } 
     },
   },
