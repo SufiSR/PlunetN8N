@@ -270,25 +270,6 @@ const extraProperties: INodeProperties[] = [
       } 
     },
   },
-  // Property Name English for setPropertyValueList operation
-  {
-    displayName: 'Property Name English',
-    name: 'PropertyNameEnglish',
-    type: 'options',
-    typeOptions: {
-      loadOptionsMethod: 'getAvailablePropertyNames',
-      loadOptionsDependsOn: ['PropertyUsageArea', 'MainID'],
-    },
-    default: '',
-    required: false,
-    description: 'The English name of the property to update',
-    displayOptions: { 
-      show: { 
-        resource: [RESOURCE], 
-        operation: ['setPropertyValueList'] 
-      } 
-    },
-  },
   // Property IDs for setPropertyValueList operation
   {
     displayName: 'Property IDs',
@@ -378,15 +359,13 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
           .map(id => `<integerList>${id}</integerList>`)
           .join('\n');
 
-        return `<api:setPropertyValueList>
-         <UUID>${sessionId}</UUID>
+        return `<UUID>${sessionId}</UUID>
          <PropertyNameEnglish>${toSoapParamValue(params.PropertyNameEnglish, 'PropertyNameEnglish')}</PropertyNameEnglish>
          <PropertyUsageArea>${toSoapParamValue(params.PropertyUsageArea, 'PropertyUsageArea')}</PropertyUsageArea>
          <PropertyValueList>
             ${propertyValueListXml}
          </PropertyValueList>
-         <MainID>${toSoapParamValue(params.MainID, 'MainID')}</MainID>
-      </api:setPropertyValueList>`;
+         <MainID>${toSoapParamValue(params.MainID, 'MainID')}</MainID>`;
       }
       return null; // Use default body XML generation
     },
