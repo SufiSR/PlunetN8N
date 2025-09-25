@@ -46,6 +46,19 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     paramOrder: ['PropertyNameEnglish', 'PropertyUsageArea', 'MainID'],
     active: true,
   },
+  getPropertyValueText: {
+    soapAction: 'getPropertyValueText',
+    endpoint: ENDPOINT,
+    uiName: 'Get Property Value Text',
+    subtitleName: 'get property value text: custom fields',
+    titleName: 'Get Property Value Text',
+    resource: RESOURCE,
+    resourceDisplayName: RESOURCE_DISPLAY_NAME,
+    description: 'Get the text value for a specific property value ID',
+    returnType: 'String',
+    paramOrder: ['PropertyNameEnglish', 'PropertyValueID', 'languageCode'],
+    active: true,
+  },
   setProperty: {
     soapAction: 'setProperty',
     endpoint: ENDPOINT,
@@ -228,6 +241,49 @@ const extraProperties: INodeProperties[] = [
       } 
     },
   },
+  // Property Name English for getPropertyValueText operation
+  {
+    displayName: 'Property Name English',
+    name: 'PropertyNameEnglish',
+    type: 'string',
+    default: '',
+    description: 'The English name of the property',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['getPropertyValueText'] 
+      } 
+    },
+  },
+  // Property Value ID for getPropertyValueText operation
+  {
+    displayName: 'Property Value ID',
+    name: 'PropertyValueID',
+    type: 'number',
+    default: 0,
+    typeOptions: { minValue: 0, step: 1 },
+    description: 'The ID of the property value to get text for',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['getPropertyValueText'] 
+      } 
+    },
+  },
+  // Language Code for getPropertyValueText operation
+  {
+    displayName: 'Language Code',
+    name: 'languageCode',
+    type: 'string',
+    default: 'EN',
+    description: 'The language code for the property value text (e.g., EN, DE, FR)',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['getPropertyValueText'] 
+      } 
+    },
+  },
 ];
 
 function toSoapParamValue(raw: unknown, paramName: string): string {
@@ -259,7 +315,16 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
           break;
         }
         case 'String': {
-          payload = parseStringResult(xml);
+          if (op === 'getPropertyValueText') {
+            // Special handling for getPropertyValueText to rename 'data' to 'PropertyValue'
+            payload = parseStringResult(xml);
+            if (payload.data) {
+              payload.PropertyValue = payload.data;
+              delete payload.data;
+            }
+          } else {
+            payload = parseStringResult(xml);
+          }
           break;
         }
         case 'Void': {
@@ -355,6 +420,13 @@ export const DataCustomFields30Service: Service = {
     const itemParams: IDataObject = {};
     for (const paramName of paramNames) itemParams[paramName] = ctx.getNodeParameter(paramName, itemIndex, '');
     const result = await executeOperation(ctx, operation, itemParams, config, itemIndex);
+    
+    // Add PropertyNameEnglish to result for getPropertyValueText operation
+    if (operation === 'getPropertyValueText' && itemParams.PropertyNameEnglish) {
+      const finalResult = Array.isArray(result) ? result[0] || {} : result;
+      return { ...finalResult, PropertyNameEnglish: itemParams.PropertyNameEnglish };
+    }
+    
     return Array.isArray(result) ? result[0] || {} : result;
   },
 };
