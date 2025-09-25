@@ -387,6 +387,7 @@ export function parsePropertyResult(xml: string): {
     propertyType?: number; 
     propertyTypeEnglish?: string;
     selectedPropertyValueID?: number; 
+    selected_properties?: number[];
     statusMessage?: string; 
     statusCode?: number 
 } {
@@ -402,6 +403,15 @@ export function parsePropertyResult(xml: string): {
     const propertyNameEnglishMatch = propertyResultScope.match(/<propertyNameEnglish>(.*?)<\/propertyNameEnglish>/);
     const propertyTypeMatch = propertyResultScope.match(/<propertyType>(.*?)<\/propertyType>/);
     const selectedPropertyValueIDMatch = propertyResultScope.match(/<selectedPropertyValueID>(.*?)<\/selectedPropertyValueID>/);
+    
+    // Extract selectedPropertyValueList array
+    const selectedPropertyValueListMatches = propertyResultScope.match(/<selectedPropertyValueList>(.*?)<\/selectedPropertyValueList>/g);
+    const selected_properties = selectedPropertyValueListMatches 
+        ? selectedPropertyValueListMatches.map(match => {
+            const idMatch = match.match(/<selectedPropertyValueList>(.*?)<\/selectedPropertyValueList>/);
+            return idMatch ? parseInt(idMatch[1] || '0', 10) : 0;
+          }).filter(id => !isNaN(id))
+        : undefined;
     
     const propertyNameEnglish = propertyNameEnglishMatch ? propertyNameEnglishMatch[1] : undefined;
     const propertyType = propertyTypeMatch ? parseInt(propertyTypeMatch[1] || '0', 10) : undefined;
@@ -427,6 +437,7 @@ export function parsePropertyResult(xml: string): {
         propertyType, 
         propertyTypeEnglish,
         selectedPropertyValueID, 
+        selected_properties,
         statusMessage: base.statusMessage, 
         statusCode: base.statusCode 
     };
