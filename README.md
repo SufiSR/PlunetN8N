@@ -398,11 +398,10 @@ The node provides human-readable dropdowns for all enum fields:
 3. **DataResource30 → Get Pricelists** (get pricelists for resource)
 4. **DataResource30 → Set Working Status** (update resource status)
 
-### 3. Job Creation with Workflow
-1. **DataAdmin30 → Get Available Workflows** (get workflow list)
-2. **DataJob30 → Create Job** (create job with workflow)
-3. **DataJob30 → Set Status** (update job status)
-4. **DataDocument30 → Upload Document** (attach files to job)
+### 3. Job Creation
+1. **DataJob30 → Create Job** (create job with workflow)
+2. **DataJob30 → Set Status** (update job status)
+3. **DataDocument30 → Upload Document** (attach files to job)
 
 ### 4. Text Module Management
 1. **DataAdmin30 → Get Available Text Modules** (get text module list)
