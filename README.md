@@ -46,8 +46,8 @@ npm run build
 The build does:
 
 * `tsc`
-* copies `src/**/*.{png,ico,svg}` to `dist/…`
-* verifies the icon exists at `dist/nodes/Plunet/plunet.svg`
+* copies `nodes/**/*.{png,ico,svg}` to `dist/…`
+* verifies the icon exists at `dist/nodes/Plunet/plunet.png`
 
 If you see lockfile mismatches on CI, run a local `npm install` to refresh `package-lock.json`.
 
@@ -56,55 +56,73 @@ If you see lockfile mismatches on CI, run a local `npm install` to refresh `pack
 ## Where things live
 
 ```
-src/
-  credentials/
-    PlunetApi.credentials.ts
-  nodes/Plunet/
-    Plunet.node.ts             # Node entry (wires resources/services)
-    description.ts             # UI: resources, operations, properties
-    plunet.svg                 # node icon (copied to dist)
+credentials/
+  PlunetApi.credentials.ts    # Plunet API credentials definition
 
-    enums/
-      customer-status.ts       # CustomerStatus (consolidated)
-      working-status.ts        # WorkingStatus (consolidated)
-      tax-type.ts              # TaxType (used in payment info)
-      resource-status.ts       # ResourceStatus
-      resource-type.ts         # ResourceType
-      form-of-address.ts       # FormOfAddress
-      currency-type.ts         # CurrencyType
-      cat-type.ts              # CatType
-      job-status.ts            # JobStatus
-      project-type.ts          # ProjectType
+nodes/Plunet/
+  Plunet.node.ts              # Node entry (wires resources/services)
+  description.ts               # UI: resources, operations, properties
+  plunet.png                  # node icon (copied to dist)
 
-    core/
-      utils.ts                 # Shared utilities (labelize, asNonEmpty, toSoapParamValue)
-      soap.ts                  # SOAP helpers + 1.1/1.2 fallback + enhanced functions
-      errors.ts                # Error handling (SoapRequestError, throwForSoapFaultOrStatus)
-      executor.ts              # Generic executor for all services
-      constants.ts             # Shared constants (NUMERIC_BOOLEAN_PARAMS)
-      xml.ts                   # XML + SOAP Fault + result parsers
-      session.ts               # login cache (global workflow static data)
-      types.ts                 # shared types (Creds, Service, etc.)
-      service-utils.ts         # Common service utilities and patterns
-      parsers.ts               # Main parser exports (re-exports from parsers/)
-      parsers/                 # Organized parser modules
-        common.ts              # Shared XML utilities and base functions
-        customer.ts            # Customer-related parsers and DTOs
-        resource.ts            # Resource-related parsers and DTOs
-        job.ts                 # Job-related parsers and mappers
-        pricelist.ts           # Pricelist-related parsers and DTOs
-        account.ts             # Account and payment info parsers
-        workflow.ts            # Workflow-related parsers
-        index.ts               # Parser module exports
+  enums/
+    cat-type.ts                # CatType enum definitions
+    currency-type.ts           # CurrencyType enum definitions
+    customer-status.ts         # CustomerStatus enum definitions
+    folder-types.ts            # FolderTypes enum definitions
+    form-of-address.ts         # FormOfAddress enum definitions
+    index.ts                   # Enum exports
+    job-status.ts              # JobStatus enum definitions
+    project-type.ts            # ProjectType enum definitions
+    property-type.ts           # PropertyType enum definitions
+    property-usage-area.ts     # PropertyUsageArea enum definitions
+    resource-status.ts         # ResourceStatus enum definitions
+    resource-type.ts           # ResourceType enum definitions
+    tax-type.ts                # TaxType enum definitions
+    text-module-type.ts        # TextModuleType enum definitions
+    text-module-usage-area.ts  # TextModuleUsageArea enum definitions
+    types.ts                   # Enum type definitions
+    workflow-status.ts         # WorkflowStatus enum definitions
+    workflow-type.ts           # WorkflowType enum definitions
+    working-status.ts          # WorkingStatus enum definitions
 
-    services/
-      plunetApi.ts             # login / validate / logout
-      plunetApi.session.ts     # centralized session handling
-      dataCustomer30.core.ts   # core customer operations
-      dataCustomer30.misc.ts   # misc customer operations
-      dataResource30.core.ts   # core resource operations
-      dataResource30.misc.ts   # misc resource operations 
-      dataJob30.ts             # job operations 
+  core/
+    constants.ts               # Shared constants (NUMERIC_BOOLEAN_PARAMS)
+    errors.ts                  # Error handling (SoapRequestError, throwForSoapFaultOrStatus)
+    executor.ts                # Generic executor for all services
+    field-definitions.ts       # Centralized field definitions and type mappings
+    index.ts                   # Core module exports
+    parsers.ts                 # Main parser exports (re-exports from parsers/)
+    service-utils.ts           # Common service utilities and patterns
+    session.ts                 # Session management and UUID caching
+    soap.ts                    # SOAP request/response handling
+    types.ts                   # Shared types (Creds, Service, etc.)
+    utils.ts                   # Shared utilities (labelize, asNonEmpty, toSoapParamValue)
+    xml.ts                     # XML parsing and result extraction
+    parsers/                   # Organized parser modules
+      account.ts               # Account and payment info parsers
+      common.ts                # Shared XML utilities and base functions
+      customer.ts              # Customer-related parsers and DTOs
+      index.ts                 # Parser module exports
+      job.ts                   # Job-related parsers and mappers
+      pricelist.ts             # Pricelist-related parsers and DTOs
+      resource.ts              # Resource-related parsers and DTOs
+      workflow.ts              # Workflow-related parsers
+
+  services/
+    dataAdmin30.ts             # Administrative functions (countries, languages, workflows, etc.)
+    dataCustomer30.core.ts     # Core customer operations
+    dataCustomer30.misc.ts     # Miscellaneous customer operations
+    dataCustomFields30.ts      # Custom fields management (properties, text modules)
+    dataDocument30.ts          # Document management operations
+    dataJob30.core.ts          # Core job operations
+    dataJob30.misc.ts          # Miscellaneous job operations
+    dataJob30.prices.ts        # Job pricing operations
+    dataJob30.ts               # Main job operations
+    dataResource30.core.ts     # Core resource operations
+    dataResource30.misc.ts     # Miscellaneous resource operations
+    loadOptions.ts             # Dynamic dropdown population functions
+    plunetApi.session.ts       # Centralized session handling
+    plunetApi.ts               # Authentication operations (login/validate/logout)
 ```
 
 Publishable files end up in `dist/…`. `package.json` includes:
@@ -218,6 +236,12 @@ This node integrates with multiple Plunet API services for comprehensive functio
 * **Get Document Info** (`getDocumentInfo`) - Retrieve document metadata
 * **Delete Document** (`deleteDocument`) - Remove documents
 * **List Documents** (`getDocumentList`) - List all documents for entity
+
+**Document Management Features:**
+* **File Upload/Download** - Direct file operations with Plunet
+* **Document Metadata** - Retrieve document information and properties
+* **Document Organization** - List and manage documents by entity
+* **File Type Support** - Various document formats supported
 
 ### ⚙️ DataAdmin30 (Administrative Functions)
 **Reference**: [DataAdmin30 Documentation](https://apidoc.plunet.com/latest/BM/Admin/API/SOAP/Webservice/Version30/DataAdmin30.html)
@@ -422,34 +446,6 @@ The node provides comprehensive error handling:
 
 ---
 
-## Architecture
-
-### Core Modules
-* **`core/session.ts`**: Session management and UUID caching
-* **`core/soap.ts`**: SOAP request/response handling
-* **`core/executor.ts`**: Generic operation execution
-* **`core/xml.ts`**: XML parsing and result extraction
-* **`core/errors.ts`**: Error handling and validation
-* **`core/service-utils.ts`**: Common service utilities
-
-### Service Modules
-* **`services/plunetApi.ts`**: Authentication operations
-* **`services/dataCustomer30.ts`**: Customer management
-* **`services/dataResource30.ts`**: Resource management
-* **`services/dataJob30.ts`**: Job operations
-* **`services/dataDocument30.ts`**: Document handling
-* **`services/dataAdmin30.ts`**: Administrative functions
-* **`services/dataCustomFields30.ts`**: Custom fields
-* **`services/loadOptions.ts`**: Dynamic dropdown population
-
-### Enum Modules
-* **`enums/`**: All enum definitions with dropdown options
-* **`enums/workflow-type.ts`**: Workflow type definitions
-* **`enums/workflow-status.ts`**: Workflow status definitions
-* **`enums/text-module-type.ts`**: Text module type definitions
-* **`enums/text-module-usage-area.ts`**: Text module usage areas
-
----
 
 ## Troubleshooting
 
@@ -531,6 +527,13 @@ If you encounter any issues or need additional functionality, please open an iss
 ---
 
 ## Recent Updates
+
+### v3.8.0 - Comprehensive Documentation Update
+- Complete rewrite of README.md with accurate file structure
+- Fixed file paths and directory structure documentation
+- Added all missing service files and enum definitions
+- Corrected build instructions and file references
+- Enhanced architecture documentation with complete module listing
 
 ### v3.7.33 - Workflow Response Enrichment
 - Added WorkflowType and WorkflowStatus enums
