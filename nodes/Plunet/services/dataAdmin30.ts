@@ -45,6 +45,19 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     paramOrder: ['textModuleUsageArea', 'MainID', 'languageCode'],
     active: true,
   },
+  getAvailableCountries: {
+    soapAction: 'getAvailableCountries',
+    endpoint: ENDPOINT,
+    uiName: 'Get Available Countries',
+    subtitleName: 'get available countries: admin',
+    titleName: 'Get Available Countries',
+    resource: RESOURCE,
+    resourceDisplayName: RESOURCE_DISPLAY_NAME,
+    description: 'Get available countries list',
+    returnType: 'StringArray',
+    paramOrder: ['languageCode'],
+    active: true,
+  },
 };
 
 /** ─ Legacy compatibility mappings ─ */
@@ -113,17 +126,17 @@ const extraProperties: INodeProperties[] = [
       } 
     },
   },
-  // Language Code for text modules
+  // Language Code for text modules and countries
   {
     displayName: 'Language Code',
     name: 'languageCode',
     type: 'string',
     default: 'EN',
-    description: 'The language code for text modules (e.g., EN, DE, FR)',
+    description: 'The language code for text modules and countries (e.g., EN, DE, FR)',
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 
-        operation: ['getAvailableTextModules'] 
+        operation: ['getAvailableTextModules', 'getAvailableCountries'] 
       } 
     },
   },
@@ -158,6 +171,8 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             payload = parsePropertyNamesArray(xml);
           } else if (op === 'getAvailableTextModules') {
             payload = parseTextModuleFlagsArray(xml);
+          } else if (op === 'getAvailableCountries') {
+            payload = parseCountriesArray(xml);
           } else {
             payload = parseStringArrayResult(xml);
           }
@@ -259,6 +274,45 @@ function extractResultBase(xml: string): { statusMessage?: string; statusCode?: 
   return {
     statusCode: statusCodeMatch ? parseInt(statusCodeMatch[1] || '0', 10) : undefined,
     statusMessage: statusMessageMatch ? statusMessageMatch[1] : undefined
+  };
+}
+
+// Parse CountryListResult to extract countries as structured data
+function parseCountriesArray(xml: string): IDataObject {
+  const base = extractResultBase(xml);
+  
+  // Look for CountryListResult scope
+  const countryListResultScope = findFirstTagBlock(xml, 'CountryListResult');
+  if (!countryListResultScope) {
+    return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+  }
+  
+  // Extract all data blocks
+  const dataMatches = countryListResultScope.match(/<data>[\s\S]*?<\/data>/g);
+  if (!dataMatches) {
+    return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+  }
+  
+  const countries: Array<{ID: number, isoCode: string, name: string}> = [];
+  
+  dataMatches.forEach(dataBlock => {
+    const idMatch = dataBlock.match(/<ID>(.*?)<\/ID>/);
+    const isoCodeMatch = dataBlock.match(/<isoCode>(.*?)<\/isoCode>/);
+    const nameMatch = dataBlock.match(/<name>(.*?)<\/name>/);
+    
+    if (idMatch && idMatch[1] && nameMatch && nameMatch[1]) {
+      countries.push({
+        ID: parseInt(idMatch[1], 10),
+        isoCode: isoCodeMatch && isoCodeMatch[1] ? isoCodeMatch[1] : '',
+        name: nameMatch[1]
+      });
+    }
+  });
+  
+  return {
+    statusMessage: base.statusMessage,
+    statusCode: base.statusCode,
+    countries: countries
   };
 }
 

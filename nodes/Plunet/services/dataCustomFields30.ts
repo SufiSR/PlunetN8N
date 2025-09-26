@@ -17,7 +17,7 @@ import { generateOperationOptionsFromRegistry } from '../core/service-utils';
 
 const RESOURCE = 'DataCustomFields30';
 const ENDPOINT = 'DataCustomFields30';
-const RESOURCE_DISPLAY_NAME = 'Custom Fields (Beta)';
+const RESOURCE_DISPLAY_NAME = 'Custom Fields';
 
 /** ─ Centralized Operation Registry ─ */
 const OPERATION_REGISTRY: ServiceOperationRegistry = {
@@ -32,7 +32,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     description: 'Retrieve custom properties for a specific usage area',
     returnType: 'StringArray',
     paramOrder: ['usageArea'],
-    active: true,
+    active: false,
   },
   getProperty: {
     soapAction: 'getProperty',
@@ -89,7 +89,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
   setTextModule: {
     soapAction: 'setTextModule',
     endpoint: ENDPOINT,
-    uiName: 'Set Text Module',
+    uiName: 'Update Text Module',
     subtitleName: 'set text module: custom fields',
     titleName: 'Set Text Module',
     resource: RESOURCE,
