@@ -553,16 +553,27 @@ export const DataCustomFields30Service: Service = {
     }
     
     // Add textModuleLabel to result for getTextModule operation
-    if (operation === 'getTextModule' && itemParams.Flag) {
+    if (operation === 'getTextModule') {
       const finalResult = Array.isArray(result) ? result[0] || {} : result;
+      
       // Extract label from the Flag parameter which is in format "[flag] - label"
-      const flagValue = itemParams.Flag as string;
-      const labelMatch = flagValue.match(/\[.*?\]\s*-\s*(.+)/);
-      const textModuleLabel = labelMatch ? labelMatch[1] : undefined;
+      let textModuleLabel: string | undefined;
+      if (itemParams.Flag) {
+        const flagValue = itemParams.Flag as string;
+        // Try multiple regex patterns to match different formats
+        const labelMatch = flagValue.match(/\[.*?\]\s*-\s*(.+)/) || 
+                          flagValue.match(/\[(.*?)\]\s*-\s*(.+)/) ||
+                          flagValue.match(/^(.+?)\s*-\s*(.+)$/);
+        
+        if (labelMatch) {
+          // Use the last capture group which should be the label
+          textModuleLabel = labelMatch[labelMatch.length - 1];
+        }
+      }
       
       return { 
         ...finalResult, 
-        textModuleLabel: textModuleLabel
+        textModuleLabel: textModuleLabel || 'Unknown Label'
       };
     }
     
