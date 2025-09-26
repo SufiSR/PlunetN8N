@@ -12,6 +12,7 @@ import { NUMERIC_BOOLEAN_PARAMS } from '../core/constants';
 import { extractStatusMessage, parseStringArrayResult, parseStringResult, parseVoidResult, parsePropertyResult } from '../core/xml';
 import { PropertyUsageAreaOptions } from '../enums/property-usage-area';
 import { TextModuleUsageAreaOptions } from '../enums/text-module-usage-area';
+import { getTextModuleTypeName } from '../enums/text-module-type';
 import { generateOperationOptionsFromRegistry } from '../core/service-utils';
 
 const RESOURCE = 'DataCustomFields30';
@@ -362,6 +363,9 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
               payload.PropertyValue = payload.data;
               delete payload.data;
             }
+          } else if (op === 'getTextModule') {
+            // Special handling for getTextModule to parse TextmoduleResult
+            payload = parseTextModuleResult(xml);
           } else {
             payload = parseStringResult(xml);
           }
@@ -468,6 +472,47 @@ function extractResultBase(xml: string): { statusMessage?: string; statusCode?: 
   return {
     statusCode: statusCodeMatch ? parseInt(statusCodeMatch[1] || '0', 10) : undefined,
     statusMessage: statusMessageMatch ? statusMessageMatch[1] : undefined
+  };
+}
+
+// Parse TextmoduleResult to extract text module data with enrichment
+function parseTextModuleResult(xml: string): IDataObject {
+  const base = extractResultBase(xml);
+  
+  // Look for TextmoduleResult scope
+  const textmoduleResultScope = findFirstTagBlock(xml, 'TextmoduleResult');
+  if (!textmoduleResultScope) {
+    return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+  }
+  
+  // Extract data block
+  const dataMatch = textmoduleResultScope.match(/<data>[\s\S]*?<\/data>/);
+  if (!dataMatch) {
+    return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+  }
+  
+  const dataBlock = dataMatch[0];
+  
+  // Extract individual fields
+  const availableValuesMatch = dataBlock.match(/<availableValues>(.*?)<\/availableValues>/);
+  const flagMatch = dataBlock.match(/<flag>(.*?)<\/flag>/);
+  const flagMainTextModuleMatch = dataBlock.match(/<flag_MainTextModule>(.*?)<\/flag_MainTextModule>/);
+  const selectedValuesMatch = dataBlock.match(/<selectedValues>(.*?)<\/selectedValues>/);
+  const stringValueMatch = dataBlock.match(/<stringValue>(.*?)<\/stringValue>/);
+  const textModuleTypeMatch = dataBlock.match(/<textModuleType>(.*?)<\/textModuleType>/);
+  
+  const textModuleType = textModuleTypeMatch && textModuleTypeMatch[1] ? parseInt(textModuleTypeMatch[1], 10) : undefined;
+  
+  return {
+    availableValues: availableValuesMatch ? availableValuesMatch[1] : undefined,
+    flag: flagMatch ? flagMatch[1] : undefined,
+    flag_MainTextModule: flagMainTextModuleMatch ? flagMainTextModuleMatch[1] : undefined,
+    selectedValues: selectedValuesMatch ? selectedValuesMatch[1] : undefined,
+    stringValue: stringValueMatch ? stringValueMatch[1] : undefined,
+    textModuleType: textModuleType,
+    textModuleTypeName: textModuleType ? getTextModuleTypeName(textModuleType) : undefined,
+    statusMessage: base.statusMessage,
+    statusCode: base.statusCode
   };
 }
 
