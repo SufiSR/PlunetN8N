@@ -95,7 +95,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
     description: 'Get a specific text module content',
     returnType: 'String',
-    paramOrder: ['usageArea', 'mainID', 'moduleName'],
+    paramOrder: ['Flag', 'TextModuleUsageArea', 'ID', 'languageCode'],
     active: true,
   },
   setTextModule: {
@@ -108,7 +108,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
     description: 'Set a text module content',
     returnType: 'Void',
-    paramOrder: ['usageArea', 'mainID', 'moduleName', 'moduleContent'],
+    paramOrder: ['Flag', 'TextModuleUsageArea', 'ID', 'languageCode', 'moduleContent'],
     active: true,
   },
 };
@@ -152,7 +152,7 @@ const extraProperties: INodeProperties[] = [
   // Text Module Usage Area for text module operations
   {
     displayName: 'Text Module Usage Area',
-    name: 'textModuleUsageArea',
+    name: 'TextModuleUsageArea',
     type: 'options',
     options: TextModuleUsageAreaOptions,
     default: 1,
@@ -175,7 +175,22 @@ const extraProperties: INodeProperties[] = [
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 
-        operation: ['getProperty', 'getTextModule', 'setTextModule', 'setPropertyValueList'] 
+        operation: ['getProperty', 'setPropertyValueList'] 
+      } 
+    },
+  },
+  // ID field for text module operations
+  {
+    displayName: 'ID',
+    name: 'ID',
+    type: 'number',
+    default: 0,
+    typeOptions: { minValue: 0, step: 1 },
+    description: 'The ID for the text module operation',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['getTextModule', 'setTextModule'] 
       } 
     },
   },
@@ -198,13 +213,32 @@ const extraProperties: INodeProperties[] = [
       } 
     },
   },
-  // Module Name for text module operations
+  // Text Module Flag for text module operations
   {
-    displayName: 'Module Name',
-    name: 'moduleName',
-    type: 'string',
+    displayName: 'Text Module Flag',
+    name: 'Flag',
+    type: 'options',
+    typeOptions: {
+      loadOptionsMethod: 'getAvailableTextModuleFlags',
+      loadOptionsDependsOn: ['TextModuleUsageArea', 'ID', 'languageCode'],
+    },
     default: '',
-    description: 'The name of the text module',
+    required: false,
+    description: 'Select from available text module flags for the selected usage area and ID. Make sure to set Text Module Usage Area, ID, and Language Code first.',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['getTextModule', 'setTextModule'] 
+      } 
+    },
+  },
+  // Language Code for text module operations
+  {
+    displayName: 'Language Code',
+    name: 'languageCode',
+    type: 'string',
+    default: 'EN',
+    description: 'The language code for text modules (e.g., EN, DE, FR)',
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 

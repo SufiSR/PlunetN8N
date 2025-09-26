@@ -110,43 +110,189 @@ function createAdminExecuteConfig(creds: Creds, url: string, baseUrl: string, ti
   return {
     url,
     soapActionFor: (op: string) => `http://API.Integration/${op}`,
-    paramOrder: { getAvailableProperties: ['PropertyUsageArea', 'MainID'] },
+    paramOrder: { 
+      getAvailableProperties: ['PropertyUsageArea', 'MainID'],
+      getAvailableTextModules: ['textModuleUsageArea', 'MainID', 'languageCode']
+    },
     numericBooleans: NUMERIC_BOOLEAN_PARAMS,
     getSessionId: async (ctx: any) => {
       const { ensureSession } = await import('../core/session');
       return ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, 0);
     },
     parseResult: (xml: string, op: string) => {
-      // Parse PropertyListResult for getAvailableProperties
-      const base = extractResultBase(xml);
-      
-      // Look for PropertyListResult scope
-      const propertyListResultScope = findFirstTagBlock(xml, 'PropertyListResult');
-      if (!propertyListResultScope) {
-        return { statusMessage: base.statusMessage, statusCode: base.statusCode };
-      }
-      
-      // Extract all m_Data blocks
-      const mDataMatches = propertyListResultScope.match(/<m_Data>[\s\S]*?<\/m_Data>/g);
-      if (!mDataMatches) {
-        return { statusMessage: base.statusMessage, statusCode: base.statusCode };
-      }
-      
-      const propertyNames: string[] = [];
-      
-      mDataMatches.forEach((mDataBlock: string) => {
-        const propertyNameMatch = mDataBlock.match(/<propertyNameEnglish>(.*?)<\/propertyNameEnglish>/);
-        if (propertyNameMatch && propertyNameMatch[1]) {
-          propertyNames.push(propertyNameMatch[1]);
+      if (op === 'getAvailableProperties') {
+        // Parse PropertyListResult for getAvailableProperties
+        const base = extractResultBase(xml);
+        
+        // Look for PropertyListResult scope
+        const propertyListResultScope = findFirstTagBlock(xml, 'PropertyListResult');
+        if (!propertyListResultScope) {
+          return { statusMessage: base.statusMessage, statusCode: base.statusCode };
         }
-      });
+        
+        // Extract all m_Data blocks
+        const mDataMatches = propertyListResultScope.match(/<m_Data>[\s\S]*?<\/m_Data>/g);
+        if (!mDataMatches) {
+          return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+        }
+        
+        const propertyNames: string[] = [];
+        
+        mDataMatches.forEach((mDataBlock: string) => {
+          const propertyNameMatch = mDataBlock.match(/<propertyNameEnglish>(.*?)<\/propertyNameEnglish>/);
+          if (propertyNameMatch && propertyNameMatch[1]) {
+            propertyNames.push(propertyNameMatch[1]);
+          }
+        });
+        
+        // Return as StringArray format (same as parseStringArrayResult)
+        return {
+          data: propertyNames,
+          statusMessage: base.statusMessage,
+          statusCode: base.statusCode
+        };
+      } else if (op === 'getAvailableTextModules') {
+        // Parse TextmoduleListResult for getAvailableTextModules
+        const base = extractResultBase(xml);
+        
+        // Look for TextmoduleListResult scope
+        const textmoduleListResultScope = findFirstTagBlock(xml, 'TextmoduleListResult');
+        if (!textmoduleListResultScope) {
+          return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+        }
+        
+        // Extract all data blocks
+        const dataMatches = textmoduleListResultScope.match(/<data>[\s\S]*?<\/data>/g);
+        if (!dataMatches) {
+          return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+        }
+        
+        const textModuleOptions: string[] = [];
+        
+        dataMatches.forEach((dataBlock: string) => {
+          const flagMatch = dataBlock.match(/<flag>(.*?)<\/flag>/);
+          const labelMatch = dataBlock.match(/<textModuleLabel>(.*?)<\/textModuleLabel>/);
+          
+          if (flagMatch && flagMatch[1] && labelMatch && labelMatch[1]) {
+            const flag = flagMatch[1];
+            const label = labelMatch[1];
+            // Format: "[Textmodule2] - Nickname"
+            textModuleOptions.push(`${flag} - ${label}`);
+          }
+        });
+        
+        // Return as StringArray format
+        return {
+          data: textModuleOptions,
+          statusMessage: base.statusMessage,
+          statusCode: base.statusCode
+        };
+      }
       
-      // Return as StringArray format (same as parseStringArrayResult)
-      return {
-        data: propertyNames,
-        statusMessage: base.statusMessage,
-        statusCode: base.statusCode
-      };
+      return { statusMessage: 'Unknown operation', statusCode: -1 };
     },
   };
+}
+
+/**
+ * Load options for DataCustomFields30 Text Module Flag field
+ */
+export async function getAvailableTextModuleFlags(this: ILoadOptionsFunctions) {
+  const textModuleUsageArea = this.getCurrentNodeParameter('textModuleUsageArea') as number;
+  const mainID = this.getCurrentNodeParameter('MainID') as number;
+  const languageCode = this.getCurrentNodeParameter('languageCode') as string || 'EN';
+      
+  if (!textModuleUsageArea || !mainID) {
+    return [
+      {
+        name: 'Please set Text Module Usage Area and Main ID first',
+        value: '',
+        disabled: true
+      }
+    ];
+  }
+  
+  try {
+    // Get credentials
+    const creds = await this.getCredentials('plunetApi') as Creds;
+    const scheme = creds.useHttps ? 'https' : 'http';
+    const baseUrl = `${scheme}://${creds.baseHost.replace(/\/$/, '')}`;
+    const url = `${baseUrl}/DataAdmin30`;
+    const timeoutMs = creds.timeout ?? 30000;
+    
+    // Create execute config for DataAdmin30
+    const config = createAdminExecuteConfig(creds, url, baseUrl, timeoutMs);
+    
+    // Call getAvailableTextModules using a different approach
+    // We need to make a direct SOAP call since executeOperation expects IExecuteFunctions
+    const sessionId = await config.getSessionId(this as any, 0);
+    const soapAction = config.soapActionFor('getAvailableTextModules');
+    
+    // Build SOAP envelope
+    const envelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
+   <soap:Header/>
+   <soap:Body>
+      <api:getAvailableTextModules>
+         <UUID>${sessionId}</UUID>
+         <languageCode>${languageCode}</languageCode>
+         <textModuleUsageArea>${textModuleUsageArea}</textModuleUsageArea>
+         <MainID>${mainID}</MainID>
+      </api:getAvailableTextModules>
+   </soap:Body>
+</soap:Envelope>`;
+    
+    // Make SOAP request
+    const response = await this.helpers.request({
+      method: 'POST',
+      url: config.url,
+      headers: {
+        'Content-Type': 'application/soap+xml; charset=utf-8',
+        'SOAPAction': soapAction,
+      },
+      body: envelope,
+    });
+    
+    // Parse response
+    const parsed = config.parseResult(response, 'getAvailableTextModules') as IDataObject;
+    
+    // Debug: Check what we got
+    if (parsed.statusCode && parsed.statusCode !== 0) {
+      return [
+        {
+          name: `API Error: ${parsed.statusMessage || 'Unknown error'} (Code: ${parsed.statusCode})`,
+          value: '',
+          disabled: true
+        }
+      ];
+    }
+    
+    if (parsed.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
+      const textModuleOptions = parsed.data as string[];
+      // Return the formatted options (flag - label)
+      return textModuleOptions.map((option: string) => ({
+        name: option,
+        value: option
+      }));
+    }
+    
+    // If no text modules found, show helpful message
+    return [
+      {
+        name: 'No text modules found for this Usage Area and Main ID combination',
+        value: '',
+        disabled: true
+      }
+    ];
+  } catch (error) {
+    // Return helpful message on error with more details
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return [
+      {
+        name: `Error loading text modules: ${errorMessage}`,
+        value: '',
+        disabled: true
+      }
+    ];
+  }
 }

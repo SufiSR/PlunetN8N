@@ -10,6 +10,7 @@ import { executeOperation, type ExecuteConfig } from '../core/executor';
 import { NUMERIC_BOOLEAN_PARAMS } from '../core/constants';
 import { extractStatusMessage, parseStringArrayResult } from '../core/xml';
 import { PropertyUsageAreaOptions } from '../enums/property-usage-area';
+import { TextModuleUsageAreaOptions } from '../enums/text-module-usage-area';
 import { generateOperationOptionsFromRegistry } from '../core/service-utils';
 
 const RESOURCE = 'DataAdmin30';
@@ -29,6 +30,19 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     description: 'Get available custom properties for a specific usage area and main ID',
     returnType: 'StringArray',
     paramOrder: ['PropertyUsageArea', 'MainID'],
+    active: true,
+  },
+  getAvailableTextModules: {
+    soapAction: 'getAvailableTextModules',
+    endpoint: ENDPOINT,
+    uiName: 'Get Available Text Modules',
+    subtitleName: 'get available text modules: admin',
+    titleName: 'Get Available Text Modules',
+    resource: RESOURCE,
+    resourceDisplayName: RESOURCE_DISPLAY_NAME,
+    description: 'Get available text modules for a specific usage area and main ID',
+    returnType: 'StringArray',
+    paramOrder: ['textModuleUsageArea', 'MainID', 'languageCode'],
     active: true,
   },
 };
@@ -69,6 +83,21 @@ const extraProperties: INodeProperties[] = [
       } 
     },
   },
+  // Text Module Usage Area
+  {
+    displayName: 'Text Module Usage Area',
+    name: 'textModuleUsageArea',
+    type: 'options',
+    options: TextModuleUsageAreaOptions,
+    default: 1,
+    description: 'Select the usage area for text modules',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['getAvailableTextModules'] 
+      } 
+    },
+  },
   // Main ID field
   {
     displayName: 'Main ID',
@@ -80,7 +109,21 @@ const extraProperties: INodeProperties[] = [
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 
-        operation: ['getAvailableProperties'] 
+        operation: ['getAvailableProperties', 'getAvailableTextModules'] 
+      } 
+    },
+  },
+  // Language Code for text modules
+  {
+    displayName: 'Language Code',
+    name: 'languageCode',
+    type: 'string',
+    default: 'EN',
+    description: 'The language code for text modules (e.g., EN, DE, FR)',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['getAvailableTextModules'] 
       } 
     },
   },
@@ -111,7 +154,13 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
 
       switch (rt) {
         case 'StringArray': {
-          payload = parsePropertyNamesArray(xml);
+          if (op === 'getAvailableProperties') {
+            payload = parsePropertyNamesArray(xml);
+          } else if (op === 'getAvailableTextModules') {
+            payload = parseTextModuleFlagsArray(xml);
+          } else {
+            payload = parseStringArrayResult(xml);
+          }
           break;
         }
         default: {
@@ -152,6 +201,44 @@ function parsePropertyNamesArray(xml: string): IDataObject {
     // Return as StringArray format (same as parseStringArrayResult)
     return {
         data: propertyNames,
+        statusMessage: base.statusMessage,
+        statusCode: base.statusCode
+    };
+}
+
+// Parse TextmoduleListResult to extract text module flags and labels
+function parseTextModuleFlagsArray(xml: string): IDataObject {
+    const base = extractResultBase(xml);
+    
+    // Look for TextmoduleListResult scope
+    const textmoduleListResultScope = findFirstTagBlock(xml, 'TextmoduleListResult');
+    if (!textmoduleListResultScope) {
+        return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    // Extract all data blocks
+    const dataMatches = textmoduleListResultScope.match(/<data>[\s\S]*?<\/data>/g);
+    if (!dataMatches) {
+        return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+    }
+    
+    const textModuleOptions: string[] = [];
+    
+    dataMatches.forEach(dataBlock => {
+        const flagMatch = dataBlock.match(/<flag>(.*?)<\/flag>/);
+        const labelMatch = dataBlock.match(/<textModuleLabel>(.*?)<\/textModuleLabel>/);
+        
+        if (flagMatch && flagMatch[1] && labelMatch && labelMatch[1]) {
+            const flag = flagMatch[1];
+            const label = labelMatch[1];
+            // Format: "[Textmodule2] - Nickname"
+            textModuleOptions.push(`${flag} - ${label}`);
+        }
+    });
+    
+    // Return as StringArray format
+    return {
+        data: textModuleOptions,
         statusMessage: base.statusMessage,
         statusCode: base.statusCode
     };

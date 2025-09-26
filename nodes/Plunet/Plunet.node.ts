@@ -118,7 +118,7 @@ import { DataResource30MiscService } from './services/dataResource30.misc';
 import { DataDocument30Service } from './services/dataDocument30';
 import { DataCustomFields30Service } from './services/dataCustomFields30';
 import { DataAdmin30Service } from './services/dataAdmin30';
-import { getAvailablePropertyNames } from './services/loadOptions';
+import { getAvailablePropertyNames, getAvailableTextModuleFlags } from './services/loadOptions';
 // import { DataJob30Service } from './services/dataJob30';
 
 
@@ -143,6 +143,7 @@ export class Plunet implements INodeType {
     methods = {
         loadOptions: {
             getAvailablePropertyNames,
+            getAvailableTextModuleFlags,
         },
     };
 
