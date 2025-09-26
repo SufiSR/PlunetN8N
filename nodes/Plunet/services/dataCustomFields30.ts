@@ -529,7 +529,16 @@ export const DataCustomFields30Service: Service = {
     if (!paramNames) throw new Error(`Unsupported operation for ${RESOURCE}: ${operation}`);
     const config = createExecuteConfig(creds, url, baseUrl, timeoutMs);
     const itemParams: IDataObject = {};
-    for (const paramName of paramNames) itemParams[paramName] = ctx.getNodeParameter(paramName, itemIndex, '');
+    for (const paramName of paramNames) {
+      let paramValue = ctx.getNodeParameter(paramName, itemIndex, '');
+      
+      // Special handling for Flag parameter - extract just the flag part
+      if (paramName === 'Flag' && typeof paramValue === 'string' && paramValue.includes('|')) {
+        paramValue = paramValue.split('|')[0]; // Extract just the flag part
+      }
+      
+      itemParams[paramName] = paramValue;
+    }
     const result = await executeOperation(ctx, operation, itemParams, config, itemIndex);
     
     // Add PropertyNameEnglish and PropertyValueID to result for getPropertyValueText operation
@@ -556,15 +565,13 @@ export const DataCustomFields30Service: Service = {
     if (operation === 'getTextModule') {
       const finalResult = Array.isArray(result) ? result[0] || {} : result;
       
-      // Extract label from the Flag parameter which is in format "[flag] - label"
+      // Extract label from the original Flag parameter (before flag extraction)
       let textModuleLabel: string | undefined;
-      if (itemParams.Flag) {
-        const flagValue = itemParams.Flag as string;
-        // Simple regex to match "[anything] - label" format
-        const labelMatch = flagValue.match(/\[.*?\]\s*-\s*(.+)$/);
-        
-        if (labelMatch && labelMatch[1]) {
-          textModuleLabel = labelMatch[1].trim();
+      const originalFlagValue = ctx.getNodeParameter('Flag', itemIndex, '') as string;
+      if (originalFlagValue && originalFlagValue.includes('|')) {
+        const parts = originalFlagValue.split('|');
+        if (parts.length === 2 && parts[1]) {
+          textModuleLabel = parts[1].trim();
         }
       }
       

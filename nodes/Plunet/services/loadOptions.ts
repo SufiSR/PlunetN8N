@@ -176,10 +176,10 @@ function createAdminExecuteConfig(creds: Creds, url: string, baseUrl: string, ti
           if (flagMatch && flagMatch[1] && labelMatch && labelMatch[1]) {
             const flag = flagMatch[1];
             const label = labelMatch[1];
-            // Store flag as value, display text as name
+            // Store flag as value, display text as name, and include label in description
             textModuleOptions.push({
               name: `${flag} - ${label}`,
-              value: flag
+              value: `${flag}|${label}` // Store both flag and label in value
             });
           }
         });
