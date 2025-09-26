@@ -560,14 +560,11 @@ export const DataCustomFields30Service: Service = {
       let textModuleLabel: string | undefined;
       if (itemParams.Flag) {
         const flagValue = itemParams.Flag as string;
-        // Try multiple regex patterns to match different formats
-        const labelMatch = flagValue.match(/\[.*?\]\s*-\s*(.+)/) || 
-                          flagValue.match(/\[(.*?)\]\s*-\s*(.+)/) ||
-                          flagValue.match(/^(.+?)\s*-\s*(.+)$/);
+        // Simple regex to match "[anything] - label" format
+        const labelMatch = flagValue.match(/\[.*?\]\s*-\s*(.+)$/);
         
-        if (labelMatch) {
-          // Use the last capture group which should be the label
-          textModuleLabel = labelMatch[labelMatch.length - 1];
+        if (labelMatch && labelMatch[1]) {
+          textModuleLabel = labelMatch[1].trim();
         }
       }
       
