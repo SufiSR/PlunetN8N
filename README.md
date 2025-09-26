@@ -1,38 +1,20 @@
 # n8n-nodes-plunet
 
 > **n8n community node for the Plunet SOAP API**
-> Auth (login/validate/logout) with session caching, plus `DataCustomer30` **and** `DataResource30` operations with typed results, enums, and strict error handling.
+> Comprehensive integration with Plunet BusinessManager API including authentication, customer management, resource management, job operations, document handling, and administrative functions.
 
 ---
 
 ## Features
 
-* **Session caching**: Login once; UUID is stored per `baseHost + scheme` and reused automatically.
-* **Validate** uses **UUID + Username + Password** (as required by Plunet).
-* **Strict error handling**:
-
-  * Any **SOAP Fault** (1.1/1.2) → node error.
-  * Any Plunet result with **`statusCode !== 0`** → node error.
-  * If present, any **`statusMessage !== "OK"`** → node error.
-  * Login returns `<return>uuid</return>` (success) or `<return>refused</return>` (error).
-* **Typed result parsing** (no raw XML spelunking in n8n):
-
-  * `StringResult` → `{ data: string }` (empty string when `<data/>`).
-  * `IntegerArrayResult` → `{ data: number[] }` (repeated `<data>` supported).
-  * `IntegerResult` → `{ value: number }` (or enum-expanded shapes; see below).
-  * `CustomerResult` / `CustomerListResult`
-  * `ResourceResult` / `ResourceListResult`
-  * `PaymentInfoResult`, `AccountResult`, `WorkflowListResult`, `PricelistListResult`
-* **Enums mapped to dropdowns + readable outputs**:
-
-  * Customers: `Status` (ACTIVE, …)
-  * Resources: `ResourceStatus`, `WorkingStatus`, `ResourceType`
-  * Payment info: `TaxType` (exposed as dropdown for Customers; readable name added for both Customers & Resources)
-* **Nicer UX**:
-
-  * All **UUID plumbing is automatic** (hidden from the UI).
-  * Operation labels are friendlier (e.g., **Create Customer**, **Update Customer**, **Search by External ID**).
-  * Operation ordering is curated for the most-used actions first.
+* **Session Management**: Automatic login with UUID caching per `baseHost + scheme`
+* **Multi-Service Integration**: Support for 6+ Plunet API services with unified interface
+* **Enhanced UX**: User-friendly field names, dropdowns, and structured responses
+* **Type Safety**: Full TypeScript support with proper type definitions
+* **Error Handling**: Comprehensive error handling with meaningful messages
+* **Enum Support**: Human-readable dropdowns for all status and type fields
+* **Load Options**: Dynamic dropdown population from API calls
+* **Structured Responses**: Clean JSON output with enriched data
 
 ---
 
@@ -152,264 +134,384 @@ Add **Plunet API** credentials in n8n:
 
 ---
 
-## Resources & Operations
+## Supported Plunet API Services
 
-### PlunetAPI (Auth / Misc)
+This node integrates with multiple Plunet API services for comprehensive functionality:
 
-* **Login** → returns `{ uuid }`.
+### 🔐 PlunetAPI (Authentication)
+**Reference**: [PlunetAPI Documentation](https://apidoc.plunet.com/latest/BM/API/SOAP/Webservice/Internal/PlunetAPI.html)
 
-  * Success: `<return>fdf58d33-64f6-4bd7-832b-db2b2eaa9c55</return>`
-  * Failure: `<return>refused</return>` → node error “Login refused”
-* **Validate** → sends `UUID + Username + Password`, returns `{ valid }`.
-* **Logout** → uses stored UUID unless provided.
+* **Login** → returns `{ uuid }` with automatic session caching
+* **Validate** → validates session with UUID + Username + Password
+* **Logout** → terminates session and clears cache
 
-> The node automatically **caches the UUID** per host/scheme. Other services pull it from storage (and auto-login if needed).
+### 👥 DataCustomer30 (Customer Management)
+**Reference**: [DataCustomer30 Documentation](https://apidoc.plunet.com/latest/BM/Partner/API/SOAP/Webservice/Version30/DataCustomer30.html)
+
+**Core Operations:**
+* **Create Customer** (`insert2`) - Create new customer with full object
+* **Update Customer** (`update`) - Update existing customer
+* **Delete Customer** (`delete`) - Remove customer
+* **Get Customer** (`getCustomerObject`) - Retrieve customer details
+* **Search Customers** (`search`) - Search with filters
+* **Search by External ID** (`seekByExternalID`) - Find by external identifier
+* **Get All Customers** (`getAllCustomerObjects`) - List all customers
+
+**Field Operations:**
+* Status management (`getStatus`/`setStatus`) with enum dropdown
+* Payment information (`getPaymentInformation`/`setPaymentInformation`)
+* Account manager assignment (`getAccountManagerID`/`setAccountManagerID`)
+* Project manager assignment (`getProjectManagerID`/`setProjectManagerID`)
+* Contact information (`getDateOfInitialContact`, `getSourceOfContact`, `getDossier`)
+
+**Enums & Dropdowns:**
+* **Customer Status**: Active, Inactive, etc.
+* **Tax Type**: For payment information
+* **Form of Address**: Mr., Mrs., Dr., etc.
+
+### 👤 DataResource30 (Resource Management)
+**Reference**: [DataResource30 Documentation](https://apidoc.plunet.com/latest/BM/Partner/API/SOAP/Webservice/Version30/DataResource30.html)
+
+**Core Operations:**
+* **Create Resource** (`insertObject`) - Create new resource
+* **Update Resource** (`update`) - Update existing resource
+* **Delete Resource** (`delete`) - Remove resource
+* **Get Resource** (`getResourceObject`) - Retrieve resource details
+* **Search Resources** (`search`) - Search with filters
+* **Search by External ID** (`seekByExternalID`) - Find by external identifier
+* **Get All Resources** (`getAllResourceObjects`) - List all resources
+
+**Status & Type Management:**
+* **Resource Status** (`getStatus`/`setStatus`) - Active, Inactive, etc.
+* **Working Status** (`getWorkingStatus`/`setWorkingStatus`) - Available, Busy, etc.
+* **Resource Type** (`getResourceType`/`setResourceType`) - Translator, Reviewer, etc.
+
+**Pricelist Operations:**
+* **Get Pricelists** (`getPricelists`) - Get all pricelists for resource
+* **Get Pricelists by Language Pair** (`getPricelists2`) - Language-specific pricelists
+
+### 📋 DataJob30 (Job Management)
+**Reference**: [DataJob30 Documentation](https://apidoc.plunet.com/latest/BM/Projekt/Job/API/SOAP/Webservice/Version30/DataJob30.html)
+
+**Core Operations:**
+* **Create Job** (`insert2`) - Create new job
+* **Update Job** (`update`) - Update existing job
+* **Delete Job** (`delete`) - Remove job
+* **Get Job** (`getJobObject`) - Retrieve job details
+* **Search Jobs** (`search`) - Search with filters
+* **Get All Jobs** (`getAllJobObjects`) - List all jobs
+
+**Job Status Management:**
+* **Job Status** (`getStatus`/`setStatus`) - In Progress, Completed, etc.
+* **Project Type** (`getProjectType`/`setProjectType`) - Translation, Review, etc.
+
+**Pricing Operations:**
+* **Get Pricelists** (`getPricelists`) - Get job pricelists
+* **Price Management** - Various pricing operations
+
+### 📄 DataDocument30 (Document Management)
+**Reference**: [DataDocument30 Documentation](https://apidoc.plunet.com/latest/BM/API/SOAP/Webservice/Internal/Version30/DataDocument30.html)
+
+**Document Operations:**
+* **Upload Document** (`uploadDocument`) - Upload files to Plunet
+* **Download Document** (`downloadDocument`) - Download files from Plunet
+* **Get Document Info** (`getDocumentInfo`) - Retrieve document metadata
+* **Delete Document** (`deleteDocument`) - Remove documents
+* **List Documents** (`getDocumentList`) - List all documents for entity
+
+### ⚙️ DataAdmin30 (Administrative Functions)
+**Reference**: [DataAdmin30 Documentation](https://apidoc.plunet.com/latest/BM/Admin/API/SOAP/Webservice/Version30/DataAdmin30.html)
+
+**System Information:**
+* **Get Available Countries** (`getAvailableCountries`) - List all countries
+* **Get Available Languages** (`getAvailableLanguages`) - List all languages
+* **Get Available Workflows** (`getAvailableWorkflows`) - List all workflows
+* **Get System Currencies** (`getSystemCurrencies`) - List all currencies
+* **Get Available Services** (`getAvailableServices`) - List all job types/services
+
+**Custom Fields:**
+* **Get Available Properties** (`getAvailableProperties`) - List custom properties
+* **Get Available Text Modules** (`getAvailableTextModules`) - List text modules
+* **Get Company Codes** (`getCompanyCodeList`) - List company codes
+
+**Document Templates:**
+* **Get Document Templates** (`getAvailableDocumentTemplates`) - List templates
+
+### 🔧 DataCustomFields30 (Custom Fields Management)
+**Custom Field Operations:**
+* **Get Property** (`getProperty`) - Retrieve custom property value
+* **Set Property** (`setProperty`) - Set custom property value
+* **Get Text Module** (`getTextModule`) - Retrieve text module content
+* **Set Text Module** (`setTextModule`) - Set text module content
+
+**Text Module Features:**
+* **Dynamic Content Types**: String, Single Select, Multi Select, Date
+* **Usage Area Support**: Different text module categories
+* **Language Support**: Multi-language text modules
 
 ---
 
-### DataCustomer30 (Customers)
+## Multi-Endpoint Operations (Enhanced UX)
 
-Decluttered to focus on full-object actions, search/lookups, and genuinely separate fields.
+Some operations use multiple endpoints to provide a better user experience:
 
-**Core actions**
+### 🔄 Property Loading with LoadOptions
+**Operation**: `getProperty` in DataCustomFields30
+**Enhancement**: Uses DataAdmin30.getAvailableProperties for dynamic dropdown population
 
-* **Create Customer** (`insert2`)
-* **Update Customer** (`update`) – includes `enableNullOrEmptyValues` boolean
-* **Delete Customer** (`delete`)
-* **Search** (`search`)
-* **Search by External ID** (`seekByExternalID`)
-* **Get Customer** (`getCustomerObject`)
-* **Get All Customers by Status** (`getAllCustomerObjects`)
+**How it works:**
+1. User selects "Property Usage Area" and "Main ID"
+2. System calls DataAdmin30.getAvailableProperties with these parameters
+3. Returns list of available properties for the selected context
+4. User selects from populated dropdown instead of typing property names
 
-**Kept single-field ops (non-redundant)**
+### 📝 Text Module Loading with LoadOptions
+**Operation**: `getTextModule`/`setTextModule` in DataCustomFields30
+**Enhancement**: Uses DataAdmin30.getAvailableTextModules for dynamic dropdown population
 
-* `getAccountManagerID` / `setAccountManagerID`
-* `getProjectManagerID` / `setProjectManagerID`
-* `getDateOfInitialContact` / `setDateOfInitialContact`
-* `getSourceOfContact` / `setSourceOfContact`
-* `getDossier` / `setDossier`
-* `getPaymentInformation` / `setPaymentInformation` *(exploded params incl. `preselectedTaxID` as **TaxType** dropdown)*
-* `getAvailableAccountIDList`, `getAvailablePaymentMethodList`, `getPaymentMethodDescription`
-* `getCreatedByResourceID`
-* `getStatus` / `setStatus` *(enum dropdown)*
+**How it works:**
+1. User selects "Text Module Usage Area" and "Main ID"
+2. System calls DataAdmin30.getAvailableTextModules with these parameters
+3. Returns list of available text modules with labels
+4. User selects from populated dropdown with format "[Flag] - Label"
 
-**Enums surfaced**
+### 🏢 Pricelist Loading with LoadOptions
+**Operation**: `getPricelists` in DataResource30
+**Enhancement**: Uses DataAdmin30.getAvailableServices for service type dropdown
 
-* **Status**: dropdown in UI; `getStatus` outputs both `{ statusId, status }`.
-
-**Payment info**
-
-* `setPaymentInformation` shows **TaxType** dropdown for `preselectedTaxID`.
-* `getPaymentInformation` adds `preselectedTaxType` (human-readable) alongside the raw ID.
-
----
-
-### DataResource30 (Resources)
-
-Mirrors the customer patterns; trimmed to the useful surface.
-
-**Core actions**
-
-* **Create Resource** (`insertObject`)
-* **Update Resource** (`update`) – includes `enableNullOrEmptyValues` boolean
-* **Delete Resource** (`delete`)
-* **Search** (`search`)
-* **Search by External ID** (`seekByExternalID`)
-* **Get Resource** (`getResourceObject`)
-* **Get All Resources** (`getAllResourceObjects`) — filtered by `WorkingStatus` and `Status`
-
-**Lookups / lists**
-
-* `getAvailableAccountIDList`, `getAvailablePaymentMethodList`, `getPaymentMethodDescription`
-* `getPricelists`, `getPricelists2` (language-pair aware)
-
-**Status & types (enums)**
-
-* `getStatus` / `setStatus` → **ResourceStatus** dropdown; outputs `{ statusId, status }`
-* `getWorkingStatus` / `setWorkingStatus` → **WorkingStatus** dropdown; outputs `{ workingStatusId, workingStatus }`
-* `getResourceType` / `setResourceType` → **ResourceType** dropdown; outputs `{ resourceTypeId, resourceType }`
-
-**Payment info**
-
-* `setPaymentInformation(resourceID, paymentInfo)` currently accepts the XML block as a string (pass-through).
-* `getPaymentInformation` returns structured object.
-
-> If you want a **builder UI** for `paymentInfo` (including **TaxType** dropdown), we can add it later.
+**How it works:**
+1. User selects service type from dropdown
+2. System calls DataAdmin30.getAvailableServices to populate options
+3. Returns pricelists filtered by service type
 
 ---
 
 ## Output Shapes (what you get in n8n)
 
-| Result type              | Output key(s)          | Notes                                                          |
-| ------------------------ | ---------------------- | -------------------------------------------------------------- |
-| **StringResult**         | `data: string`         | Empty string when `<data/>`.                                   |
-| **IntegerResult**        | `value: number`        | For enum getters, expanded (see below).                        |
-| **IntegerArrayResult**   | `data: number[]`       | Handles repeated `<data>` items.                               |
-| **CustomerResult**       | `customer: object`     | Structured DTO.                                                |
-| **CustomerListResult**   | `customers: object[]`  | Structured DTO list.                                           |
-| **ResourceResult**       | `resource: object`     | Structured DTO.                                                |
-| **ResourceListResult**   | `resources: object[]`  | Structured DTO list.                                           |
-| **PaymentInfoResult**    | `paymentInfo: object`  | Adds `preselectedTaxType` (name) if `preselectedTaxID` exists. |
-| **AccountResult**        | `account: object`      | Structured DTO.                                                |
-| **WorkflowListResult**   | `workflows: object[]`  | Structured DTO list.                                           |
-| **PricelistListResult**  | `pricelists: object[]` | Structured DTO list.                                           |
-| **VoidResult** (setters) | `ok: boolean`          | `ok: true` when `statusCode` is 0; otherwise the node errors.  |
+| Result Type | Output Key(s) | Description |
+|-------------|--------------|--------------|
+| **StringResult** | `data: string` | Simple string responses |
+| **IntegerResult** | `value: number` | Numeric values with enum expansion |
+| **IntegerArrayResult** | `data: number[]` | Arrays of numeric values |
+| **CustomerResult** | `customer: object` | Structured customer data |
+| **CustomerListResult** | `customers: object[]` | Array of customer objects |
+| **ResourceResult** | `resource: object` | Structured resource data |
+| **ResourceListResult** | `resources: object[]` | Array of resource objects |
+| **JobResult** | `job: object` | Structured job data |
+| **JobListResult** | `jobs: object[]` | Array of job objects |
+| **DocumentResult** | `document: object` | Document metadata and content |
+| **WorkflowListResult** | `workflows: object[]` | Array of workflow objects with enriched labels |
+| **CountryListResult** | `countries: object[]` | Array of country objects |
+| **LanguageListResult** | `languages: object[]` | Array of language objects |
+| **CurrencyListResult** | `currencies: object[]` | Array of currency objects |
+| **PropertyResult** | `property: object` | Custom property data |
+| **TextModuleResult** | `textModule: object` | Text module data with enriched labels |
 
-**Enum-expanded getters**
+---
 
-* Customers: `getStatus` → `{ statusId, status }`
-* Resources: `getStatus` → `{ statusId, status }`, `getWorkingStatus` → `{ workingStatusId, workingStatus }`, `getResourceType` → `{ resourceTypeId, resourceType }`
+## Enriched Response Examples
+
+### Workflow Response with Labels
+```json
+{
+  "success": true,
+  "resource": "DataAdmin30",
+  "operation": "getAvailableWorkflows",
+  "workflows": [
+    {
+      "description": "",
+      "name": "2 TRA jobs + REV + EXP",
+      "status": 1,
+      "statusLabel": "Released",
+      "type": 0,
+      "typeLabel": "Standard",
+      "workflowId": 14
+    }
+  ],
+  "statusMessage": "OK",
+  "statusCode": 0
+}
+```
+
+### Text Module Response with Labels
+```json
+{
+  "success": true,
+  "resource": "DataCustomFields30",
+  "operation": "getTextModule",
+  "data": {
+    "flag": "[Textmodule4]",
+    "textModuleLabel": "Number",
+    "flag_MainTextModule": "",
+    "textModuleType": 6,
+    "textModuleTypeName": "Number Field",
+    "availableValues": "1634",
+    "selectedValues": "1634",
+    "stringValue": "1634"
+  },
+  "statusMessage": "OK",
+  "statusCode": 0
+}
+```
+
+---
+
+## Enums and Dropdowns
+
+The node provides human-readable dropdowns for all enum fields:
+
+### Customer Enums
+* **Customer Status**: Active, Inactive, etc.
+* **Tax Type**: VAT, No Tax, etc.
+* **Form of Address**: Mr., Mrs., Dr., etc.
+
+### Resource Enums
+* **Resource Status**: Active, Inactive, etc.
+* **Working Status**: Available, Busy, On Leave, etc.
+* **Resource Type**: Translator, Reviewer, Project Manager, etc.
+
+### Job Enums
+* **Job Status**: In Progress, Completed, Cancelled, etc.
+* **Project Type**: Translation, Review, Proofreading, etc.
+
+### Workflow Enums
+* **Workflow Type**: Standard, Order, Quote Order
+* **Workflow Status**: In Preparation, Released, Canceled, Released for Selection
+
+### Text Module Enums
+* **Text Module Type**: Text Field, List Box, Date Field, Memo Field, etc.
+* **Text Module Usage Area**: Customer, Resource, Job, etc.
 
 ---
 
 ## Example Workflows
 
-### 1) Create then update a customer
+### 1. Create Customer with Custom Properties
+1. **PlunetAPI → Login** (automatic)
+2. **DataAdmin30 → Get Available Properties** (to get property list)
+3. **DataCustomFields30 → Set Property** (set custom property value)
+4. **DataCustomer30 → Create Customer** (create customer with all data)
 
-1. **Plunet API → Login** (optional; auto-login works)
-2. **Customers → Create Customer (`insert2`)** with your fields
-3. **Customers → Update Customer (`update`)** with `enableNullOrEmptyValues = false`
+### 2. Resource Management with Pricelists
+1. **DataResource30 → Create Resource** (create new resource)
+2. **DataAdmin30 → Get Available Services** (get service types)
+3. **DataResource30 → Get Pricelists** (get pricelists for resource)
+4. **DataResource30 → Set Working Status** (update resource status)
 
-### 2) Get a resource’s pricelists for a language pair
+### 3. Job Creation with Workflow
+1. **DataAdmin30 → Get Available Workflows** (get workflow list)
+2. **DataJob30 → Create Job** (create job with workflow)
+3. **DataJob30 → Set Status** (update job status)
+4. **DataDocument30 → Upload Document** (attach files to job)
 
-* **Resources → Get Pricelists (by language pair) (`getPricelists2`)**
-
-  * `sourcelanguage`: `EN`
-  * `targetlanguage`: `DE`
-  * `resourceID`: `456`
-  * Output: `{ pricelists: [...], statusMessage: "OK", statusCode: 0 }`
-
-### 3) Readable enums from resource
-
-* **Resources → getStatus / getWorkingStatus / getResourceType**
-
-  * Outputs include both numeric IDs and friendly enum names.
-
----
-
-## Enums
-
-Provided in `nodes/Plunet/enums/` and used across UI + outputs:
-
-* **TaxType** (`tax-type.ts`) — dropdown for `setPaymentInformation` (customers), readable field `preselectedTaxType` on `getPaymentInformation`.
-* **ResourceStatus** (`resource-status.ts`) — dropdown + readable output.
-* **WorkingStatus** (`working-status.ts`) — dropdown + readable output.
-* **ResourceType** (`resource-type.ts`) — dropdown + readable output.
+### 4. Text Module Management
+1. **DataAdmin30 → Get Available Text Modules** (get text module list)
+2. **DataCustomFields30 → Get Text Module** (retrieve text module content)
+3. **DataCustomFields30 → Set Text Module** (update text module with new content)
 
 ---
 
-## Refactored Architecture
+## Error Handling
 
-This node has been comprehensively refactored to eliminate redundancy and improve maintainability:
+The node provides comprehensive error handling:
 
-### Shared Core Modules
-
-* **`core/utils.ts`**: Common utilities (`labelize`, `asNonEmpty`, `toSoapParamValue`)
-* **`core/soap.ts`**: Enhanced SOAP handling with fallback and new functions
-* **`core/errors.ts`**: Centralized error handling (`SoapRequestError`, `throwForSoapFaultOrStatus`)
-* **`core/executor.ts`**: Generic executor for all services
-* **`core/constants.ts`**: Shared constants (numeric boolean parameters)
-* **`core/service-utils.ts`**: **NEW** - Common service utilities and patterns
-* **`core/field-definitions.ts`**: **NEW** - Centralized field definitions and type mappings
-
-### Organized Parser Modules
-
-The large `parsers.ts` file has been split into focused modules:
-
-* **`core/parsers/common.ts`**: Shared XML utilities and base functions
-* **`core/parsers/customer.ts`**: Customer-related parsers and DTOs
-* **`core/parsers/resource.ts`**: Resource-related parsers and DTOs
-* **`core/parsers/job.ts`**: Job-related parsers and mappers
-* **`core/parsers/pricelist.ts`**: Pricelist-related parsers and DTOs
-* **`core/parsers/account.ts`**: Account and payment info parsers
-* **`core/parsers/workflow.ts`**: Workflow-related parsers
-* **`core/parsers/index.ts`**: Centralized exports for all parsers
-
-### Service Architecture Improvements
-
-Each service now uses standardized patterns with common utilities:
-
-1. **Common Functions**: `toSoapParamValue()`, `escapeXml()`, `createStandardExecuteConfig()`
-2. **Standardized Execution**: `executeStandardService()` for consistent parameter handling
-3. **UI Property Generation**: `createStringProperty()`, `createOptionsProperty()`, `createBooleanProperty()`, `createTypedProperty()`
-4. **Operation Options**: `generateOperationOptions()` and `generateOperationOptionsFromParams()`
-5. **Error Handling**: `handleVoidResult()` for consistent void operation handling
-6. **Field Definitions**: Centralized field definitions with proper type mapping and mandatory field indicators
-
-### Enhanced User Experience
-
-* **User-Friendly Field Names**: Technical names like `customerID` now display as "Customer ID"
-* **Mandatory Field Indicators**: Required fields are clearly marked in the UI
-* **Proper Field Types**: Fields are properly typed (string/number/boolean/date) with appropriate UI controls
-* **Expanded Complex Objects**: SearchFilter and other complex objects now show individual fields
-* **Better Operation Labels**: More descriptive operation names for better usability
-
-### Benefits
-
-* **No Duplication**: Common utilities are shared across all services
-* **Consistent Error Handling**: All services use the same error handling patterns
-* **Easier Maintenance**: Changes to core functionality only need to be made once
-* **Type Safety**: Better TypeScript support with shared types
-* **Modular Parsers**: Organized by domain for better maintainability
-* **Standardized Patterns**: Consistent coding style across all services
-* **Backward Compatibility**: All operation IDs and parameter IDs remain unchanged
-* **Enhanced UX**: Better field names, mandatory indicators, and proper field types
-* **Comprehensive Coverage**: All API operations properly represented with individual fields
+* **SOAP Faults**: Any SOAP 1.1/1.2 fault → node error with details
+* **Plunet Errors**: Any result with `statusCode !== 0` → node error
+* **Status Messages**: Non-"OK" status messages → node error
+* **Login Failures**: `<return>refused</return>` → "Login refused" error
+* **Session Validation**: Invalid sessions → automatic re-login attempt
 
 ---
 
-## Recent Improvements (2024)
+## Architecture
 
-### ✅ Completed Improvements
+### Core Modules
+* **`core/session.ts`**: Session management and UUID caching
+* **`core/soap.ts`**: SOAP request/response handling
+* **`core/executor.ts`**: Generic operation execution
+* **`core/xml.ts`**: XML parsing and result extraction
+* **`core/errors.ts`**: Error handling and validation
+* **`core/service-utils.ts`**: Common service utilities
 
-1. **Comprehensive Code Review**: Full analysis of all requirements and implementation
-2. **Field Definition System**: Created centralized field definitions with proper type mapping
-3. **Enhanced Service Utilities**: Added smart property creation and better type handling
-4. **Improved Customer Services**: 
-   - Expanded SearchFilter into individual fields
-   - Added getAllCustomerObjects2 operation
-   - Better field names and mandatory indicators
-5. **Redundancy Elimination**: Removed duplicate functions and centralized common utilities
-6. **Better User Experience**: User-friendly field names and proper field types
+### Service Modules
+* **`services/plunetApi.ts`**: Authentication operations
+* **`services/dataCustomer30.ts`**: Customer management
+* **`services/dataResource30.ts`**: Resource management
+* **`services/dataJob30.ts`**: Job operations
+* **`services/dataDocument30.ts`**: Document handling
+* **`services/dataAdmin30.ts`**: Administrative functions
+* **`services/dataCustomFields30.ts`**: Custom fields
+* **`services/loadOptions.ts`**: Dynamic dropdown population
 
-### ⚠️ Known Issues and Next Steps
-
-1. **Complex Object Expansion**: JobIN, JobTrackingTimeIN, and priceLineIN still need field expansion
-2. **Missing Operations**: Some individual field getters/setters not yet implemented
-3. **TypeScript Errors**: Some module resolution issues in development environment
-4. **Code Duplication**: Some services still have redundant functions
-
-### 🎯 Recommended Next Actions
-
-1. **Complete Job Service Refactoring**: Expand complex objects in dataJob30.ts
-2. **Add Missing Operations**: Implement more individual field operations
-3. **Fix TypeScript Issues**: Resolve module resolution and export problems
-4. **Add Input Validation**: Enhance error handling and validation
-5. **Performance Optimization**: Review and optimize for better performance
-
----
-
-## Adding New Operations
-
-1. **Choose the service file**, e.g. `src/nodes/Plunet/services/dataCustomer30.core.ts`.
-2. Add the operation name and parameter list to `PARAM_ORDER`.
-3. Add the **return type** to `RETURN_TYPE` (e.g. `String`, `IntegerArray`, `Customer`, `Resource`, `Void`, …).
-4. If the response is a custom DTO, add a parser in `core/parsers.ts` and export it.
-5. (Optional) Add a friendly label in `FRIENDLY_LABEL` and pin its position in `OP_ORDER`.
-6. If the operation needs custom XML body building, implement it in `buildCustomBodyXml`.
-7. Rebuild.
-
-The UI dropdown and parameter inputs are auto-generated from `PARAM_ORDER` + `RETURN_TYPE`.
+### Enum Modules
+* **`enums/`**: All enum definitions with dropdown options
+* **`enums/workflow-type.ts`**: Workflow type definitions
+* **`enums/workflow-status.ts`**: Workflow status definitions
+* **`enums/text-module-type.ts`**: Text module type definitions
+* **`enums/text-module-usage-area.ts`**: Text module usage areas
 
 ---
 
 ## Troubleshooting
 
-* **My operation order didn’t change**: Ensure you’re not sorting the keys. We keep insertion order and use an `OP_ORDER` array to pin the most important ones first.
-* **Edits not showing in n8n**: Rebuild (`npm run build`) and **restart n8n**. If you installed from the marketplace, make sure your instance actually loads your local build.
-* **Login keeps failing**: Check credentials; `<return>refused</return>` → node error “Login refused”.
-* **Validate returns false**: We send `UUID + Username + Password`; ensure UUID is from the same base host and is still valid.
-* **Icon not found**: Ensure `src/nodes/Plunet/plunet.svg` exists; run `npm run build` and verify `dist/nodes/Plunet/plunet.svg`.
+### Common Issues
+
+**Operation not showing in UI:**
+- Ensure the operation is properly registered in the service file
+- Check that the operation name matches the SOAP action
+- Rebuild and restart n8n
+
+**LoadOptions not working:**
+- Verify the loadOptions method is registered in the main node file
+- Check parameter names match between UI and loadOptions function
+- Ensure the loadOptions function returns proper format
+
+**Login keeps failing:**
+- Check credentials (baseHost, username, password)
+- Verify HTTPS settings match your Plunet instance
+- Check network connectivity and firewall settings
+
+**Session validation fails:**
+- Sessions expire after a period of inactivity
+- The node will automatically attempt re-login
+- Check if your Plunet instance has session timeout settings
+
+**SOAP errors:**
+- Check SOAP action names match Plunet API documentation
+- Verify parameter names and types
+- Check for special characters in parameter values
+
+### Debug Mode
+
+Enable debug logging in n8n to see detailed SOAP requests and responses:
+
+```bash
+# Set environment variable
+export N8N_LOG_LEVEL=debug
+```
+
+---
+
+## Adding New Operations
+
+1. **Choose the service file** (e.g., `services/dataCustomer30.ts`)
+2. **Add operation to registry** with parameter order and return type
+3. **Add UI properties** for parameters
+4. **Implement parsing logic** for response data
+5. **Add enum definitions** if needed
+6. **Test and build**
+
+Example:
+```typescript
+// Add to OPERATION_REGISTRY
+'newOperation': {
+  soapAction: 'newOperation',
+  endpoint: 'DataCustomer30',
+  uiName: 'New Operation',
+  paramOrder: ['param1', 'param2'],
+  returnType: 'String'
+}
+```
 
 ---
 
@@ -421,7 +523,32 @@ The UI dropdown and parameter inputs are auto-generated from `PARAM_ORDER` + `RE
 
 ## Credits
 
-* Node created by **Sufian Reiter**.
-* Powered by n8n’s community node framework.
+* Node created by **Sufian Reiter**
+* Powered by n8n's community node framework
+* Based on [Plunet API Documentation](https://apidoc.plunet.com/)
 
-If you hit an odd SOAP shape, paste a redacted response and we’ll extend the parser to cover it.
+If you encounter any issues or need additional functionality, please open an issue on GitHub.
+
+---
+
+## Recent Updates
+
+### v3.7.33 - Workflow Response Enrichment
+- Added WorkflowType and WorkflowStatus enums
+- Enhanced workflow responses with human-readable labels
+- Improved user experience for workflow selection
+
+### v3.7.32 - Additional Admin Operations
+- Added getAvailableWorkflows operation
+- Added getSystemCurrencies operation
+- Enhanced administrative functionality
+
+### v3.7.31 - Text Module Functionality
+- Added getTextModule and setTextModule operations
+- Implemented dynamic text module content types
+- Added loadOptions for text module flags
+
+### v3.7.30 - Country and Language Support
+- Added getAvailableCountries operation
+- Added getAvailableLanguages operation
+- Enhanced internationalization support
