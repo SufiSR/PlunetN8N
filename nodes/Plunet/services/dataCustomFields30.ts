@@ -96,7 +96,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
     description: 'Set a text module content',
     returnType: 'Void',
-    paramOrder: ['TextmoduleIN', 'ID', 'languageCode'],
+    paramOrder: ['TextModuleUsageArea', 'ID', 'Flag', 'StringContent', 'DateContent', 'ListContent', 'languageCode'],
     active: true,
   },
 };
@@ -234,18 +234,14 @@ const extraProperties: INodeProperties[] = [
       } 
     },
   },
-  // Text Module Content Type for set text module operation
+  // String Content for set text module operation
   {
-    displayName: 'Text Module Content',
-    name: 'TextModuleContent',
-    type: 'options',
-    options: [
-      { name: 'String', value: 'string' },
-      { name: 'List', value: 'list' },
-      { name: 'Date', value: 'date' }
-    ],
-    default: 'string',
-    description: 'Select the type of content to set for the text module',
+    displayName: 'String Content',
+    name: 'StringContent',
+    type: 'string',
+    default: '',
+    typeOptions: { rows: 4 },
+    description: 'String content for the text module',
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 
@@ -253,14 +249,28 @@ const extraProperties: INodeProperties[] = [
       } 
     },
   },
-  // Content Value for set text module operation
+  // Date Content for set text module operation
   {
-    displayName: 'Content Value',
-    name: 'ContentValue',
+    displayName: 'Date Content',
+    name: 'DateContent',
+    type: 'dateTime',
+    default: '',
+    description: 'Date content for the text module',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['setTextModule'] 
+      } 
+    },
+  },
+  // List Content for set text module operation
+  {
+    displayName: 'List Content',
+    name: 'ListContent',
     type: 'string',
     default: '',
     typeOptions: { rows: 4 },
-    description: 'The content value to set for the text module. For List type, enter values separated by commas.',
+    description: 'List content for the text module (comma-separated values)',
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 
@@ -549,38 +559,77 @@ export const DataCustomFields30Service: Service = {
       itemParams[paramName] = paramValue;
     }
     
-    // Special handling for setTextModule - create TextmoduleIN structure
+    // Special handling for setTextModule - create custom SOAP envelope
     if (operation === 'setTextModule') {
-      const textModuleContent = itemParams.TextModuleContent as string;
-      const contentValue = itemParams.ContentValue as string;
+      // Get the session ID
+      const sessionId = await config.getSessionId(ctx, itemIndex);
       
-      // Create TextmoduleIN object based on content type
-      const textModuleIN: IDataObject = {
-        textModuleUsageArea: itemParams.TextModuleUsageArea,
-        flag: itemParams.Flag
-      };
+      // Build the TextmoduleIN XML content
+      let textModuleINXml = '';
+      textModuleINXml += `<textModuleUsageArea>${itemParams.TextModuleUsageArea}</textModuleUsageArea>`;
+      textModuleINXml += `<flag>${itemParams.Flag}</flag>`;
       
-      // Add content based on type
-      if (textModuleContent === 'string') {
-        textModuleIN.stringValue = contentValue;
-      } else if (textModuleContent === 'list') {
-        // Split comma-separated values and create selectedValues array
-        const values = contentValue.split(',').map(v => v.trim()).filter(v => v);
-        textModuleIN.selectedValues = values;
-      } else if (textModuleContent === 'date') {
-        textModuleIN.dateValue = contentValue;
+      // Add content based on which field has a value
+      if (itemParams.StringContent && itemParams.StringContent.toString().trim()) {
+        textModuleINXml += `<stringValue>${itemParams.StringContent}</stringValue>`;
+      }
+      if (itemParams.DateContent && itemParams.DateContent.toString().trim()) {
+        textModuleINXml += `<dateValue>${itemParams.DateContent}</dateValue>`;
+      }
+      if (itemParams.ListContent && itemParams.ListContent.toString().trim()) {
+        // Split comma-separated values and create selectedValues
+        const values = itemParams.ListContent.toString().split(',').map(v => v.trim()).filter(v => v);
+        values.forEach(value => {
+          textModuleINXml += `<selectedValues>${value}</selectedValues>`;
+        });
       }
       
-      // Replace the individual parameters with the structured TextmoduleIN
-      itemParams.TextmoduleIN = textModuleIN;
-      itemParams.ID = itemParams.ID;
-      itemParams.languageCode = itemParams.languageCode;
+      // Create the custom SOAP envelope
+      const envelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
+  <soap:Header/>
+  <soap:Body>
+    <api:setTextmodule>
+      <UUID>${sessionId}</UUID>
+      <TextmoduleIN>
+        ${textModuleINXml}
+      </TextmoduleIN>
+      <ID>${itemParams.ID}</ID>
+      <languageCode>${itemParams.languageCode}</languageCode>
+    </api:setTextmodule>
+  </soap:Body>
+</soap:Envelope>`;
       
-      // Remove the individual parameters that are now in TextmoduleIN
-      delete itemParams.TextModuleUsageArea;
-      delete itemParams.Flag;
-      delete itemParams.TextModuleContent;
-      delete itemParams.ContentValue;
+      // Make the SOAP request directly
+      const { sendSoap } = await import('../core/soap');
+      const responseBody = await sendSoap(ctx, url, 'http://API.Integration/setTextmodule', envelope);
+      
+      // Parse the response
+      const { XMLParser } = await import('fast-xml-parser');
+      const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_' });
+      const parsed = parser.parse(responseBody);
+      
+      // Extract the result
+      const response = parsed['soap:Envelope']?.['soap:Body']?.['ns2:setTextmoduleResponse'] || 
+                      parsed['soap:Envelope']?.['soap:Body']?.['setTextmoduleResponse'];
+      
+      if (response?.setTextmoduleResult) {
+        return {
+          success: true,
+          resource: RESOURCE,
+          operation: 'setTextModule',
+          statusMessage: response.setTextmoduleResult.statusMessage || 'OK',
+          statusCode: response.setTextmoduleResult.statusCode || 0
+        };
+      }
+      
+      return {
+        success: true,
+        resource: RESOURCE,
+        operation: 'setTextModule',
+        statusMessage: 'OK',
+        statusCode: 0
+      };
     }
     const result = await executeOperation(ctx, operation, itemParams, config, itemIndex);
     
