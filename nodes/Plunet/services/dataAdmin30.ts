@@ -11,6 +11,8 @@ import { NUMERIC_BOOLEAN_PARAMS } from '../core/constants';
 import { extractStatusMessage, parseStringArrayResult } from '../core/xml';
 import { PropertyUsageAreaOptions } from '../enums/property-usage-area';
 import { TextModuleUsageAreaOptions } from '../enums/text-module-usage-area';
+import { getWorkflowTypeName } from '../enums/workflow-type';
+import { getWorkflowStatusName } from '../enums/workflow-status';
 import { generateOperationOptionsFromRegistry } from '../core/service-utils';
 
 const RESOURCE = 'DataAdmin30';
@@ -433,7 +435,9 @@ function parseWorkflowsArray(xml: string): IDataObject {
     description: string,
     name: string,
     status: number,
+    statusLabel: string,
     type: number,
+    typeLabel: string,
     workflowId: number
   }> = [];
   
@@ -445,11 +449,16 @@ function parseWorkflowsArray(xml: string): IDataObject {
     const workflowIdMatch = dataBlock.match(/<workflowId>(.*?)<\/workflowId>/);
     
     if (nameMatch && nameMatch[1] && workflowIdMatch && workflowIdMatch[1]) {
+      const status = statusMatch && statusMatch[1] ? parseInt(statusMatch[1], 10) : 0;
+      const type = typeMatch && typeMatch[1] ? parseInt(typeMatch[1], 10) : 0;
+      
       workflows.push({
         description: descriptionMatch && descriptionMatch[1] ? descriptionMatch[1] : '',
         name: nameMatch[1],
-        status: statusMatch && statusMatch[1] ? parseInt(statusMatch[1], 10) : 0,
-        type: typeMatch && typeMatch[1] ? parseInt(typeMatch[1], 10) : 0,
+        status: status,
+        statusLabel: getWorkflowStatusName(status),
+        type: type,
+        typeLabel: getWorkflowTypeName(type),
         workflowId: parseInt(workflowIdMatch[1], 10)
       });
     }
