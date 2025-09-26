@@ -130,15 +130,20 @@ export function buildErrorDescription(envelope: string, soapAction?: string): st
 
 // New enhanced functions for the refactored architecture
 export function buildEnvelope(op: string, bodyXml: string): string {
+  // Handle case conversion for text module operations
+  let operationName = op;
+  if (op === 'getTextModule') operationName = 'getTextmodule';
+  if (op === 'setTextModule') operationName = 'setTextmodule';
+  
   return `<?xml version="1.0" encoding="utf-8"?>
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:api="http://API.Integration/">
-  <soapenv:Header/>
-  <soapenv:Body>
-    <api:${op}>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
+  <soap:Header/>
+  <soap:Body>
+    <api:${operationName}>
       ${bodyXml}
-    </api:${op}>
-  </soapenv:Body>
-</soapenv:Envelope>`;
+    </api:${operationName}>
+  </soap:Body>
+</soap:Envelope>`;
 }
 
 export async function sendSoap(
