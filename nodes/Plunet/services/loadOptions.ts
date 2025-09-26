@@ -198,14 +198,14 @@ function createAdminExecuteConfig(creds: Creds, url: string, baseUrl: string, ti
  * Load options for DataCustomFields30 Text Module Flag field
  */
 export async function getAvailableTextModuleFlags(this: ILoadOptionsFunctions) {
-  const textModuleUsageArea = this.getCurrentNodeParameter('textModuleUsageArea') as number;
-  const mainID = this.getCurrentNodeParameter('MainID') as number;
+  const textModuleUsageArea = this.getCurrentNodeParameter('TextModuleUsageArea') as number;
+  const id = this.getCurrentNodeParameter('ID') as number;
   const languageCode = this.getCurrentNodeParameter('languageCode') as string || 'EN';
       
-  if (!textModuleUsageArea || !mainID) {
+  if (!textModuleUsageArea || !id) {
     return [
       {
-        name: 'Please set Text Module Usage Area and Main ID first',
+        name: 'Please set Text Module Usage Area and ID first',
         value: '',
         disabled: true
       }
@@ -237,7 +237,7 @@ export async function getAvailableTextModuleFlags(this: ILoadOptionsFunctions) {
          <UUID>${sessionId}</UUID>
          <languageCode>${languageCode}</languageCode>
          <textModuleUsageArea>${textModuleUsageArea}</textModuleUsageArea>
-         <MainID>${mainID}</MainID>
+         <MainID>${id}</MainID>
       </api:getAvailableTextModules>
    </soap:Body>
 </soap:Envelope>`;
