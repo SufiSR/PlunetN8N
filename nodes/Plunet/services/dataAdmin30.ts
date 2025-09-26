@@ -58,6 +58,19 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     paramOrder: ['languageCode'],
     active: true,
   },
+  getAvailableLanguages: {
+    soapAction: 'getAvailableLanguages',
+    endpoint: ENDPOINT,
+    uiName: 'Get Available Languages',
+    subtitleName: 'get available languages: admin',
+    titleName: 'Get Available Languages',
+    resource: RESOURCE,
+    resourceDisplayName: RESOURCE_DISPLAY_NAME,
+    description: 'Get available languages list',
+    returnType: 'StringArray',
+    paramOrder: ['languageCode'],
+    active: true,
+  },
 };
 
 /** ─ Legacy compatibility mappings ─ */
@@ -126,17 +139,17 @@ const extraProperties: INodeProperties[] = [
       } 
     },
   },
-  // Language Code for text modules and countries
+  // Language Code for text modules, countries, and languages
   {
     displayName: 'Language Code',
     name: 'languageCode',
     type: 'string',
     default: 'EN',
-    description: 'The language code for text modules and countries (e.g., EN, DE, FR)',
+    description: 'The language code for text modules, countries, and languages (e.g., EN, DE, FR)',
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 
-        operation: ['getAvailableTextModules', 'getAvailableCountries'] 
+        operation: ['getAvailableTextModules', 'getAvailableCountries', 'getAvailableLanguages'] 
       } 
     },
   },
@@ -173,6 +186,8 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             payload = parseTextModuleFlagsArray(xml);
           } else if (op === 'getAvailableCountries') {
             payload = parseCountriesArray(xml);
+          } else if (op === 'getAvailableLanguages') {
+            payload = parseLanguagesArray(xml);
           } else {
             payload = parseStringArrayResult(xml);
           }
@@ -313,6 +328,58 @@ function parseCountriesArray(xml: string): IDataObject {
     statusMessage: base.statusMessage,
     statusCode: base.statusCode,
     countries: countries
+  };
+}
+
+// Parse LanguageListResult to extract languages as structured data
+function parseLanguagesArray(xml: string): IDataObject {
+  const base = extractResultBase(xml);
+  
+  // Look for LanguageListResult scope
+  const languageListResultScope = findFirstTagBlock(xml, 'LanguageListResult');
+  if (!languageListResultScope) {
+    return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+  }
+  
+  // Extract all data blocks
+  const dataMatches = languageListResultScope.match(/<data>[\s\S]*?<\/data>/g);
+  if (!dataMatches) {
+    return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+  }
+  
+  const languages: Array<{
+    active: boolean,
+    favorite: boolean,
+    folderName: string,
+    id: number,
+    isoCode: string,
+    name: string
+  }> = [];
+  
+  dataMatches.forEach(dataBlock => {
+    const activeMatch = dataBlock.match(/<active>(.*?)<\/active>/);
+    const favoriteMatch = dataBlock.match(/<favorite>(.*?)<\/favorite>/);
+    const folderNameMatch = dataBlock.match(/<folderName>(.*?)<\/folderName>/);
+    const idMatch = dataBlock.match(/<id>(.*?)<\/id>/);
+    const isoCodeMatch = dataBlock.match(/<isoCode>(.*?)<\/isoCode>/);
+    const nameMatch = dataBlock.match(/<name>(.*?)<\/name>/);
+    
+    if (idMatch && idMatch[1] && nameMatch && nameMatch[1]) {
+      languages.push({
+        active: activeMatch && activeMatch[1] ? activeMatch[1].toLowerCase() === 'true' : false,
+        favorite: favoriteMatch && favoriteMatch[1] ? favoriteMatch[1].toLowerCase() === 'true' : false,
+        folderName: folderNameMatch && folderNameMatch[1] ? folderNameMatch[1] : '',
+        id: parseInt(idMatch[1], 10),
+        isoCode: isoCodeMatch && isoCodeMatch[1] ? isoCodeMatch[1] : '',
+        name: nameMatch[1]
+      });
+    }
+  });
+  
+  return {
+    statusMessage: base.statusMessage,
+    statusCode: base.statusCode,
+    languages: languages
   };
 }
 
