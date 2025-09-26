@@ -96,7 +96,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
     description: 'Set a text module content',
     returnType: 'Void',
-    paramOrder: ['TextModuleUsageArea', 'ID', 'Flag', 'StringContent', 'DateContent', 'ListContent', 'languageCode'],
+    paramOrder: ['TextModuleUsageArea', 'ID', 'Flag', 'TextModuleContent', 'languageCode'],
     active: true,
   },
 };
@@ -234,49 +234,67 @@ const extraProperties: INodeProperties[] = [
       } 
     },
   },
-  // String Content for set text module operation
+  // Text Module Content Collection
   {
-    displayName: 'String Content',
-    name: 'StringContent',
-    type: 'string',
-    default: '',
-    typeOptions: { rows: 4 },
-    description: 'String content for the text module',
+    displayName: 'Text Module Content',
+    name: 'TextModuleContent',
+    type: 'fixedCollection',
+    typeOptions: {
+      multipleValues: true,
+    },
+    default: {},
+    description: 'Add content fields for the text module',
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 
         operation: ['setTextModule'] 
       } 
     },
-  },
-  // Date Content for set text module operation
-  {
-    displayName: 'Date Content',
-    name: 'DateContent',
-    type: 'dateTime',
-    default: '',
-    description: 'Date content for the text module',
-    displayOptions: { 
-      show: { 
-        resource: [RESOURCE], 
-        operation: ['setTextModule'] 
-      } 
-    },
-  },
-  // List Content for set text module operation
-  {
-    displayName: 'List Content',
-    name: 'ListContent',
-    type: 'string',
-    default: '',
-    typeOptions: { rows: 4 },
-    description: 'List content for the text module (comma-separated values)',
-    displayOptions: { 
-      show: { 
-        resource: [RESOURCE], 
-        operation: ['setTextModule'] 
-      } 
-    },
+    options: [
+      {
+        displayName: 'Content Field',
+        name: 'contentField',
+        values: [
+          {
+            displayName: 'Type',
+            name: 'type',
+            type: 'options',
+            options: [
+              { name: 'String', value: 'string' },
+              { name: 'Single Select', value: 'singleSelect' },
+              { name: 'Multi Select', value: 'multiSelect' },
+              { name: 'Date', value: 'date' }
+            ],
+            default: 'string',
+            description: 'Select the type of content field'
+          },
+          {
+            displayName: 'Value',
+            name: 'value',
+            type: 'string',
+            displayOptions: {
+              show: {
+                type: ['string', 'singleSelect', 'multiSelect']
+              }
+            },
+            default: '',
+            description: 'The content value'
+          },
+          {
+            displayName: 'Date Value',
+            name: 'dateValue',
+            type: 'dateTime',
+            displayOptions: {
+              show: {
+                type: ['date']
+              }
+            },
+            default: '',
+            description: 'The date value'
+          }
+        ]
+      }
+    ]
   },
   // Property Name English for getPropertyValueText operation
   {
@@ -569,18 +587,31 @@ export const DataCustomFields30Service: Service = {
       textModuleINXml += `<textModuleUsageArea>${itemParams.TextModuleUsageArea}</textModuleUsageArea>`;
       textModuleINXml += `<flag>${itemParams.Flag}</flag>`;
       
-      // Add content based on which field has a value
-      if (itemParams.StringContent && itemParams.StringContent.toString().trim()) {
-        textModuleINXml += `<stringValue>${itemParams.StringContent}</stringValue>`;
-      }
-      if (itemParams.DateContent && itemParams.DateContent.toString().trim()) {
-        textModuleINXml += `<dateValue>${itemParams.DateContent}</dateValue>`;
-      }
-      if (itemParams.ListContent && itemParams.ListContent.toString().trim()) {
-        // Split comma-separated values and create selectedValues
-        const values = itemParams.ListContent.toString().split(',').map(v => v.trim()).filter(v => v);
-        values.forEach(value => {
-          textModuleINXml += `<selectedValues>${value}</selectedValues>`;
+      // Add content based on collection fields
+      const textModuleContent = itemParams.TextModuleContent as IDataObject;
+      if (textModuleContent && textModuleContent.contentField) {
+        const contentFields = Array.isArray(textModuleContent.contentField) 
+          ? textModuleContent.contentField 
+          : [textModuleContent.contentField];
+        
+        contentFields.forEach((field: IDataObject) => {
+          const type = field.type as string;
+          const value = field.value as string;
+          const dateValue = field.dateValue as string;
+          
+          if (type === 'string' && value && value.trim()) {
+            textModuleINXml += `<stringValue>${value}</stringValue>`;
+          } else if (type === 'singleSelect' && value && value.trim()) {
+            textModuleINXml += `<selectedValues>${value}</selectedValues>`;
+          } else if (type === 'multiSelect' && value && value.trim()) {
+            // Split comma-separated values and create multiple selectedValues
+            const values = value.split(',').map(v => v.trim()).filter(v => v);
+            values.forEach(val => {
+              textModuleINXml += `<selectedValues>${val}</selectedValues>`;
+            });
+          } else if (type === 'date' && dateValue && dateValue.trim()) {
+            textModuleINXml += `<dateValue>${dateValue}</dateValue>`;
+          }
         });
       }
       
