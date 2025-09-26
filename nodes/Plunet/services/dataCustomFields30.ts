@@ -86,7 +86,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     active: true,
   },
   getTextModule: {
-    soapAction: 'getTextmodule',
+    soapAction: 'getTextModule',
     endpoint: ENDPOINT,
     uiName: 'Get Text Module',
     subtitleName: 'get text module: custom fields',
@@ -99,7 +99,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     active: true,
   },
   setTextModule: {
-    soapAction: 'setTextmodule',
+    soapAction: 'setTextModule',
     endpoint: ENDPOINT,
     uiName: 'Set Text Module',
     subtitleName: 'set text module: custom fields',
@@ -336,7 +336,12 @@ function toSoapParamValue(raw: unknown, paramName: string): string {
 function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeoutMs: number): ExecuteConfig {
   return {
     url,
-    soapActionFor: (op: string) => `http://API.Integration/${op}`,
+    soapActionFor: (op: string) => {
+      // Handle case conversion for text module operations
+      if (op === 'getTextModule') return 'http://API.Integration/getTextmodule';
+      if (op === 'setTextModule') return 'http://API.Integration/setTextmodule';
+      return `http://API.Integration/${op}`;
+    },
     paramOrder: PARAM_ORDER,
     numericBooleans: NUMERIC_BOOLEAN_PARAMS,
     getSessionId: async (ctx: IExecuteFunctions) => ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, 0),
