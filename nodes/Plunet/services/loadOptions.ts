@@ -167,7 +167,7 @@ function createAdminExecuteConfig(creds: Creds, url: string, baseUrl: string, ti
           return { statusMessage: base.statusMessage, statusCode: base.statusCode };
         }
         
-        const textModuleOptions: string[] = [];
+        const textModuleOptions: Array<{name: string, value: string}> = [];
         
         dataMatches.forEach((dataBlock: string) => {
           const flagMatch = dataBlock.match(/<flag>(.*?)<\/flag>/);
@@ -176,8 +176,11 @@ function createAdminExecuteConfig(creds: Creds, url: string, baseUrl: string, ti
           if (flagMatch && flagMatch[1] && labelMatch && labelMatch[1]) {
             const flag = flagMatch[1];
             const label = labelMatch[1];
-            // Format: "[Textmodule2] - Nickname"
-            textModuleOptions.push(`${flag} - ${label}`);
+            // Store flag as value, display text as name
+            textModuleOptions.push({
+              name: `${flag} - ${label}`,
+              value: flag
+            });
           }
         });
         
@@ -268,12 +271,9 @@ export async function getAvailableTextModuleFlags(this: ILoadOptionsFunctions) {
     }
     
     if (parsed.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
-      const textModuleOptions = parsed.data as string[];
-      // Return the formatted options (flag - label)
-      return textModuleOptions.map((option: string) => ({
-        name: option,
-        value: option
-      }));
+      const textModuleOptions = parsed.data as Array<{name: string, value: string}>;
+      // Return the options with flag as value and display text as name
+      return textModuleOptions;
     }
     
     // If no text modules found, show helpful message
