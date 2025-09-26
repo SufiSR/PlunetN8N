@@ -504,13 +504,16 @@ function parseTextModuleResult(xml: string): IDataObject {
   const textModuleType = textModuleTypeMatch && textModuleTypeMatch[1] ? parseInt(textModuleTypeMatch[1], 10) : undefined;
   
   return {
-    availableValues: availableValuesMatch ? availableValuesMatch[1] : undefined,
-    flag: flagMatch ? flagMatch[1] : undefined,
-    flag_MainTextModule: flagMainTextModuleMatch ? flagMainTextModuleMatch[1] : undefined,
-    selectedValues: selectedValuesMatch ? selectedValuesMatch[1] : undefined,
-    stringValue: stringValueMatch ? stringValueMatch[1] : undefined,
-    textModuleType: textModuleType,
-    textModuleTypeName: textModuleType ? getTextModuleTypeName(textModuleType) : undefined,
+    data: {
+      flag: flagMatch ? flagMatch[1] : undefined,
+      textModuleLabel: undefined, // Will be set in execute function
+      flag_MainTextModule: flagMainTextModuleMatch ? flagMainTextModuleMatch[1] : undefined,
+      textModuleType: textModuleType,
+      textModuleTypeName: textModuleType ? getTextModuleTypeName(textModuleType) : undefined,
+      availableValues: availableValuesMatch ? availableValuesMatch[1] : undefined,
+      selectedValues: selectedValuesMatch ? selectedValuesMatch[1] : undefined,
+      stringValue: stringValueMatch ? stringValueMatch[1] : undefined,
+    },
     statusMessage: base.statusMessage,
     statusCode: base.statusCode
   };
@@ -575,10 +578,12 @@ export const DataCustomFields30Service: Service = {
         }
       }
       
-      return { 
-        ...finalResult, 
-        textModuleLabel: textModuleLabel || 'Unknown Label'
-      };
+      // Add textModuleLabel to the data object
+      if (finalResult.data && typeof finalResult.data === 'object' && !Array.isArray(finalResult.data)) {
+        (finalResult.data as IDataObject).textModuleLabel = textModuleLabel || 'Unknown Label';
+      }
+      
+      return finalResult;
     }
     
     return Array.isArray(result) ? result[0] || {} : result;
