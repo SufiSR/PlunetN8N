@@ -552,6 +552,20 @@ export const DataCustomFields30Service: Service = {
       };
     }
     
+    // Add textModuleLabel to result for getTextModule operation
+    if (operation === 'getTextModule' && itemParams.Flag) {
+      const finalResult = Array.isArray(result) ? result[0] || {} : result;
+      // Extract label from the Flag parameter which is in format "[flag] - label"
+      const flagValue = itemParams.Flag as string;
+      const labelMatch = flagValue.match(/\[.*?\]\s*-\s*(.+)/);
+      const textModuleLabel = labelMatch ? labelMatch[1] : undefined;
+      
+      return { 
+        ...finalResult, 
+        textModuleLabel: textModuleLabel
+      };
+    }
+    
     return Array.isArray(result) ? result[0] || {} : result;
   },
 };
