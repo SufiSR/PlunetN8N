@@ -71,6 +71,32 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     paramOrder: ['languageCode'],
     active: true,
   },
+  getAvailableWorkflows: {
+    soapAction: 'getAvailableWorkflows',
+    endpoint: ENDPOINT,
+    uiName: 'Get Available Workflows',
+    subtitleName: 'get available workflows: admin',
+    titleName: 'Get Available Workflows',
+    resource: RESOURCE,
+    resourceDisplayName: RESOURCE_DISPLAY_NAME,
+    description: 'Get available workflows list',
+    returnType: 'StringArray',
+    paramOrder: [],
+    active: true,
+  },
+  getSystemCurrencies: {
+    soapAction: 'getSystemCurrencies',
+    endpoint: ENDPOINT,
+    uiName: 'Get System Currencies',
+    subtitleName: 'get system currencies: admin',
+    titleName: 'Get System Currencies',
+    resource: RESOURCE,
+    resourceDisplayName: RESOURCE_DISPLAY_NAME,
+    description: 'Get system currencies list',
+    returnType: 'StringArray',
+    paramOrder: [],
+    active: true,
+  },
 };
 
 /** ─ Legacy compatibility mappings ─ */
@@ -188,6 +214,10 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             payload = parseCountriesArray(xml);
           } else if (op === 'getAvailableLanguages') {
             payload = parseLanguagesArray(xml);
+          } else if (op === 'getAvailableWorkflows') {
+            payload = parseWorkflowsArray(xml);
+          } else if (op === 'getSystemCurrencies') {
+            payload = parseCurrenciesArray(xml);
           } else {
             payload = parseStringArrayResult(xml);
           }
@@ -380,6 +410,98 @@ function parseLanguagesArray(xml: string): IDataObject {
     statusMessage: base.statusMessage,
     statusCode: base.statusCode,
     languages: languages
+  };
+}
+
+// Parse WorkflowListResult to extract workflows as structured data
+function parseWorkflowsArray(xml: string): IDataObject {
+  const base = extractResultBase(xml);
+  
+  // Look for WorkflowListResult scope
+  const workflowListResultScope = findFirstTagBlock(xml, 'WorkflowListResult');
+  if (!workflowListResultScope) {
+    return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+  }
+  
+  // Extract all data blocks
+  const dataMatches = workflowListResultScope.match(/<data>[\s\S]*?<\/data>/g);
+  if (!dataMatches) {
+    return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+  }
+  
+  const workflows: Array<{
+    description: string,
+    name: string,
+    status: number,
+    type: number,
+    workflowId: number
+  }> = [];
+  
+  dataMatches.forEach(dataBlock => {
+    const descriptionMatch = dataBlock.match(/<description>(.*?)<\/description>/);
+    const nameMatch = dataBlock.match(/<name>(.*?)<\/name>/);
+    const statusMatch = dataBlock.match(/<status>(.*?)<\/status>/);
+    const typeMatch = dataBlock.match(/<type>(.*?)<\/type>/);
+    const workflowIdMatch = dataBlock.match(/<workflowId>(.*?)<\/workflowId>/);
+    
+    if (nameMatch && nameMatch[1] && workflowIdMatch && workflowIdMatch[1]) {
+      workflows.push({
+        description: descriptionMatch && descriptionMatch[1] ? descriptionMatch[1] : '',
+        name: nameMatch[1],
+        status: statusMatch && statusMatch[1] ? parseInt(statusMatch[1], 10) : 0,
+        type: typeMatch && typeMatch[1] ? parseInt(typeMatch[1], 10) : 0,
+        workflowId: parseInt(workflowIdMatch[1], 10)
+      });
+    }
+  });
+  
+  return {
+    statusMessage: base.statusMessage,
+    statusCode: base.statusCode,
+    workflows: workflows
+  };
+}
+
+// Parse CurrencyListResult to extract currencies as structured data
+function parseCurrenciesArray(xml: string): IDataObject {
+  const base = extractResultBase(xml);
+  
+  // Look for CurrencyListResult scope
+  const currencyListResultScope = findFirstTagBlock(xml, 'CurrencyListResult');
+  if (!currencyListResultScope) {
+    return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+  }
+  
+  // Extract all data blocks
+  const dataMatches = currencyListResultScope.match(/<data>[\s\S]*?<\/data>/g);
+  if (!dataMatches) {
+    return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+  }
+  
+  const currencies: Array<{
+    currencyID: number,
+    description: string,
+    isoCode: string
+  }> = [];
+  
+  dataMatches.forEach(dataBlock => {
+    const currencyIDMatch = dataBlock.match(/<currencyID>(.*?)<\/currencyID>/);
+    const descriptionMatch = dataBlock.match(/<description>(.*?)<\/description>/);
+    const isoCodeMatch = dataBlock.match(/<isoCode>(.*?)<\/isoCode>/);
+    
+    if (currencyIDMatch && currencyIDMatch[1] && descriptionMatch && descriptionMatch[1]) {
+      currencies.push({
+        currencyID: parseInt(currencyIDMatch[1], 10),
+        description: descriptionMatch[1],
+        isoCode: isoCodeMatch && isoCodeMatch[1] ? isoCodeMatch[1] : ''
+      });
+    }
+  });
+  
+  return {
+    statusMessage: base.statusMessage,
+    statusCode: base.statusCode,
+    currencies: currencies
   };
 }
 
