@@ -73,19 +73,6 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     paramOrder: ['PropertyUsageArea', 'MainID', 'PropertyNameEnglish', 'PropertyIDs'],
     active: true,
   },
-  getTextModuleList: {
-    soapAction: 'getTextModuleList',
-    endpoint: ENDPOINT,
-    uiName: 'Get Text Module List',
-    subtitleName: 'get text module list: custom fields',
-    titleName: 'Get Text Module List',
-    resource: RESOURCE,
-    resourceDisplayName: RESOURCE_DISPLAY_NAME,
-    description: 'Retrieve text modules for a specific usage area',
-    returnType: 'StringArray',
-    paramOrder: ['usageArea'],
-    active: true,
-  },
   getTextModule: {
     soapAction: 'getTextModule',
     endpoint: ENDPOINT,
@@ -109,7 +96,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     resourceDisplayName: RESOURCE_DISPLAY_NAME,
     description: 'Set a text module content',
     returnType: 'Void',
-    paramOrder: ['Flag', 'TextModuleUsageArea', 'ID', 'languageCode', 'moduleContent'],
+    paramOrder: ['TextmoduleIN', 'ID', 'languageCode'],
     active: true,
   },
 };
@@ -182,7 +169,7 @@ const extraProperties: INodeProperties[] = [
   },
   // ID field for text module operations
   {
-    displayName: 'ID',
+    displayName: 'Main ID',
     name: 'ID',
     type: 'number',
     default: 0,
@@ -247,14 +234,33 @@ const extraProperties: INodeProperties[] = [
       } 
     },
   },
-  // Module Content for set text module operation
+  // Text Module Content Type for set text module operation
   {
-    displayName: 'Module Content',
-    name: 'moduleContent',
+    displayName: 'Text Module Content',
+    name: 'TextModuleContent',
+    type: 'options',
+    options: [
+      { name: 'String', value: 'string' },
+      { name: 'List', value: 'list' },
+      { name: 'Date', value: 'date' }
+    ],
+    default: 'string',
+    description: 'Select the type of content to set for the text module',
+    displayOptions: { 
+      show: { 
+        resource: [RESOURCE], 
+        operation: ['setTextModule'] 
+      } 
+    },
+  },
+  // Content Value for set text module operation
+  {
+    displayName: 'Content Value',
+    name: 'ContentValue',
     type: 'string',
     default: '',
     typeOptions: { rows: 4 },
-    description: 'The content to set for the text module',
+    description: 'The content value to set for the text module. For List type, enter values separated by commas.',
     displayOptions: { 
       show: { 
         resource: [RESOURCE], 
@@ -541,6 +547,40 @@ export const DataCustomFields30Service: Service = {
       }
       
       itemParams[paramName] = paramValue;
+    }
+    
+    // Special handling for setTextModule - create TextmoduleIN structure
+    if (operation === 'setTextModule') {
+      const textModuleContent = itemParams.TextModuleContent as string;
+      const contentValue = itemParams.ContentValue as string;
+      
+      // Create TextmoduleIN object based on content type
+      const textModuleIN: IDataObject = {
+        textModuleUsageArea: itemParams.TextModuleUsageArea,
+        flag: itemParams.Flag
+      };
+      
+      // Add content based on type
+      if (textModuleContent === 'string') {
+        textModuleIN.stringValue = contentValue;
+      } else if (textModuleContent === 'list') {
+        // Split comma-separated values and create selectedValues array
+        const values = contentValue.split(',').map(v => v.trim()).filter(v => v);
+        textModuleIN.selectedValues = values;
+      } else if (textModuleContent === 'date') {
+        textModuleIN.dateValue = contentValue;
+      }
+      
+      // Replace the individual parameters with the structured TextmoduleIN
+      itemParams.TextmoduleIN = textModuleIN;
+      itemParams.ID = itemParams.ID;
+      itemParams.languageCode = itemParams.languageCode;
+      
+      // Remove the individual parameters that are now in TextmoduleIN
+      delete itemParams.TextModuleUsageArea;
+      delete itemParams.Flag;
+      delete itemParams.TextModuleContent;
+      delete itemParams.ContentValue;
     }
     const result = await executeOperation(ctx, operation, itemParams, config, itemIndex);
     
