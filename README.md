@@ -100,11 +100,11 @@ src/
     services/
       plunetApi.ts             # login / validate / logout
       plunetApi.session.ts     # centralized session handling
-      dataCustomer30.core.ts   # core customer operations (refactored)
-      dataCustomer30.misc.ts   # misc customer operations (refactored)
-      dataResource30.core.ts   # core resource operations (refactored)
-      dataResource30.misc.ts   # misc resource operations (refactored)
-      dataJob30.ts             # job operations (refactored)
+      dataCustomer30.core.ts   # core customer operations
+      dataCustomer30.misc.ts   # misc customer operations
+      dataResource30.core.ts   # core resource operations
+      dataResource30.misc.ts   # misc resource operations 
+      dataJob30.ts             # job operations 
 ```
 
 Publishable files end up in `dist/…`. `package.json` includes:
