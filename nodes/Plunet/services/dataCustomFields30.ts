@@ -86,7 +86,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     active: true,
   },
   getTextModule: {
-    soapAction: 'getTextModule',
+    soapAction: 'getTextmodule',
     endpoint: ENDPOINT,
     uiName: 'Get Text Module',
     subtitleName: 'get text module: custom fields',
@@ -99,7 +99,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     active: true,
   },
   setTextModule: {
-    soapAction: 'setTextModule',
+    soapAction: 'setTextmodule',
     endpoint: ENDPOINT,
     uiName: 'Set Text Module',
     subtitleName: 'set text module: custom fields',
