@@ -793,7 +793,7 @@ export const DataOrder30CoreService: Service = {
                     { name: 'setExternalID', param: 'externalID', type: 'string' },
                     { name: 'setMasterProjectID', param: 'masterProjectID', type: 'number' },
                     { name: 'setProjectCategory', param: 'projectCategory', type: 'string' },
-                    { name: 'setProjectStatus', param: 'projectStatus', type: 'number' }
+                    { name: 'setProjectStatus', param: 'status', type: 'number' }
                 ];
                 
                 // Execute additional field operations if values are provided in collection
@@ -845,7 +845,7 @@ export const DataOrder30CoreService: Service = {
                     { name: 'setExternalID', param: 'externalID', type: 'string' },
                     { name: 'setMasterProjectID', param: 'masterProjectID', type: 'number' },
                     { name: 'setProjectCategory', param: 'projectCategory', type: 'string' },
-                    { name: 'setProjectStatus', param: 'projectStatus', type: 'number' }
+                    { name: 'setProjectStatus', param: 'status', type: 'number' }
                 ];
                 
                 // Execute additional field operations if values are provided in collection

@@ -354,7 +354,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Set the project status for an order',
         returnType: 'Void',
-        paramOrder: ['orderID', 'projectStatus'],
+        paramOrder: ['orderID', 'status'],
         active: true,
     },
 };
@@ -513,6 +513,21 @@ const extraProperties: INodeProperties[] =
                     type: 'boolean',
                     default: false,
                     description: 'Whether EN15038 is requested for the order',
+                    displayOptions: {
+                        show: {
+                            resource: [RESOURCE],
+                            operation: [op],
+                        },
+                    },
+                };
+            }
+            if (p === 'status') {
+                return {
+                    displayName: 'Project Status',
+                    name: p,
+                    type: 'number',
+                    default: 0,
+                    description: 'The project status ID for the order',
                     displayOptions: {
                         show: {
                             resource: [RESOURCE],
