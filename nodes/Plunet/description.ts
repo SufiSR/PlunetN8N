@@ -4,6 +4,8 @@ import { DataCustomer30CoreService } from './services/dataCustomer30.core';
 import { DataCustomer30MiscService } from './services/dataCustomer30.misc';
 import { DataResource30CoreService } from './services/dataResource30.core';
 import { DataResource30MiscService } from './services/dataResource30.misc';
+import { DataOrder30CoreService } from './services/dataOrder30.core';
+import { DataOrder30MiscService } from './services/dataOrder30.misc';
 import { DataJob30CoreService } from './services/dataJob30.core';
 import { DataJob30MiscService } from './services/dataJob30.misc';
 import { DataJob30PricesService } from './services/dataJob30.prices';
@@ -18,13 +20,15 @@ const services = [
     PlunetApiService,
     DataCustomer30CoreService,
     DataResource30CoreService,
+    DataOrder30CoreService,
     DataJob30CoreService,
     DataJob30PricesService,
     DataDocument30Service,
     DataCustomFields30Service,
     DataAdmin30Service, // New service added for testing
     DataCustomer30MiscService,
-    DataResource30MiscService,    
+    DataResource30MiscService,
+    DataOrder30MiscService,
     DataJob30MiscService,    
     //DataJob30Service, // not used
 ] as const;
