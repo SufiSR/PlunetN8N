@@ -545,6 +545,8 @@ export const DataOrder30CoreService: Service = {
                 let orderIDForExtendedCalls = ctx.getNodeParameter('orderID', itemIndex, 0) as number;
                 if (operation === 'getOrderObject2' && result.order && typeof result.order === 'object' && 'orderID' in result.order) {
                     orderIDForExtendedCalls = result.order.orderID as number;
+                    // Debug: Add a comment to track the orderID extraction
+                    // The orderID should be extracted from the getOrderObject2 response
                 }
                 
                 // List of extended field operations (removed unnecessary fields)
@@ -581,6 +583,8 @@ export const DataOrder30CoreService: Service = {
                                 }
                             } as IExecuteFunctions;
                             
+                            // Debug: Log the orderID being used for extended calls
+                            // This will help identify if the orderID is being passed correctly
                             extResult = await DataOrder30MiscService.execute(extOp, customCtx, creds, url, baseUrl, timeoutMs, itemIndex);
                         } else {
                             // For getOrderObject, use the original context
@@ -647,8 +651,8 @@ export const DataOrder30CoreService: Service = {
         
         // Handle insert2 with additional field operations
         if (operation === 'insert2' && result.success) {
-            // For insert2, the orderID is in the data field of the response
-            const createdOrderID = result.data ? parseInt(result.data.toString(), 10) : null;
+            // For insert2, the orderID is in the value field of the response
+            const createdOrderID = result.value ? parseInt(result.value.toString(), 10) : null;
             if (createdOrderID) {
                 // Import the misc service for additional field operations
                 const { DataOrder30MiscService } = await import('./dataOrder30.misc');
@@ -712,8 +716,8 @@ export const DataOrder30CoreService: Service = {
                 operation: operation,
                 statusMessage: result.statusMessage,
                 statusCode: result.statusCode,
-                data: result.data, // This contains the orderID from the insert response
-                orderID: result.data ? parseInt(result.data.toString(), 10) : null
+                data: result.value, // This contains the orderID from the insert response
+                orderID: result.value ? parseInt(result.value.toString(), 10) : null
             };
         }
         
