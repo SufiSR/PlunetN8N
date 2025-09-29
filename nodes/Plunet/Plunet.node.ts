@@ -115,6 +115,8 @@ import { DataJob30MiscService } from './services/dataJob30.misc';
 import { DataJob30PricesService } from './services/dataJob30.prices';
 import { DataResource30CoreService } from './services/dataResource30.core';
 import { DataResource30MiscService } from './services/dataResource30.misc';
+import { DataOrder30CoreService } from './services/dataOrder30.core';
+import { DataOrder30MiscService } from './services/dataOrder30.misc';
 import { DataDocument30Service } from './services/dataDocument30';
 import { DataCustomFields30Service } from './services/dataCustomFields30';
 import { DataAdmin30Service } from './services/dataAdmin30';
@@ -127,11 +129,13 @@ const registry: Record<string, Service> = {
     [DataCustomer30CoreService.resource]: DataCustomer30CoreService,
     [DataResource30CoreService.resource]: DataResource30CoreService,
     [DataJob30CoreService.resource]: DataJob30CoreService,    
+    [DataOrder30CoreService.resource]: DataOrder30CoreService,
     [DataDocument30Service.resource]: DataDocument30Service,
     [DataCustomFields30Service.resource]: DataCustomFields30Service,
     [DataAdmin30Service.resource]: DataAdmin30Service,
     [DataCustomer30MiscService.resource]: DataCustomer30MiscService,
     [DataResource30MiscService.resource]: DataResource30MiscService,
+    [DataOrder30MiscService.resource]: DataOrder30MiscService,
     [DataJob30PricesService.resource]: DataJob30PricesService,
     [DataJob30MiscService.resource]: DataJob30MiscService,
     //[DataJob30Service.resource]: DataJob30Service,
