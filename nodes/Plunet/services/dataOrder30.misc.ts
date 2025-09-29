@@ -240,6 +240,32 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         paramOrder: ['orderID'],
         active: true,
     },
+    createLink: {
+        soapAction: 'createLink',
+        endpoint: ENDPOINT,
+        uiName: 'Create Project Linking',
+        subtitleName: 'create project linking: order fields',
+        titleName: 'Create Project Linking',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Create a link between projects',
+        returnType: 'Void',
+        paramOrder: ['sourceOrderId', 'targetId', 'projectType', 'isBidirectional', 'memo'],
+        active: true,
+    },
+    getTemplateList: {
+        soapAction: 'getTemplateList',
+        endpoint: ENDPOINT,
+        uiName: 'Get List of Templates',
+        subtitleName: 'get list of templates: order fields',
+        titleName: 'Get List of Templates',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Get list of available templates',
+        returnType: 'TemplateList',
+        paramOrder: [],
+        active: true,
+    },
 };
 
 /** ─ Legacy compatibility mappings ─ */
@@ -249,7 +275,7 @@ const PARAM_ORDER: Record<string, string[]> = Object.fromEntries(
         .map(op => [op.soapAction, op.paramOrder])
 );
 
-type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Boolean'|'Date'|'StringArray';
+type R = 'Void'|'String'|'Integer'|'IntegerArray'|'Boolean'|'Date'|'StringArray'|'TemplateList';
 const RETURN_TYPE: Record<string, R> = Object.fromEntries(
     Object.values(OPERATION_REGISTRY)
         .filter(op => op.active) // Only include active operations
@@ -319,6 +345,68 @@ const extraProperties: INodeProperties[] =
                     ],
                     default: 3, // ORDER
                     description: 'Project type for the order',
+                    displayOptions: {
+                        show: {
+                            resource: [RESOURCE],
+                            operation: [op],
+                        },
+                    },
+                };
+            }
+            if (p === 'sourceOrderId') {
+                return {
+                    displayName: 'Source Order ID',
+                    name: p,
+                    type: 'number',
+                    default: 0,
+                    required: true,
+                    description: 'The ID of the source order',
+                    displayOptions: {
+                        show: {
+                            resource: [RESOURCE],
+                            operation: [op],
+                        },
+                    },
+                };
+            }
+            if (p === 'targetId') {
+                return {
+                    displayName: 'Target ID',
+                    name: p,
+                    type: 'number',
+                    default: 0,
+                    required: true,
+                    description: 'The ID of the target project',
+                    displayOptions: {
+                        show: {
+                            resource: [RESOURCE],
+                            operation: [op],
+                        },
+                    },
+                };
+            }
+            if (p === 'isBidirectional') {
+                return {
+                    displayName: 'Is Bidirectional',
+                    name: p,
+                    type: 'boolean',
+                    default: true,
+                    description: 'Whether the link is bidirectional',
+                    displayOptions: {
+                        show: {
+                            resource: [RESOURCE],
+                            operation: [op],
+                        },
+                    },
+                };
+            }
+            if (p === 'memo') {
+                return {
+                    displayName: 'Memo',
+                    name: p,
+                    type: 'string',
+                    default: '',
+                    description: 'Memo for the project link',
                     displayOptions: {
                         show: {
                             resource: [RESOURCE],
@@ -479,6 +567,36 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                     payload = { data: r.data, statusMessage: r.statusMessage, statusCode: r.statusCode };
                     break;
                 }
+                case 'TemplateList': {
+                    // Parse template list result
+                    const base = extractResultBase(xml);
+                    const templateData = [];
+                    
+                    // Extract template data from XML response
+                    const dataMatches = xml.match(/<data>(.*?)<\/data>/gs);
+                    if (dataMatches) {
+                        for (const dataMatch of dataMatches) {
+                            const customerID = dataMatch.match(/<customerID>(.*?)<\/customerID>/)?.[1];
+                            const templateDescription = dataMatch.match(/<templateDescription>(.*?)<\/templateDescription>/)?.[1];
+                            const templateID = dataMatch.match(/<templateID>(.*?)<\/templateID>/)?.[1];
+                            const templateName = dataMatch.match(/<templateName>(.*?)<\/templateName>/)?.[1];
+                            
+                            templateData.push({
+                                customerID: customerID ? parseInt(customerID, 10) : 0,
+                                templateDescription: templateDescription || '',
+                                templateID: templateID ? parseInt(templateID, 10) : 0,
+                                templateName: templateName || ''
+                            });
+                        }
+                    }
+                    
+                    payload = { 
+                        data: templateData, 
+                        statusMessage: base.statusMessage, 
+                        statusCode: base.statusCode 
+                    };
+                    break;
+                }
                 case 'Void': {
                     payload = handleVoidResult(xml, op, parseVoidResult);
                     break;
@@ -503,7 +621,16 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 const projectType = ctx.getNodeParameter('projectType', itemIndex, 3) as number; // Default to ORDER
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n<orderId>${orderID}</orderId>\n<projectType>${projectType}</projectType>`;
             }
-            
+
+            if (op === 'createLink') {
+                const sourceOrderId = ctx.getNodeParameter('sourceOrderId', itemIndex, 0) as number;
+                const targetId = ctx.getNodeParameter('targetId', itemIndex, 0) as number;
+                const projectType = ctx.getNodeParameter('projectType', itemIndex, 3) as number;
+                const isBidirectional = ctx.getNodeParameter('isBidirectional', itemIndex, true) as boolean;
+                const memo = ctx.getNodeParameter('memo', itemIndex, '') as string;
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n<sourceOrderId>${sourceOrderId}</sourceOrderId>\n<targetId>${targetId}</targetId>\n<projectType>${projectType}</projectType>\n<isBidirectional>${isBidirectional ? 1 : 0}</isBidirectional>\n<memo>${escapeXml(memo)}</memo>`;
+            }
+
             return `<UUID>${escapeXml(sessionId)}</UUID>\n<orderID>${orderID}</orderID>`;
         },
     );

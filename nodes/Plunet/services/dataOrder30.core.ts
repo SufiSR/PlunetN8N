@@ -46,6 +46,32 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         paramOrder: ['orderID', 'languageCode', 'projectType', 'extendedObject'],
         active: true,
     },
+    getOrderByNumber: {
+        soapAction: 'getOrderObject2',
+        endpoint: ENDPOINT,
+        uiName: 'Get Order by Number',
+        subtitleName: 'get: order by number',
+        titleName: 'Get an Order by Number',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Retrieve a single order by order number with optional extended object data',
+        returnType: 'Order',
+        paramOrder: ['orderNumber', 'languageCode', 'projectType', 'extendedObject'],
+        active: true,
+    },
+    deleteOrder: {
+        soapAction: 'delete',
+        endpoint: ENDPOINT,
+        uiName: 'Delete Order',
+        subtitleName: 'delete: order',
+        titleName: 'Delete an Order',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Delete an order by ID',
+        returnType: 'Void',
+        paramOrder: ['orderID'],
+        active: true,
+    },
 };
 
 /** ─ Legacy compatibility mappings ─ */
@@ -76,7 +102,22 @@ const extraProperties: INodeProperties[] = [
         displayOptions: {
             show: {
                 resource: [RESOURCE],
-                operation: ['getOrderObject'],
+                operation: ['getOrderObject', 'delete'],
+            },
+        },
+    },
+    // Order Number parameter
+    {
+        displayName: 'Order Number',
+        name: 'orderNumber',
+        type: 'string',
+        default: '',
+        required: true,
+        description: 'The order number to retrieve',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['getOrderObject2'],
             },
         },
     },
@@ -91,7 +132,7 @@ const extraProperties: INodeProperties[] = [
         displayOptions: {
             show: {
                 resource: [RESOURCE],
-                operation: ['getOrderObject'],
+                operation: ['getOrderObject', 'getOrderObject2'],
             },
         },
     },
@@ -110,7 +151,7 @@ const extraProperties: INodeProperties[] = [
         displayOptions: {
             show: {
                 resource: [RESOURCE],
-                operation: ['getOrderObject'],
+                operation: ['getOrderObject', 'getOrderObject2'],
             },
         },
     },
@@ -124,7 +165,7 @@ const extraProperties: INodeProperties[] = [
         displayOptions: {
             show: {
                 resource: [RESOURCE],
-                operation: ['getOrderObject'],
+                operation: ['getOrderObject', 'getOrderObject2'],
             },
         },
     },
@@ -208,7 +249,7 @@ export const DataOrder30CoreService: Service = {
         );
         
         // Handle extended object functionality
-        if (operation === 'getOrderObject') {
+        if (operation === 'getOrderObject' || operation === 'getOrderObject2') {
             const extendedObject = ctx.getNodeParameter('extendedObject', itemIndex, false) as boolean;
             
             if (extendedObject && result.success) {
@@ -294,12 +335,12 @@ export const DataOrder30CoreService: Service = {
         }
         
         // Reorganize the result structure to match desired output
-        if (operation === 'getOrderObject' && result.success) {
+        if ((operation === 'getOrderObject' || operation === 'getOrderObject2') && result.success) {
             const { order, statusMessage, statusCode, extendedData } = result;
             return {
                 success: true,
                 resource: RESOURCE,
-                operation: 'getOrderObject',
+                operation: operation,
                 statusMessage,
                 statusCode,
                 order,
