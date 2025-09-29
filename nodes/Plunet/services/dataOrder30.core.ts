@@ -81,7 +81,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Create a new order with optional additional field operations',
-        returnType: 'Order',
+        returnType: 'Integer',
         paramOrder: ['customerID', 'projectManagerID', 'currency', 'customerContactID', 'deliveryDeadline', 'orderDate', 'projectManagerMemo', 'projectName', 'rate', 'referenceNumber', 'subject', 'requestID', 'creationDate', 'en15038Requested', 'externalID', 'masterProjectID', 'projectCategory', 'projectStatus'],
         active: true,
     },
