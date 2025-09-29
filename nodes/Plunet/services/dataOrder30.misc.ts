@@ -344,6 +344,58 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
         timeoutMs,
         PARAM_ORDER,
         (xml: string, op: string) => {
+            // Check for specific error codes that need custom handling
+            if (op === 'getMasterProjectID') {
+                const statusCodeMatch = xml.match(/<statusCode>(-?\d+)<\/statusCode>/);
+                if (statusCodeMatch && statusCodeMatch[1]) {
+                    const statusCode = parseInt(statusCodeMatch[1], 10);
+                    if (statusCode === -57) {
+                        return {
+                            success: true,
+                            resource: RESOURCE,
+                            operation: op,
+                            MasterProjectID: '',
+                            statusMessage: 'No master project has been set for the current project.',
+                            statusCode: -57
+                        } as IDataObject;
+                    }
+                }
+            }
+            
+            if (op === 'getRequestId') {
+                const statusCodeMatch = xml.match(/<statusCode>(-?\d+)<\/statusCode>/);
+                if (statusCodeMatch && statusCodeMatch[1]) {
+                    const statusCode = parseInt(statusCodeMatch[1], 10);
+                    if (statusCode === -24) {
+                        return {
+                            success: true,
+                            resource: RESOURCE,
+                            operation: op,
+                            requestID: '',
+                            statusMessage: 'System can\'t find the requested project request.',
+                            statusCode: -24
+                        } as IDataObject;
+                    }
+                }
+            }
+            
+            if (op === 'getOrderClosingDate') {
+                const statusCodeMatch = xml.match(/<statusCode>(-?\d+)<\/statusCode>/);
+                if (statusCodeMatch && statusCodeMatch[1]) {
+                    const statusCode = parseInt(statusCodeMatch[1], 10);
+                    if (statusCode === 7028) {
+                        return {
+                            success: true,
+                            resource: RESOURCE,
+                            operation: op,
+                            Date: null,
+                            statusMessage: 'The project closing date is not set (yet).',
+                            statusCode: 7028
+                        } as IDataObject;
+                    }
+                }
+            }
+            
             const rt = RETURN_TYPE[op] as R|undefined;
             let payload: IDataObject;
             switch (rt) {
@@ -363,36 +415,6 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                             statusMessage: r.statusMessage, 
                             statusCode: r.statusCode 
                         };
-                    } else if (op === 'getMasterProjectID') {
-                        // Handle error -57 (No master project set)
-                        if (r.statusCode === -57) {
-                            payload = { 
-                                MasterProjectID: '', 
-                                statusMessage: r.statusMessage || 'No master project has been set for the current project.',
-                                statusCode: r.statusCode 
-                            };
-                        } else {
-                            payload = { 
-                                MasterProjectID: r.value || '', 
-                                statusMessage: r.statusMessage, 
-                                statusCode: r.statusCode 
-                            };
-                        }
-                    } else if (op === 'getRequestId') {
-                        // Handle error -24 (No request ID)
-                        if (r.statusCode === -24) {
-                            payload = { 
-                                requestID: '', 
-                                statusMessage: r.statusMessage || 'System can\'t find the requested project request.',
-                                statusCode: r.statusCode 
-                            };
-                        } else {
-                            payload = { 
-                                requestID: r.value || '', 
-                                statusMessage: r.statusMessage, 
-                                statusCode: r.statusCode 
-                            };
-                        }
                     } else {
                         payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
                     }
@@ -411,24 +433,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 }
                 case 'Date': {
                     const r = parseDateResult(xml);
-                    if (op === 'getOrderClosingDate') {
-                        // Handle error 7028 (No closing date set)
-                        if (r.statusCode === 7028) {
-                            payload = { 
-                                Date: null, 
-                                statusMessage: r.statusMessage || 'The project closing date is not set (yet).',
-                                statusCode: r.statusCode 
-                            };
-                        } else {
-                            payload = { 
-                                Date: r.date, 
-                                statusMessage: r.statusMessage, 
-                                statusCode: r.statusCode 
-                            };
-                        }
-                    } else {
-                        payload = { date: r.date, statusMessage: r.statusMessage, statusCode: r.statusCode };
-                    }
+                    payload = { date: r.date, statusMessage: r.statusMessage, statusCode: r.statusCode };
                     break;
                 }
                 case 'StringArray': {
