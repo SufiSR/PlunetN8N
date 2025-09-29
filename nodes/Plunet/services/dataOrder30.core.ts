@@ -72,6 +72,19 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         paramOrder: ['orderID'],
         active: true,
     },
+    insertOrder: {
+        soapAction: 'insert2',
+        endpoint: ENDPOINT,
+        uiName: 'Insert Order',
+        subtitleName: 'insert: order',
+        titleName: 'Insert an Order',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Create a new order with optional additional field operations',
+        returnType: 'Order',
+        paramOrder: ['customerID', 'projectManagerID', 'currency', 'customerContactID', 'deliveryDeadline', 'orderDate', 'projectManagerMemo', 'projectName', 'rate', 'referenceNumber', 'subject', 'requestID', 'creationDate', 'en15038Requested', 'externalID', 'masterProjectID', 'projectCategory', 'projectStatus'],
+        active: true,
+    },
 };
 
 /** ─ Legacy compatibility mappings ─ */
@@ -103,6 +116,36 @@ const extraProperties: INodeProperties[] = [
             show: {
                 resource: [RESOURCE],
                 operation: ['getOrderObject', 'delete'],
+            },
+        },
+    },
+    // Customer ID parameter
+    {
+        displayName: 'Customer ID',
+        name: 'customerID',
+        type: 'number',
+        default: 0,
+        required: true,
+        description: 'The ID of the customer (mandatory)',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    // Project Manager ID parameter
+    {
+        displayName: 'Project Manager ID',
+        name: 'projectManagerID',
+        type: 'number',
+        default: 0,
+        required: true,
+        description: 'The ID of the project manager (mandatory)',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
             },
         },
     },
@@ -169,6 +212,217 @@ const extraProperties: INodeProperties[] = [
             },
         },
     },
+    // Optional fields for insert operation
+    {
+        displayName: 'Currency',
+        name: 'currency',
+        type: 'string',
+        default: '',
+        description: 'Currency for the order',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    {
+        displayName: 'Customer Contact ID',
+        name: 'customerContactID',
+        type: 'number',
+        default: 0,
+        description: 'Customer contact ID',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    {
+        displayName: 'Delivery Deadline',
+        name: 'deliveryDeadline',
+        type: 'dateTime',
+        default: '',
+        description: 'Delivery deadline for the order',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    {
+        displayName: 'Order Date',
+        name: 'orderDate',
+        type: 'dateTime',
+        default: '',
+        description: 'Order date',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    {
+        displayName: 'Project Manager Memo',
+        name: 'projectManagerMemo',
+        type: 'string',
+        default: '',
+        description: 'Memo for the project manager',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    {
+        displayName: 'Project Name',
+        name: 'projectName',
+        type: 'string',
+        default: '',
+        description: 'Name of the project',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    {
+        displayName: 'Rate',
+        name: 'rate',
+        type: 'number',
+        default: 1.0,
+        description: 'Rate for the order',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    {
+        displayName: 'Reference Number',
+        name: 'referenceNumber',
+        type: 'string',
+        default: '',
+        description: 'Reference number for the order',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    {
+        displayName: 'Subject',
+        name: 'subject',
+        type: 'string',
+        default: '',
+        description: 'Subject of the order',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    // Additional field operations
+    {
+        displayName: 'Request ID',
+        name: 'requestID',
+        type: 'number',
+        default: 0,
+        description: 'Request ID to set after order creation',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    {
+        displayName: 'Creation Date',
+        name: 'creationDate',
+        type: 'dateTime',
+        default: '',
+        description: 'Creation date to set after order creation',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    {
+        displayName: 'EN15038 Requested',
+        name: 'en15038Requested',
+        type: 'boolean',
+        default: false,
+        description: 'Whether EN15038 is requested',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    {
+        displayName: 'External ID',
+        name: 'externalID',
+        type: 'string',
+        default: '',
+        description: 'External ID to set after order creation',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    {
+        displayName: 'Master Project ID',
+        name: 'masterProjectID',
+        type: 'number',
+        default: 0,
+        description: 'Master project ID to set after order creation',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    {
+        displayName: 'Project Category',
+        name: 'projectCategory',
+        type: 'string',
+        default: '',
+        description: 'Project category to set after order creation',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
+    {
+        displayName: 'Project Status',
+        name: 'projectStatus',
+        type: 'options',
+        options: ArchivStatusOptions,
+        default: 1,
+        description: 'Project status to set after order creation',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['insert2'],
+            },
+        },
+    },
 ];
 
 // Create the execution configuration
@@ -219,6 +473,36 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             if (op === 'getOrderObject') {
                 const orderID = itemParams.orderID as number;
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n<orderID>${orderID}</orderID>`;
+            }
+            if (op === 'insert2') {
+                // Build custom SOAP body for insert2 operation
+                const customerID = ctx.getNodeParameter('customerID', itemIndex, 0) as number;
+                const projectManagerID = ctx.getNodeParameter('projectManagerID', itemIndex, 0) as number;
+                const currency = ctx.getNodeParameter('currency', itemIndex, '') as string;
+                const customerContactID = ctx.getNodeParameter('customerContactID', itemIndex, 0) as number;
+                const deliveryDeadline = ctx.getNodeParameter('deliveryDeadline', itemIndex, '') as string;
+                const orderDate = ctx.getNodeParameter('orderDate', itemIndex, '') as string;
+                const projectManagerMemo = ctx.getNodeParameter('projectManagerMemo', itemIndex, '') as string;
+                const projectName = ctx.getNodeParameter('projectName', itemIndex, '') as string;
+                const rate = ctx.getNodeParameter('rate', itemIndex, 1.0) as number;
+                const referenceNumber = ctx.getNodeParameter('referenceNumber', itemIndex, '') as string;
+                const subject = ctx.getNodeParameter('subject', itemIndex, '') as string;
+                
+                let orderIN = `<OrderIN>`;
+                if (currency) orderIN += `\n<currency>${escapeXml(currency)}</currency>`;
+                if (customerContactID) orderIN += `\n<customerContactID>${customerContactID}</customerContactID>`;
+                orderIN += `\n<customerID>${customerID}</customerID>`;
+                if (deliveryDeadline) orderIN += `\n<deliveryDeadline>${escapeXml(deliveryDeadline)}</deliveryDeadline>`;
+                if (orderDate) orderIN += `\n<orderDate>${escapeXml(orderDate)}</orderDate>`;
+                if (projectManagerMemo) orderIN += `\n<projectManagerMemo>${escapeXml(projectManagerMemo)}</projectManagerMemo>`;
+                orderIN += `\n<projectManagerID>${projectManagerID}</projectManagerID>`;
+                if (projectName) orderIN += `\n<projectName>${escapeXml(projectName)}</projectName>`;
+                if (rate !== 1.0) orderIN += `\n<rate>${rate}</rate>`;
+                if (referenceNumber) orderIN += `\n<referenceNumber>${escapeXml(referenceNumber)}</referenceNumber>`;
+                if (subject) orderIN += `\n<subject>${escapeXml(subject)}</subject>`;
+                orderIN += `\n</OrderIN>`;
+                
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n${orderIN}`;
             }
             return null;
         },
@@ -357,6 +641,50 @@ export const DataOrder30CoreService: Service = {
                 
                 // Merge extended data into the result
                 result.extendedData = extendedData;
+            }
+        }
+        
+        // Handle insert2 with additional field operations
+        if (operation === 'insert2' && result.success) {
+            const createdOrderID = result.order && typeof result.order === 'object' && 'orderID' in result.order ? result.order.orderID as number : null;
+            if (createdOrderID) {
+                // Import the misc service for additional field operations
+                const { DataOrder30MiscService } = await import('./dataOrder30.misc');
+                
+                // List of additional field operations that can be performed after order creation
+                const additionalOperations = [
+                    { name: 'setRequestID', param: 'requestID', type: 'number' },
+                    { name: 'setCreationDate', param: 'creationDate', type: 'dateTime' },
+                    { name: 'setEN15038Requested', param: 'en15038Requested', type: 'boolean' },
+                    { name: 'setExternalID', param: 'externalID', type: 'string' },
+                    { name: 'setMasterProjectID', param: 'masterProjectID', type: 'number' },
+                    { name: 'setProjectCategory', param: 'projectCategory', type: 'string' },
+                    { name: 'setProjectStatus', param: 'projectStatus', type: 'number' }
+                ];
+                
+                // Execute additional field operations if values are provided
+                for (const op of additionalOperations) {
+                    const value = ctx.getNodeParameter(op.param, itemIndex, null);
+                    if (value !== null && value !== '' && value !== 0 && value !== false) {
+                        try {
+                            // Create a custom context that uses the created orderID
+                            const customCtx = {
+                                ...ctx,
+                                getNodeParameter: (paramName: string, itemIdx: number, defaultValue?: any) => {
+                                    if (paramName === 'orderID') {
+                                        return createdOrderID;
+                                    }
+                                    return ctx.getNodeParameter(paramName, itemIdx, defaultValue);
+                                }
+                            } as IExecuteFunctions;
+                            
+                            await DataOrder30MiscService.execute(op.name, customCtx, creds, url, baseUrl, timeoutMs, itemIndex);
+                        } catch (error) {
+                            // Log error but don't fail the entire operation
+                            // Note: In n8n context, this will be visible in the workflow execution logs
+                        }
+                    }
+                }
             }
         }
         
