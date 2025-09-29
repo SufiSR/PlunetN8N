@@ -256,6 +256,13 @@ export const DataOrder30CoreService: Service = {
                 // Import the misc service for extended calls
                 const { DataOrder30MiscService } = await import('./dataOrder30.misc');
                 
+                // For getOrderObject2, we need to extract the orderID from the response
+                // and use it for subsequent calls instead of the original orderNumber parameter
+                let orderIDForExtendedCalls = ctx.getNodeParameter('orderID', itemIndex, 0) as number;
+                if (operation === 'getOrderObject2' && result.order && typeof result.order === 'object' && 'orderID' in result.order) {
+                    orderIDForExtendedCalls = result.order.orderID as number;
+                }
+                
                 // List of extended field operations (removed unnecessary fields)
                 const extendedOperations = [
                     'getProjectStatus',
@@ -275,7 +282,26 @@ export const DataOrder30CoreService: Service = {
                 
                 for (const extOp of extendedOperations) {
                     try {
-                        const extResult = await DataOrder30MiscService.execute(extOp, ctx, creds, url, baseUrl, timeoutMs, itemIndex);
+                        let extResult;
+                        
+                        if (operation === 'getOrderObject2') {
+                            // For getOrderObject2, we need to call the misc service with the orderID from the response
+                            // We'll create a custom context that overrides the orderID parameter
+                            const customCtx = {
+                                ...ctx,
+                                getNodeParameter: (paramName: string, itemIdx: number, defaultValue?: any) => {
+                                    if (paramName === 'orderID') {
+                                        return orderIDForExtendedCalls;
+                                    }
+                                    return ctx.getNodeParameter(paramName, itemIdx, defaultValue);
+                                }
+                            } as IExecuteFunctions;
+                            
+                            extResult = await DataOrder30MiscService.execute(extOp, customCtx, creds, url, baseUrl, timeoutMs, itemIndex);
+                        } else {
+                            // For getOrderObject, use the original context
+                            extResult = await DataOrder30MiscService.execute(extOp, ctx, creds, url, baseUrl, timeoutMs, itemIndex);
+                        }
                         
                             // Handle different result types
                             if (extResult.success) {
