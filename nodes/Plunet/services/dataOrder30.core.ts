@@ -72,6 +72,19 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         paramOrder: ['customerID', 'projectManagerID', 'currency', 'customerContactID', 'deliveryDeadline', 'orderDate', 'projectManagerMemo', 'projectName', 'rate', 'referenceNumber', 'subject', 'requestID', 'creationDate', 'en15038Requested', 'externalID', 'masterProjectID', 'projectCategory', 'projectStatus'],
         active: true,
     },
+    updateOrder: {
+        soapAction: 'update',
+        endpoint: ENDPOINT,
+        uiName: 'Update Order',
+        subtitleName: 'update: order',
+        titleName: 'Update an Order',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Update an existing order with optional additional field operations',
+        returnType: 'Void',
+        paramOrder: ['orderID', 'customerID', 'projectManagerID', 'currency', 'customerContactID', 'deliveryDeadline', 'orderDate', 'projectManagerMemo', 'projectName', 'rate', 'referenceNumber', 'subject', 'requestID', 'creationDate', 'en15038Requested', 'externalID', 'masterProjectID', 'projectCategory', 'projectStatus'],
+        active: true,
+    },
 };
 
 /** ─ Legacy compatibility mappings ─ */
@@ -330,6 +343,194 @@ const extraProperties: INodeProperties[] = [
             },
         ],
     },
+    // Update Order UI Properties
+    {
+        displayName: 'Order ID',
+        name: 'orderID',
+        type: 'number',
+        default: 0,
+        required: true,
+        description: 'The order ID to update',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['update'],
+            },
+        },
+    },
+    {
+        displayName: 'Customer ID',
+        name: 'customerID',
+        type: 'number',
+        default: 0,
+        required: true,
+        description: 'Customer ID for the order',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['update'],
+            },
+        },
+    },
+    {
+        displayName: 'Project Manager ID',
+        name: 'projectManagerID',
+        type: 'number',
+        default: 0,
+        required: true,
+        description: 'Project manager ID for the order',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['update'],
+            },
+        },
+    },
+    // Collection for optional fields in update operation
+    {
+        displayName: 'Additional Fields',
+        name: 'additionalFields',
+        type: 'collection',
+        placeholder: 'Add Field',
+        default: {},
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['update'],
+            },
+        },
+        options: [
+            {
+                displayName: 'Currency',
+                name: 'currency',
+                type: 'string',
+                default: '',
+                description: 'Currency for the order',
+            },
+            {
+                displayName: 'Customer Contact ID',
+                name: 'customerContactID',
+                type: 'number',
+                default: 0,
+                description: 'Customer contact ID',
+            },
+            {
+                displayName: 'Delivery Deadline',
+                name: 'deliveryDeadline',
+                type: 'dateTime',
+                default: '',
+                description: 'Delivery deadline for the order',
+            },
+            {
+                displayName: 'Order Date',
+                name: 'orderDate',
+                type: 'dateTime',
+                default: '',
+                description: 'Order date',
+            },
+            {
+                displayName: 'Project Manager Memo',
+                name: 'projectManagerMemo',
+                type: 'string',
+                default: '',
+                description: 'Memo for the project manager',
+            },
+            {
+                displayName: 'Project Name',
+                name: 'projectName',
+                type: 'string',
+                default: '',
+                description: 'Name of the project',
+            },
+            {
+                displayName: 'Rate',
+                name: 'rate',
+                type: 'number',
+                default: 1.0,
+                description: 'Rate for the order',
+            },
+            {
+                displayName: 'Reference Number',
+                name: 'referenceNumber',
+                type: 'string',
+                default: '',
+                description: 'Reference number for the order',
+            },
+            {
+                displayName: 'Subject',
+                name: 'subject',
+                type: 'string',
+                default: '',
+                description: 'Subject of the order',
+            },
+        ],
+    },
+    // Collection for additional field operations in update
+    {
+        displayName: 'Additional Field Operations',
+        name: 'additionalFieldOperations',
+        type: 'collection',
+        placeholder: 'Add Field Operation',
+        default: {},
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['update'],
+            },
+        },
+        options: [
+            {
+                displayName: 'Request ID',
+                name: 'requestID',
+                type: 'number',
+                default: 0,
+                description: 'Request ID to set after order update',
+            },
+            {
+                displayName: 'Creation Date',
+                name: 'creationDate',
+                type: 'dateTime',
+                default: '',
+                description: 'Creation date to set after order update',
+            },
+            {
+                displayName: 'EN15038 Requested',
+                name: 'en15038Requested',
+                type: 'boolean',
+                default: false,
+                description: 'Whether EN15038 is requested',
+            },
+            {
+                displayName: 'External ID',
+                name: 'externalID',
+                type: 'string',
+                default: '',
+                description: 'External ID to set after order update',
+            },
+            {
+                displayName: 'Master Project ID',
+                name: 'masterProjectID',
+                type: 'number',
+                default: 0,
+                description: 'Master project ID to set after order update',
+            },
+            {
+                displayName: 'Project Category',
+                name: 'projectCategory',
+                type: 'string',
+                default: '',
+                description: 'Project category to set after order update',
+            },
+            {
+                displayName: 'Project Status',
+                name: 'projectStatus',
+                type: 'options',
+                options: ArchivStatusOptions,
+                default: 1,
+                description: 'Project status to set after order update',
+            },
+        ],
+    },
 ];
 
 // Create the execution configuration
@@ -392,6 +593,38 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 // Add required fields
                 orderIN += `\n<customerID>${customerID}</customerID>`;
                 orderIN += `\n<projectManagerID>${projectManagerID}</projectManagerID>`;
+                
+                // Add optional fields from collection
+                if (additionalFields.currency) orderIN += `\n<currency>${escapeXml(additionalFields.currency as string)}</currency>`;
+                if (additionalFields.customerContactID) orderIN += `\n<customerContactID>${additionalFields.customerContactID}</customerContactID>`;
+                if (additionalFields.deliveryDeadline) orderIN += `\n<deliveryDeadline>${escapeXml(additionalFields.deliveryDeadline as string)}</deliveryDeadline>`;
+                if (additionalFields.orderDate) orderIN += `\n<orderDate>${escapeXml(additionalFields.orderDate as string)}</orderDate>`;
+                if (additionalFields.projectManagerMemo) orderIN += `\n<projectManagerMemo>${escapeXml(additionalFields.projectManagerMemo as string)}</projectManagerMemo>`;
+                if (additionalFields.projectName) orderIN += `\n<projectName>${escapeXml(additionalFields.projectName as string)}</projectName>`;
+                if (additionalFields.rate && additionalFields.rate !== 1.0) orderIN += `\n<rate>${additionalFields.rate}</rate>`;
+                if (additionalFields.referenceNumber) orderIN += `\n<referenceNumber>${escapeXml(additionalFields.referenceNumber as string)}</referenceNumber>`;
+                if (additionalFields.subject) orderIN += `\n<subject>${escapeXml(additionalFields.subject as string)}</subject>`;
+                
+                orderIN += `\n</OrderIN>`;
+                
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n${orderIN}`;
+            }
+            if (op === 'update') {
+                // Build custom SOAP body for update operation
+                const orderID = ctx.getNodeParameter('orderID', itemIndex, 0) as number;
+                const customerID = ctx.getNodeParameter('customerID', itemIndex, 0) as number;
+                const projectManagerID = ctx.getNodeParameter('projectManagerID', itemIndex, 0) as number;
+                const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
+                
+                let orderIN = `<OrderIN>`;
+                
+                // Add required fields
+                orderIN += `\n<orderID>${orderID}</orderID>`;
+                orderIN += `\n<customerID>${customerID}</customerID>`;
+                orderIN += `\n<projectManagerID>${projectManagerID}</projectManagerID>`;
+                
+                // Add enableNullOrEmptyValues field (always 0)
+                orderIN += `\n<enableNullOrEmptyValues>0</enableNullOrEmptyValues>`;
                 
                 // Add optional fields from collection
                 if (additionalFields.currency) orderIN += `\n<currency>${escapeXml(additionalFields.currency as string)}</currency>`;
@@ -560,6 +793,54 @@ export const DataOrder30CoreService: Service = {
                                 getNodeParameter: (paramName: string, itemIdx: number, defaultValue?: any) => {
                                     if (paramName === 'orderID') {
                                         return createdOrderID;
+                                    }
+                                    return ctx.getNodeParameter(paramName, itemIdx, defaultValue);
+                                }
+                            } as IExecuteFunctions;
+                            
+                            await DataOrder30MiscService.execute(op.name, customCtx, creds, url, baseUrl, timeoutMs, itemIndex);
+                        } catch (error) {
+                            // Log error but don't fail the entire operation
+                            // Note: In n8n context, this will be visible in the workflow execution logs
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Handle update with additional field operations
+        if (operation === 'update' && result.success) {
+            // For update, we use the orderID from the request
+            const orderID = ctx.getNodeParameter('orderID', itemIndex, 0) as number;
+            if (orderID) {
+                // Import the misc service for additional field operations
+                const { DataOrder30MiscService } = await import('./dataOrder30.misc');
+                
+                // Get additional field operations from collection
+                const additionalFieldOperations = ctx.getNodeParameter('additionalFieldOperations', itemIndex, {}) as IDataObject;
+                
+                // List of additional field operations that can be performed after order update
+                const additionalOperations = [
+                    { name: 'setRequestID', param: 'requestID', type: 'number' },
+                    { name: 'setCreationDate', param: 'creationDate', type: 'dateTime' },
+                    { name: 'setEN15038Requested', param: 'en15038Requested', type: 'boolean' },
+                    { name: 'setExternalID', param: 'externalID', type: 'string' },
+                    { name: 'setMasterProjectID', param: 'masterProjectID', type: 'number' },
+                    { name: 'setProjectCategory', param: 'projectCategory', type: 'string' },
+                    { name: 'setProjectStatus', param: 'projectStatus', type: 'number' }
+                ];
+                
+                // Execute additional field operations if values are provided in collection
+                for (const op of additionalOperations) {
+                    const value = additionalFieldOperations[op.param];
+                    if (value !== null && value !== '' && value !== 0 && value !== false && value !== undefined) {
+                        try {
+                            // Create a custom context that uses the orderID
+                            const customCtx = {
+                                ...ctx,
+                                getNodeParameter: (paramName: string, itemIdx: number, defaultValue?: any) => {
+                                    if (paramName === 'orderID') {
+                                        return orderID;
                                     }
                                     return ctx.getNodeParameter(paramName, itemIdx, defaultValue);
                                 }
