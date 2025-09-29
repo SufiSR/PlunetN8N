@@ -8,7 +8,7 @@ import { labelize, asNonEmpty } from '../core/utils';
 import { NUMERIC_BOOLEAN_PARAMS } from '../core/constants';
 import {
     extractResultBase, extractStatusMessage, extractSoapFault,
-    parseStringResult, parseIntegerResult, parseIntegerArrayResult, parseVoidResult, parseDateResult,
+    parseStringResult, parseIntegerResult, parseIntegerArrayResult, parseVoidResult, parseDateResult, parseStringArrayResult,
 } from '../core/xml';
 import { ArchivStatusOptions, idToArchivStatusName } from '../enums/archiv-status';
 import {
@@ -118,7 +118,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Get links associated with the order',
         returnType: 'StringArray',
-        paramOrder: ['orderID'],
+        paramOrder: ['orderID', 'projectType'],
         active: true,
     },
     getMasterProjectID: {
@@ -196,7 +196,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Get the project category for the order',
         returnType: 'String',
-        paramOrder: ['orderID'],
+        paramOrder: ['orderID', 'projectCategory', 'systemLanguageCode'],
         active: true,
     },
     getProjectStatus: {
@@ -275,6 +275,56 @@ const extraProperties: INodeProperties[] =
                     },
                 };
             }
+            if (p === 'projectCategory') {
+                return {
+                    displayName: 'Project Category',
+                    name: p,
+                    type: 'string',
+                    default: '',
+                    description: 'Name of the project category',
+                    displayOptions: {
+                        show: {
+                            resource: [RESOURCE],
+                            operation: [op],
+                        },
+                    },
+                };
+            }
+            if (p === 'systemLanguageCode') {
+                return {
+                    displayName: 'System Language Code',
+                    name: p,
+                    type: 'string',
+                    default: 'EN',
+                    description: 'Language of the name',
+                    displayOptions: {
+                        show: {
+                            resource: [RESOURCE],
+                            operation: [op],
+                        },
+                    },
+                };
+            }
+            if (p === 'projectType') {
+                return {
+                    displayName: 'Project Type',
+                    name: p,
+                    type: 'options',
+                    options: [
+                        { name: 'Please select...', value: '' },
+                        { name: 'Quote (1)', value: 1 },
+                        { name: 'Order (3)', value: 3 },
+                    ],
+                    default: 3, // ORDER
+                    description: 'Project type for the order',
+                    displayOptions: {
+                        show: {
+                            resource: [RESOURCE],
+                            operation: [op],
+                        },
+                    },
+                };
+            }
             return createStringProperty(
                 p,
                 p,
@@ -313,6 +363,36 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                             statusMessage: r.statusMessage, 
                             statusCode: r.statusCode 
                         };
+                    } else if (op === 'getMasterProjectID') {
+                        // Handle error -57 (No master project set)
+                        if (r.statusCode === -57) {
+                            payload = { 
+                                MasterProjectID: '', 
+                                statusMessage: r.statusMessage || 'No master project has been set for the current project.',
+                                statusCode: r.statusCode 
+                            };
+                        } else {
+                            payload = { 
+                                MasterProjectID: r.value || '', 
+                                statusMessage: r.statusMessage, 
+                                statusCode: r.statusCode 
+                            };
+                        }
+                    } else if (op === 'getRequestId') {
+                        // Handle error -24 (No request ID)
+                        if (r.statusCode === -24) {
+                            payload = { 
+                                requestID: '', 
+                                statusMessage: r.statusMessage || 'System can\'t find the requested project request.',
+                                statusCode: r.statusCode 
+                            };
+                        } else {
+                            payload = { 
+                                requestID: r.value || '', 
+                                statusMessage: r.statusMessage, 
+                                statusCode: r.statusCode 
+                            };
+                        }
                     } else {
                         payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
                     }
@@ -331,13 +411,29 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 }
                 case 'Date': {
                     const r = parseDateResult(xml);
-                    payload = { date: r.date, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    if (op === 'getOrderClosingDate') {
+                        // Handle error 7028 (No closing date set)
+                        if (r.statusCode === 7028) {
+                            payload = { 
+                                Date: null, 
+                                statusMessage: r.statusMessage || 'The project closing date is not set (yet).',
+                                statusCode: r.statusCode 
+                            };
+                        } else {
+                            payload = { 
+                                Date: r.date, 
+                                statusMessage: r.statusMessage, 
+                                statusCode: r.statusCode 
+                            };
+                        }
+                    } else {
+                        payload = { date: r.date, statusMessage: r.statusMessage, statusCode: r.statusCode };
+                    }
                     break;
                 }
                 case 'StringArray': {
-                    // Parse string array result - this would need a proper string array parser
-                    const base = extractResultBase(xml);
-                    payload = { data: [], statusMessage: base.statusMessage, statusCode: base.statusCode };
+                    const r = parseStringArrayResult(xml);
+                    payload = { data: r.data, statusMessage: r.statusMessage, statusCode: r.statusCode };
                     break;
                 }
                 case 'Void': {
@@ -352,6 +448,19 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
         },
         (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
             const orderID = itemParams.orderID as number;
+            
+            if (op === 'getProjectCategory') {
+                const projectCategory = ctx.getNodeParameter('projectCategory', itemIndex, '') as string;
+                const systemLanguageCode = ctx.getNodeParameter('systemLanguageCode', itemIndex, 'EN') as string;
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n<orderID>${orderID}</orderID>\n<projectCategory>${escapeXml(projectCategory)}</projectCategory>\n<systemLanguageCode>${escapeXml(systemLanguageCode)}</systemLanguageCode>`;
+            }
+            
+            if (op === 'getLinks') {
+                // getLinks expects orderId and projectType parameters
+                const projectType = ctx.getNodeParameter('projectType', itemIndex, 3) as number; // Default to ORDER
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n<orderId>${orderID}</orderId>\n<projectType>${projectType}</projectType>`;
+            }
+            
             return `<UUID>${escapeXml(sessionId)}</UUID>\n<orderID>${orderID}</orderID>`;
         },
     );

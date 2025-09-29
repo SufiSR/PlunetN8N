@@ -9,6 +9,7 @@ import { NUMERIC_BOOLEAN_PARAMS } from '../core/constants';
 import {
     extractResultBase, extractStatusMessage, extractSoapFault, parseIntegerResult, parseIntegerArrayResult, parseVoidResult,
 } from '../core/xml';
+import { parseOrderResult } from '../core/parsers/order';
 import { ProjectTypeOptions } from '../enums/project-type';
 import { ArchivStatusOptions, idToArchivStatusName } from '../enums/archiv-status';
 import {
@@ -142,24 +143,15 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             let payload: IDataObject;
             switch (rt) {
                 case 'Order': {
-                    // Parse the basic order result
-                    const base = extractResultBase(xml);
-                    let order: any = {};
+                    const r = parseOrderResult(xml);
+                    const order = r.order || {};
                     
-                    // Extract order data from XML response
-                    try {
-                        const orderMatch = xml.match(/<Order[^>]*>([\s\S]*?)<\/Order>/);
-                        if (orderMatch) {
-                            // Basic parsing - in a real implementation, you'd want a proper XML parser
-                            // For now, we'll return the raw response structure
-                            order = { rawResponse: xml, ...base };
-                        }
-                    } catch (error) {
-                        // If parsing fails, return basic structure
-                        order = { rawResponse: xml, ...base };
+                    // Add project status label if available
+                    if (order.projectStatus !== undefined) {
+                        order.projectStatusLabel = idToArchivStatusName(order.projectStatus);
                     }
                     
-                    payload = { order, statusMessage: base.statusMessage, statusCode: base.statusCode };
+                    payload = { order, statusMessage: r.statusMessage, statusCode: r.statusCode };
                     break;
                 }
                 case 'Integer': {
@@ -203,7 +195,7 @@ export const DataOrder30CoreService: Service = {
     extraProperties,
     async execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex) {
         const config = createExecuteConfig(creds, url, baseUrl, timeoutMs);
-        return await executeStandardService(
+        const result = await executeStandardService(
             operation,
             ctx,
             creds,
@@ -214,5 +206,80 @@ export const DataOrder30CoreService: Service = {
             PARAM_ORDER,
             config,
         );
+        
+        // Handle extended object functionality
+        if (operation === 'getOrderObject') {
+            const extendedObject = ctx.getNodeParameter('extendedObject', itemIndex, false) as boolean;
+            
+            if (extendedObject && result.success) {
+                // Import the misc service for extended calls
+                const { DataOrder30MiscService } = await import('./dataOrder30.misc');
+                
+                // List of extended field operations
+                const extendedOperations = [
+                    'checkEN15038',
+                    'getCreationDate', 
+                    'getDeliveryComment',
+                    'getEN15038Requested',
+                    'getExternalID',
+                    'getLanguageCombination',
+                    'getLinks',
+                    'getMasterProjectID',
+                    'getOrderClosingDate',
+                    'getOrderConfirmations',
+                    'getOrderDate',
+                    'getOrderNo_for_View',
+                    'getProjectCategory',
+                    'getProjectStatus',
+                    'getRequestId',
+                    'getSubject'
+                ];
+                
+                // Execute extended calls and collect results
+                const extendedData: Record<string, any> = {};
+                
+                for (const extOp of extendedOperations) {
+                    try {
+                        const extResult = await DataOrder30MiscService.execute(extOp, ctx, creds, url, baseUrl, timeoutMs, itemIndex);
+                        
+                        // Handle different result types
+                        if (extResult.success) {
+                            if (extOp === 'getProjectStatus' && extResult.statusId !== undefined) {
+                                extendedData[extOp] = {
+                                    statusId: extResult.statusId,
+                                    statusLabel: extResult.statusName || '',
+                                    statusMessage: extResult.statusMessage,
+                                    statusCode: extResult.statusCode
+                                };
+                            } else if (extOp === 'getLanguageCombination' && extResult.data) {
+                                extendedData[extOp] = extResult.data;
+                            } else if (extOp === 'getLinks' && extResult.data) {
+                                extendedData[extOp] = extResult.data;
+                            } else if (extOp === 'getOrderConfirmations' && extResult.data) {
+                                extendedData[extOp] = extResult.data;
+                            } else if (extResult.value !== undefined) {
+                                extendedData[extOp] = extResult.value;
+                            } else if (extResult.data !== undefined) {
+                                extendedData[extOp] = extResult.data;
+                            } else if (extResult.date !== undefined) {
+                                extendedData[extOp] = extResult.date;
+                            } else {
+                                extendedData[extOp] = '';
+                            }
+                        } else {
+                            extendedData[extOp] = '';
+                        }
+                    } catch (error) {
+                        // If call fails, set empty value
+                        extendedData[extOp] = '';
+                    }
+                }
+                
+                // Merge extended data into the result
+                result.extendedData = extendedData;
+            }
+        }
+        
+        return result;
     },
 };
