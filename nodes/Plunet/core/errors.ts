@@ -27,8 +27,12 @@ export function throwForSoapFaultOrStatus(
     throw withSnippet(op, url, soapAction, envelope, msg);
   }
   if (statusCode !== undefined && statusCode !== 0) {
-    const msg = `Plunet returned status ${statusCode}${statusMessage ? `: ${statusMessage}` : ''}`;
-    throw withSnippet(op, url, soapAction, envelope, msg);
+    // Exclude specific error codes that should be handled as success cases
+    const excludedErrorCodes = [-57, -24, 7028];
+    if (!excludedErrorCodes.includes(statusCode)) {
+      const msg = `Plunet returned status ${statusCode}${statusMessage ? `: ${statusMessage}` : ''}`;
+      throw withSnippet(op, url, soapAction, envelope, msg);
+    }
   }
 }
 

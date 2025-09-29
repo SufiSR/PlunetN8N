@@ -215,14 +215,10 @@ export const DataOrder30CoreService: Service = {
                 // Import the misc service for extended calls
                 const { DataOrder30MiscService } = await import('./dataOrder30.misc');
                 
-                // List of extended field operations (removed EN15038 fields)
+                // List of extended field operations (removed unnecessary fields)
                 const extendedOperations = [
-                    'getOrderNo_for_View',
                     'getProjectStatus',
                     'getCreationDate',
-                    'getOrderDate',
-                    'getRequestId',
-                    'getSubject',
                     'getProjectCategory',
                     'getMasterProjectID',
                     'getDeliveryComment',
@@ -240,35 +236,31 @@ export const DataOrder30CoreService: Service = {
                     try {
                         const extResult = await DataOrder30MiscService.execute(extOp, ctx, creds, url, baseUrl, timeoutMs, itemIndex);
                         
-                        // Handle different result types
-                        if (extResult.success) {
-                            if (extOp === 'getProjectStatus' && extResult.statusId !== undefined) {
-                                extendedData[extOp] = {
-                                    statusId: extResult.statusId,
-                                    statusLabel: extResult.statusName || '',
-                                    statusMessage: extResult.statusMessage,
-                                    statusCode: extResult.statusCode
-                                };
-                            } else if (extOp === 'getMasterProjectID') {
+                            // Handle different result types
+                            if (extResult.success) {
+                                if (extOp === 'getProjectStatus' && extResult.statusId !== undefined) {
+                                    extendedData[extOp] = {
+                                        statusId: extResult.statusId,
+                                        statusLabel: extResult.statusName || ''
+                                    };
+                                } else if (extOp === 'getMasterProjectID') {
                                 // Handle the specific error case for MasterProjectID
-                                if (extResult.MasterProjectID !== undefined) {
-                                    extendedData[extOp] = extResult.MasterProjectID;
+                                if (extResult.data !== null) {
+                                    extendedData[extOp] = extResult.data;
                                 } else {
                                     extendedData[extOp] = '';
                                 }
                             } else if (extOp === 'getRequestId') {
                                 // Handle the specific error case for RequestId
-                                if (extResult.requestID !== undefined) {
-                                    extendedData[extOp] = extResult.requestID;
+                                if (extResult.data !== null) {
+                                    extendedData[extOp] = extResult.data;
                                 } else {
                                     extendedData[extOp] = '';
                                 }
                             } else if (extOp === 'getOrderClosingDate') {
                                 // Handle the specific error case for OrderClosingDate
-                                if (extResult.Date !== undefined) {
-                                    extendedData[extOp] = extResult.Date;
-                                } else if (extResult.date !== undefined) {
-                                    extendedData[extOp] = extResult.date;
+                                if (extResult.data !== null) {
+                                    extendedData[extOp] = extResult.data;
                                 } else {
                                     extendedData[extOp] = '';
                                 }

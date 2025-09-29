@@ -4,6 +4,7 @@ export interface Order {
     orderID?: number;
     orderNo?: string;
     orderNo_for_View?: string;
+    orderDisplayName?: string;
     subject?: string;
     orderDate?: string;
     orderClosingDate?: string;
@@ -20,6 +21,13 @@ export interface Order {
     languageCombinations?: string[];
     links?: string[];
     orderConfirmations?: string[];
+    // Additional fields from actual response
+    currency?: string;
+    customerContactID?: number;
+    customerID?: number;
+    projectManagerID?: number;
+    projectName?: string;
+    rate?: number;
 }
 
 export interface OrderResult extends ResultBase {
@@ -44,6 +52,7 @@ export function parseOrderResult(xml: string): OrderResult {
     order.orderID = asNum(orderData.orderID);
     order.orderNo = asStr(orderData.orderNo);
     order.orderNo_for_View = asStr(orderData.orderNo_for_View);
+    order.orderDisplayName = asStr(orderData.orderDisplayName);
     order.subject = asStr(orderData.subject);
     order.orderDate = asStr(orderData.orderDate);
     order.orderClosingDate = asStr(orderData.orderClosingDate);
@@ -56,6 +65,14 @@ export function parseOrderResult(xml: string): OrderResult {
     order.masterProjectID = asNum(orderData.masterProjectID);
     order.en15038Requested = Boolean(orderData.en15038Requested);
     order.en15038 = Boolean(orderData.en15038);
+    
+    // Parse additional fields from actual response
+    order.currency = asStr(orderData.currency);
+    order.customerContactID = asNum(orderData.customerContactID);
+    order.customerID = asNum(orderData.customerID);
+    order.projectManagerID = asNum(orderData.projectManagerID);
+    order.projectName = asStr(orderData.projectName);
+    order.rate = asNum(orderData.rate);
 
     // Parse arrays
     if (orderData.languageCombinations) {

@@ -356,7 +356,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                             success: true,
                             resource: RESOURCE,
                             operation: op,
-                            MasterProjectID: '',
+                            data: null,
                             statusMessage: 'No master project has been set for the current project.',
                             statusCode: -57
                         } as IDataObject;
@@ -369,7 +369,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                         success: true,
                         resource: RESOURCE,
                         operation: op,
-                        MasterProjectID: '',
+                        data: null,
                         statusMessage: 'No master project has been set for the current project.',
                         statusCode: -57
                     } as IDataObject;
@@ -385,7 +385,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                             success: true,
                             resource: RESOURCE,
                             operation: op,
-                            requestID: '',
+                            data: null,
                             statusMessage: 'System can\'t find the requested project request.',
                             statusCode: -24
                         } as IDataObject;
@@ -398,7 +398,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                         success: true,
                         resource: RESOURCE,
                         operation: op,
-                        requestID: '',
+                        data: null,
                         statusMessage: 'System can\'t find the requested project request.',
                         statusCode: -24
                     } as IDataObject;
@@ -414,7 +414,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                             success: true,
                             resource: RESOURCE,
                             operation: op,
-                            Date: null,
+                            data: null,
                             statusMessage: 'The project closing date is not set (yet).',
                             statusCode: 7028
                         } as IDataObject;
@@ -427,7 +427,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                         success: true,
                         resource: RESOURCE,
                         operation: op,
-                        Date: null,
+                        data: null,
                         statusMessage: 'The project closing date is not set (yet).',
                         statusCode: 7028
                     } as IDataObject;
