@@ -525,9 +525,18 @@ const extraProperties: INodeProperties[] =
                 return {
                     displayName: 'Project Status',
                     name: p,
-                    type: 'number',
-                    default: 0,
-                    description: 'The project status ID for the order',
+                    type: 'options',
+                    options: [
+                        { name: 'Please select...', value: '' },
+                        { name: 'Active (1)', value: 1 },
+                        { name: 'Completed (Archivable) (2)', value: 2 },
+                        { name: 'Archived (3)', value: 3 },
+                        { name: 'Quote Moved to Order (4)', value: 4 },
+                        { name: 'In Preparation (5)', value: 5 },
+                        { name: 'Completed (6)', value: 6 },
+                    ],
+                    default: 1, // ACTIVE
+                    description: 'The project status for the order',
                     displayOptions: {
                         show: {
                             resource: [RESOURCE],
