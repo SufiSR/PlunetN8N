@@ -215,24 +215,22 @@ export const DataOrder30CoreService: Service = {
                 // Import the misc service for extended calls
                 const { DataOrder30MiscService } = await import('./dataOrder30.misc');
                 
-                // List of extended field operations
+                // List of extended field operations (removed EN15038 fields)
                 const extendedOperations = [
-                    'checkEN15038',
-                    'getCreationDate', 
+                    'getOrderNo_for_View',
+                    'getProjectStatus',
+                    'getCreationDate',
+                    'getOrderDate',
+                    'getRequestId',
+                    'getSubject',
+                    'getProjectCategory',
+                    'getMasterProjectID',
                     'getDeliveryComment',
-                    'getEN15038Requested',
                     'getExternalID',
                     'getLanguageCombination',
                     'getLinks',
-                    'getMasterProjectID',
                     'getOrderClosingDate',
-                    'getOrderConfirmations',
-                    'getOrderDate',
-                    'getOrderNo_for_View',
-                    'getProjectCategory',
-                    'getProjectStatus',
-                    'getRequestId',
-                    'getSubject'
+                    'getOrderConfirmations'
                 ];
                 
                 // Execute extended calls and collect results
@@ -301,6 +299,20 @@ export const DataOrder30CoreService: Service = {
                 // Merge extended data into the result
                 result.extendedData = extendedData;
             }
+        }
+        
+        // Reorganize the result structure to match desired output
+        if (operation === 'getOrderObject' && result.success) {
+            const { order, statusMessage, statusCode, extendedData } = result;
+            return {
+                success: true,
+                resource: RESOURCE,
+                operation: 'getOrderObject',
+                statusMessage,
+                statusCode,
+                order,
+                ...(extendedData ? { extendedData } : {})
+            };
         }
         
         return result;

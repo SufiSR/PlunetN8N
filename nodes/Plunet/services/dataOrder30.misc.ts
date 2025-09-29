@@ -31,6 +31,7 @@ const RESOURCE_DISPLAY_NAME = 'Order Fields';
 /** ─ Centralized Operation Registry ─ */
 const OPERATION_REGISTRY: ServiceOperationRegistry = {
     checkEN15038: {
+        // Not necessary for now
         soapAction: 'checkEN15038',
         endpoint: ENDPOINT,
         uiName: 'Check EN15038',
@@ -41,7 +42,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Check if order corresponds to EN15038 standard',
         returnType: 'Boolean',
         paramOrder: ['orderID'],
-        active: true,
+        active: false,
     },
     getCreationDate: {
         soapAction: 'getCreationDate',
@@ -70,6 +71,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         active: true,
     },
     getEN15038Requested: {
+        // Not necessary for now
         soapAction: 'getEN15038Requested',
         endpoint: ENDPOINT,
         uiName: 'Get EN15038 Requested',
@@ -80,7 +82,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Get if EN15038 is requested for the order',
         returnType: 'Boolean',
         paramOrder: ['orderID'],
-        active: true,
+        active: false,
     },
     getExternalID: {
         soapAction: 'getExternalID',
@@ -360,6 +362,18 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                         } as IDataObject;
                     }
                 }
+                // Also check for error in statusMessage
+                const statusMessageMatch = xml.match(/<statusMessage>(.*?)<\/statusMessage>/);
+                if (statusMessageMatch && statusMessageMatch[1] && statusMessageMatch[1].includes('No master project')) {
+                    return {
+                        success: true,
+                        resource: RESOURCE,
+                        operation: op,
+                        MasterProjectID: '',
+                        statusMessage: 'No master project has been set for the current project.',
+                        statusCode: -57
+                    } as IDataObject;
+                }
             }
             
             if (op === 'getRequestId') {
@@ -377,6 +391,18 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                         } as IDataObject;
                     }
                 }
+                // Also check for error in statusMessage
+                const statusMessageMatch = xml.match(/<statusMessage>(.*?)<\/statusMessage>/);
+                if (statusMessageMatch && statusMessageMatch[1] && statusMessageMatch[1].includes('can\'t find the requested project')) {
+                    return {
+                        success: true,
+                        resource: RESOURCE,
+                        operation: op,
+                        requestID: '',
+                        statusMessage: 'System can\'t find the requested project request.',
+                        statusCode: -24
+                    } as IDataObject;
+                }
             }
             
             if (op === 'getOrderClosingDate') {
@@ -393,6 +419,18 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                             statusCode: 7028
                         } as IDataObject;
                     }
+                }
+                // Also check for error in statusMessage
+                const statusMessageMatch = xml.match(/<statusMessage>(.*?)<\/statusMessage>/);
+                if (statusMessageMatch && statusMessageMatch[1] && statusMessageMatch[1].includes('closing date is not set')) {
+                    return {
+                        success: true,
+                        resource: RESOURCE,
+                        operation: op,
+                        Date: null,
+                        statusMessage: 'The project closing date is not set (yet).',
+                        statusCode: 7028
+                    } as IDataObject;
                 }
             }
             
