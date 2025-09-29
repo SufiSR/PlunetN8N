@@ -75,9 +75,9 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
     insertOrder: {
         soapAction: 'insert2',
         endpoint: ENDPOINT,
-        uiName: 'Insert Order',
+        uiName: 'Create Order',
         subtitleName: 'insert: order',
-        titleName: 'Insert an Order',
+        titleName: 'Create an Order',
         resource: RESOURCE,
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Create a new order with optional additional field operations',
@@ -587,14 +587,14 @@ export const DataOrder30CoreService: Service = {
                             extResult = await DataOrder30MiscService.execute(extOp, ctx, creds, url, baseUrl, timeoutMs, itemIndex);
                         }
                         
-                            // Handle different result types
-                            if (extResult.success) {
-                                if (extOp === 'getProjectStatus' && extResult.statusId !== undefined) {
-                                    extendedData[extOp] = {
-                                        statusId: extResult.statusId,
-                                        statusLabel: extResult.statusName || ''
-                                    };
-                                } else if (extOp === 'getMasterProjectID') {
+                        // Handle different result types
+                        if (extResult.success) {
+                            if (extOp === 'getProjectStatus' && extResult.statusId !== undefined) {
+                                extendedData[extOp] = {
+                                    statusId: extResult.statusId,
+                                    statusLabel: extResult.statusName || ''
+                                };
+                            } else if (extOp === 'getMasterProjectID') {
                                 // Handle the specific error case for MasterProjectID
                                 if (extResult.data !== null) {
                                     extendedData[extOp] = extResult.data;
@@ -633,10 +633,10 @@ export const DataOrder30CoreService: Service = {
                         } else {
                             extendedData[extOp] = '';
                         }
-                        } catch (error) {
-                            // If call fails, set empty value and log the error
-                            extendedData[extOp] = '';
-                            // Note: In n8n context, this will be visible in the workflow execution logs
+                    } catch (error) {
+                        // If call fails, set empty value and log the error
+                        extendedData[extOp] = '';
+                        // Note: In n8n context, this will be visible in the workflow execution logs
                         }
                 }
                 
@@ -647,7 +647,8 @@ export const DataOrder30CoreService: Service = {
         
         // Handle insert2 with additional field operations
         if (operation === 'insert2' && result.success) {
-            const createdOrderID = result.order && typeof result.order === 'object' && 'orderID' in result.order ? result.order.orderID as number : null;
+            // For insert2, the orderID is in the data field of the response
+            const createdOrderID = result.data ? parseInt(result.data.toString(), 10) : null;
             if (createdOrderID) {
                 // Import the misc service for additional field operations
                 const { DataOrder30MiscService } = await import('./dataOrder30.misc');
@@ -700,6 +701,19 @@ export const DataOrder30CoreService: Service = {
                 statusCode,
                 order,
                 ...(extendedData ? { extendedData } : {})
+            };
+        }
+        
+        // For insert2, return the actual insert response (not the order object)
+        if (operation === 'insert2' && result.success) {
+            return {
+                success: true,
+                resource: RESOURCE,
+                operation: operation,
+                statusMessage: result.statusMessage,
+                statusCode: result.statusCode,
+                data: result.data, // This contains the orderID from the insert response
+                orderID: result.data ? parseInt(result.data.toString(), 10) : null
             };
         }
         
