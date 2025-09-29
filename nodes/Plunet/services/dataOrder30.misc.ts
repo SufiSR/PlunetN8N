@@ -302,7 +302,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Set whether EN15038 is requested for an order',
         returnType: 'Void',
-        paramOrder: ['orderID', 'en15038Requested'],
+        paramOrder: ['orderID', 'isEN15038'],
         active: true,
     },
     setExternalID: {
@@ -341,7 +341,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Set the project category for an order',
         returnType: 'Void',
-        paramOrder: ['orderID', 'projectCategory'],
+        paramOrder: ['orderID', 'projectCategory', 'systemLanguageCode'],
         active: true,
     },
     setProjectStatus: {
@@ -498,6 +498,21 @@ const extraProperties: INodeProperties[] =
                     type: 'string',
                     default: '',
                     description: 'Memo for the project link',
+                    displayOptions: {
+                        show: {
+                            resource: [RESOURCE],
+                            operation: [op],
+                        },
+                    },
+                };
+            }
+            if (p === 'isEN15038') {
+                return {
+                    displayName: 'Is EN15038',
+                    name: p,
+                    type: 'boolean',
+                    default: false,
+                    description: 'Whether EN15038 is requested for the order',
                     displayOptions: {
                         show: {
                             resource: [RESOURCE],

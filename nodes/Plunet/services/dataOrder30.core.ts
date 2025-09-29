@@ -789,7 +789,7 @@ export const DataOrder30CoreService: Service = {
                 const additionalOperations = [
                     { name: 'setRequestID', param: 'requestID', type: 'number' },
                     { name: 'setCreationDate', param: 'creationDate', type: 'dateTime' },
-                    { name: 'setEN15038Requested', param: 'en15038Requested', type: 'boolean' },
+                    { name: 'setEN15038Requested', param: 'isEN15038', type: 'boolean' },
                     { name: 'setExternalID', param: 'externalID', type: 'string' },
                     { name: 'setMasterProjectID', param: 'masterProjectID', type: 'number' },
                     { name: 'setProjectCategory', param: 'projectCategory', type: 'string' },
@@ -841,7 +841,7 @@ export const DataOrder30CoreService: Service = {
                 const additionalOperations = [
                     { name: 'setRequestID', param: 'requestID', type: 'number' },
                     { name: 'setCreationDate', param: 'creationDate', type: 'dateTime' },
-                    { name: 'setEN15038Requested', param: 'en15038Requested', type: 'boolean' },
+                    { name: 'setEN15038Requested', param: 'isEN15038', type: 'boolean' },
                     { name: 'setExternalID', param: 'externalID', type: 'string' },
                     { name: 'setMasterProjectID', param: 'masterProjectID', type: 'number' },
                     { name: 'setProjectCategory', param: 'projectCategory', type: 'string' },
