@@ -251,6 +251,29 @@ export const DataOrder30CoreService: Service = {
                                     statusMessage: extResult.statusMessage,
                                     statusCode: extResult.statusCode
                                 };
+                            } else if (extOp === 'getMasterProjectID') {
+                                // Handle the specific error case for MasterProjectID
+                                if (extResult.MasterProjectID !== undefined) {
+                                    extendedData[extOp] = extResult.MasterProjectID;
+                                } else {
+                                    extendedData[extOp] = '';
+                                }
+                            } else if (extOp === 'getRequestId') {
+                                // Handle the specific error case for RequestId
+                                if (extResult.requestID !== undefined) {
+                                    extendedData[extOp] = extResult.requestID;
+                                } else {
+                                    extendedData[extOp] = '';
+                                }
+                            } else if (extOp === 'getOrderClosingDate') {
+                                // Handle the specific error case for OrderClosingDate
+                                if (extResult.Date !== undefined) {
+                                    extendedData[extOp] = extResult.Date;
+                                } else if (extResult.date !== undefined) {
+                                    extendedData[extOp] = extResult.date;
+                                } else {
+                                    extendedData[extOp] = '';
+                                }
                             } else if (extOp === 'getLanguageCombination' && extResult.data) {
                                 extendedData[extOp] = extResult.data;
                             } else if (extOp === 'getLinks' && extResult.data) {
