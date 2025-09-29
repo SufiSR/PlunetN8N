@@ -699,7 +699,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             return { success: true, resource: RESOURCE, operation: op, ...payload } as IDataObject;
         },
         (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
-            const orderID = itemParams.orderID as number;
+            const orderID = ctx.getNodeParameter('orderID', itemIndex, 0) as number;
             
             if (op === 'getProjectCategory') {
                 const projectCategory = ctx.getNodeParameter('projectCategory', itemIndex, '') as string;

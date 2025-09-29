@@ -543,10 +543,11 @@ export const DataOrder30CoreService: Service = {
                 // For getOrderObject2, we need to extract the orderID from the response
                 // and use it for subsequent calls instead of the original orderNumber parameter
                 let orderIDForExtendedCalls = ctx.getNodeParameter('orderID', itemIndex, 0) as number;
-                if (operation === 'getOrderObject2' && result.order && typeof result.order === 'object' && 'orderID' in result.order) {
-                    orderIDForExtendedCalls = result.order.orderID as number;
-                    // Debug: Add a comment to track the orderID extraction
-                    // The orderID should be extracted from the getOrderObject2 response
+                if (operation === 'getOrderObject2' && result.order && typeof result.order === 'object' && 'orderID' in result.order && result.order.orderID) {
+                    // Convert to number safely (XML parsers usually give strings)
+                    orderIDForExtendedCalls = typeof result.order.orderID === 'string' 
+                        ? parseInt(result.order.orderID, 10) 
+                        : Number(result.order.orderID);
                 }
                 
                 // List of extended field operations (removed unnecessary fields)
@@ -716,8 +717,7 @@ export const DataOrder30CoreService: Service = {
                 operation: operation,
                 statusMessage: result.statusMessage,
                 statusCode: result.statusCode,
-                data: result.value, // This contains the orderID from the insert response
-                orderID: result.value ? parseInt(result.value.toString(), 10) : null
+                data: result.value // This contains the orderID from the insert response
             };
         }
         
