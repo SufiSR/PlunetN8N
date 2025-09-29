@@ -386,6 +386,20 @@ const extraProperties: INodeProperties[] = [
             },
         },
     },
+    {
+        displayName: 'Enable Null or Empty Values',
+        name: 'enableNullOrEmptyValues',
+        type: 'boolean',
+        default: false,
+        required: true,
+        description: 'Enable null or empty values for the update operation',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['update'],
+            },
+        },
+    },
     // Collection for optional fields in update operation
     {
         displayName: 'Additional Fields',
@@ -614,6 +628,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 const orderID = ctx.getNodeParameter('orderID', itemIndex, 0) as number;
                 const customerID = ctx.getNodeParameter('customerID', itemIndex, 0) as number;
                 const projectManagerID = ctx.getNodeParameter('projectManagerID', itemIndex, 0) as number;
+                const enableNullOrEmptyValues = ctx.getNodeParameter('enableNullOrEmptyValues', itemIndex, false) as boolean;
                 const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
                 
                 let orderIN = `<OrderIN>`;
@@ -636,8 +651,9 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 
                 orderIN += `\n</OrderIN>`;
                 
-                // Add enableNullOrEmptyValues field outside OrderIN (always 0)
-                return `<UUID>${escapeXml(sessionId)}</UUID>\n${orderIN}\n<enableNullOrEmptyValues>0</enableNullOrEmptyValues>`;
+                // Add enableNullOrEmptyValues field outside OrderIN (use UI value)
+                const enableValue = enableNullOrEmptyValues ? 1 : 0;
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n${orderIN}\n<enableNullOrEmptyValues>${enableValue}</enableNullOrEmptyValues>`;
             }
             return null;
         },
@@ -783,7 +799,7 @@ export const DataOrder30CoreService: Service = {
                 // Execute additional field operations if values are provided in collection
                 for (const op of additionalOperations) {
                     const value = additionalFieldOperations[op.param];
-                    if (value !== null && value !== '' && value !== 0 && value !== false && value !== undefined) {
+                    if (value !== null && value !== '' && value !== false && value !== undefined) {
                         try {
                             // Create a custom context that uses the created orderID
                             const customCtx = {
@@ -791,6 +807,10 @@ export const DataOrder30CoreService: Service = {
                                 getNodeParameter: (paramName: string, itemIdx: number, defaultValue?: any) => {
                                     if (paramName === 'orderID') {
                                         return createdOrderID;
+                                    }
+                                    // For the specific parameter, use the value from the collection
+                                    if (paramName === op.param) {
+                                        return value;
                                     }
                                     return ctx.getNodeParameter(paramName, itemIdx, defaultValue);
                                 }
@@ -831,7 +851,7 @@ export const DataOrder30CoreService: Service = {
                 // Execute additional field operations if values are provided in collection
                 for (const op of additionalOperations) {
                     const value = additionalFieldOperations[op.param];
-                    if (value !== null && value !== '' && value !== 0 && value !== false && value !== undefined) {
+                    if (value !== null && value !== '' && value !== false && value !== undefined) {
                         try {
                             // Create a custom context that uses the orderID
                             const customCtx = {
@@ -839,6 +859,10 @@ export const DataOrder30CoreService: Service = {
                                 getNodeParameter: (paramName: string, itemIdx: number, defaultValue?: any) => {
                                     if (paramName === 'orderID') {
                                         return orderID;
+                                    }
+                                    // For the specific parameter, use the value from the collection
+                                    if (paramName === op.param) {
+                                        return value;
                                     }
                                     return ctx.getNodeParameter(paramName, itemIdx, defaultValue);
                                 }
