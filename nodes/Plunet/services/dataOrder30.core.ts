@@ -623,9 +623,6 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 orderIN += `\n<customerID>${customerID}</customerID>`;
                 orderIN += `\n<projectManagerID>${projectManagerID}</projectManagerID>`;
                 
-                // Add enableNullOrEmptyValues field (always 0)
-                orderIN += `\n<enableNullOrEmptyValues>0</enableNullOrEmptyValues>`;
-                
                 // Add optional fields from collection
                 if (additionalFields.currency) orderIN += `\n<currency>${escapeXml(additionalFields.currency as string)}</currency>`;
                 if (additionalFields.customerContactID) orderIN += `\n<customerContactID>${additionalFields.customerContactID}</customerContactID>`;
@@ -639,7 +636,8 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 
                 orderIN += `\n</OrderIN>`;
                 
-                return `<UUID>${escapeXml(sessionId)}</UUID>\n${orderIN}`;
+                // Add enableNullOrEmptyValues field outside OrderIN (always 0)
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n${orderIN}\n<enableNullOrEmptyValues>0</enableNullOrEmptyValues>`;
             }
             return null;
         },
