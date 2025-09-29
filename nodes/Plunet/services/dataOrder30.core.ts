@@ -633,10 +633,11 @@ export const DataOrder30CoreService: Service = {
                         } else {
                             extendedData[extOp] = '';
                         }
-                    } catch (error) {
-                        // If call fails, set empty value
-                        extendedData[extOp] = '';
-                    }
+                        } catch (error) {
+                            // If call fails, set empty value and log the error
+                            extendedData[extOp] = '';
+                            // Note: In n8n context, this will be visible in the workflow execution logs
+                        }
                 }
                 
                 // Merge extended data into the result
