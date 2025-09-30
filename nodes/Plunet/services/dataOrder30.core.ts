@@ -815,7 +815,8 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 // Add mandatory language code
                 searchFilter += `\n<languageCode>${escapeXml(languageCode)}</languageCode>`;
                 
-                // Add mandatory time frame fields (format dates to YYYY-MM-DD)
+                // Add mandatory time frame fields wrapped in <timeFrame> node
+                searchFilter += `\n<timeFrame>`;
                 if (dateFrom && dateFrom !== '') {
                     const formattedDateFrom = new Date(dateFrom).toISOString().split('T')[0];
                     if (formattedDateFrom) {
@@ -829,6 +830,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                     }
                 }
                 searchFilter += `\n<dateRelation>${dateRelation}</dateRelation>`;
+                searchFilter += `\n</timeFrame>`;
                 
                 // Add optional search filters
                 if (searchFilters.customerID) searchFilter += `\n<customerID>${searchFilters.customerID}</customerID>`;
@@ -1111,6 +1113,8 @@ export const DataOrder30CoreService: Service = {
             let debugEnvelope = `<SearchFilter>`;
             debugEnvelope += `\n<languageCode>${escapeXml(languageCode)}</languageCode>`;
             
+            // Add time frame fields wrapped in <timeFrame> node
+            debugEnvelope += `\n<timeFrame>`;
             if (dateFrom && dateFrom !== '') {
                 const formattedDateFrom = new Date(dateFrom).toISOString().split('T')[0];
                 if (formattedDateFrom) {
@@ -1124,6 +1128,7 @@ export const DataOrder30CoreService: Service = {
                 }
             }
             debugEnvelope += `\n<dateRelation>${dateRelation}</dateRelation>`;
+            debugEnvelope += `\n</timeFrame>`;
             
             if (searchFilters.customerID) debugEnvelope += `\n<customerID>${searchFilters.customerID}</customerID>`;
             if (searchFilters.itemStatus) debugEnvelope += `\n<itemStatus>${searchFilters.itemStatus}</itemStatus>`;
