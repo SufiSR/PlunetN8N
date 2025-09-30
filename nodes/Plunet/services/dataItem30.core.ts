@@ -48,7 +48,7 @@ import {
       resourceDisplayName: RESOURCE_DISPLAY_NAME,
       description: 'Retrieve all items',
       returnType: 'ItemList',
-      paramOrder: ['projectType'],
+      paramOrder: ['projectID', 'projectType'],
       active: true,
     },
     updateItem: {
@@ -108,16 +108,6 @@ import {
   const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptionsFromRegistry(OPERATION_REGISTRY);
   
   const extraProperties: INodeProperties[] = [
-    // Extended object option for getItem
-    {
-      displayName: 'Get Extended Object',
-      name: 'getExtendedObject',
-      type: 'boolean',
-      default: false,
-      description: 'If enabled, additional item fields will be retrieved (comment, default contact person, delivery date, item reference)',
-      displayOptions: { show: { resource: [RESOURCE], operation: ['getItemObject'] } },
-    },
-    
     // Standard properties for all operations
     ...Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
       params.map<INodeProperties>(p => {
@@ -128,6 +118,16 @@ import {
         return { displayName: p, name: p, type: 'string', default: '', description: `${p} parameter for ${op}`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
       })
     ),
+    
+    // Extended object option for getItem (moved to last position)
+    {
+      displayName: 'Get Extended Object',
+      name: 'getExtendedObject',
+      type: 'boolean',
+      default: false,
+      description: 'If enabled, additional item fields will be retrieved (comment, default contact person, delivery date, item reference)',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['getItemObject'] } },
+    },
   ];
   
   function toSoapParamValue(raw: unknown, paramName: string): string {
@@ -152,9 +152,25 @@ import {
         const result = await executeOperation(ctx, operation, params, config, itemIndex);
         if (Array.isArray(result)) {
           const item = result[0] || {};
-          return String(item.data || item.value || '');
+          // Extract data based on the operation type
+          if (operation === 'getComment' || operation === 'getItemReference') {
+            return String(item.data || '');
+          } else if (operation === 'getDefaultContactPerson') {
+            return String(item.value || '');
+          } else if (operation === 'getDeliveryDate') {
+            return String(item.date || '');
+          }
+          return String(item.data || item.value || item.date || '');
         }
-        return String(result.data || result.value || '');
+        // Extract data based on the operation type
+        if (operation === 'getComment' || operation === 'getItemReference') {
+          return String(result.data || '');
+        } else if (operation === 'getDefaultContactPerson') {
+          return String(result.value || '');
+        } else if (operation === 'getDeliveryDate') {
+          return String(result.date || '');
+        }
+        return String(result.data || result.value || result.date || '');
       } catch (error) {
         return '';
       }
