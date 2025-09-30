@@ -1101,51 +1101,6 @@ export const DataOrder30CoreService: Service = {
             };
         }
         
-        // Add debug envelope for search operation
-        if (operation === 'search' && result.success) {
-            // Rebuild the search envelope for debugging
-            const languageCode = ctx.getNodeParameter('languageCode', itemIndex, 'EN') as string;
-            const dateRelation = ctx.getNodeParameter('dateRelation', itemIndex, 1) as number;
-            const dateFrom = ctx.getNodeParameter('dateFrom', itemIndex, '') as string;
-            const dateTo = ctx.getNodeParameter('dateTo', itemIndex, '') as string;
-            const searchFilters = ctx.getNodeParameter('searchFilters', itemIndex, {}) as IDataObject;
-            
-            let debugEnvelope = `<SearchFilter>`;
-            debugEnvelope += `\n<languageCode>${escapeXml(languageCode)}</languageCode>`;
-            
-            // Add time frame fields wrapped in <timeFrame> node
-            debugEnvelope += `\n<timeFrame>`;
-            if (dateFrom && dateFrom !== '') {
-                const formattedDateFrom = new Date(dateFrom).toISOString().split('T')[0];
-                if (formattedDateFrom) {
-                    debugEnvelope += `\n<dateFrom>${escapeXml(formattedDateFrom)}</dateFrom>`;
-                }
-            }
-            if (dateTo && dateTo !== '') {
-                const formattedDateTo = new Date(dateTo).toISOString().split('T')[0];
-                if (formattedDateTo) {
-                    debugEnvelope += `\n<dateTo>${escapeXml(formattedDateTo)}</dateTo>`;
-                }
-            }
-            debugEnvelope += `\n<dateRelation>${dateRelation}</dateRelation>`;
-            debugEnvelope += `\n</timeFrame>`;
-            
-            if (searchFilters.customerID) debugEnvelope += `\n<customerID>${searchFilters.customerID}</customerID>`;
-            if (searchFilters.itemStatus) debugEnvelope += `\n<itemStatus>${searchFilters.itemStatus}</itemStatus>`;
-            if (searchFilters.projectDescription) debugEnvelope += `\n<projectDescription>${escapeXml(searchFilters.projectDescription as string)}</projectDescription>`;
-            if (searchFilters.projectName) debugEnvelope += `\n<projectName>${escapeXml(searchFilters.projectName as string)}</projectName>`;
-            if (searchFilters.projectType) debugEnvelope += `\n<projectType>${searchFilters.projectType}</projectType>`;
-            if (searchFilters.sourceLanguage) debugEnvelope += `\n<sourceLanguage>${escapeXml(searchFilters.sourceLanguage as string)}</sourceLanguage>`;
-            if (searchFilters.targetLanguage) debugEnvelope += `\n<targetLanguage>${escapeXml(searchFilters.targetLanguage as string)}</targetLanguage>`;
-            if (searchFilters.statusProjectFileArchiving) debugEnvelope += `\n<statusProjectFileArchiving>${searchFilters.statusProjectFileArchiving}</statusProjectFileArchiving>`;
-            
-            debugEnvelope += `\n</SearchFilter>`;
-            
-            return {
-                ...result,
-                debugEnvelope: debugEnvelope
-            };
-        }
         
         return result;
     },
