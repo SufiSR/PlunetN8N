@@ -302,7 +302,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Set whether EN15038 is requested for an order',
         returnType: 'Void',
-        paramOrder: ['orderID', 'isEN15038'],
+        paramOrder: ['isEN15038', 'orderID'],
         active: true,
     },
     setExternalID: {
@@ -341,7 +341,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Set the project category for an order',
         returnType: 'Void',
-        paramOrder: ['orderID', 'projectCategory', 'systemLanguageCode'],
+        paramOrder: ['projectCategory', 'systemLanguageCode', 'orderID'],
         active: true,
     },
     setProjectStatus: {
@@ -354,7 +354,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Set the project status for an order',
         returnType: 'Void',
-        paramOrder: ['orderID', 'status'],
+        paramOrder: ['orderID', 'projectStatus'],
         active: true,
     },
 };
@@ -522,6 +522,30 @@ const extraProperties: INodeProperties[] =
                 };
             }
             if (p === 'status') {
+                return {
+                    displayName: 'Project Status',
+                    name: p,
+                    type: 'options',
+                    options: [
+                        { name: 'Please select...', value: '' },
+                        { name: 'Active (1)', value: 1 },
+                        { name: 'Completed (Archivable) (2)', value: 2 },
+                        { name: 'Archived (3)', value: 3 },
+                        { name: 'Quote Moved to Order (4)', value: 4 },
+                        { name: 'In Preparation (5)', value: 5 },
+                        { name: 'Completed (6)', value: 6 },
+                    ],
+                    default: 1, // ACTIVE
+                    description: 'The project status for the order',
+                    displayOptions: {
+                        show: {
+                            resource: [RESOURCE],
+                            operation: [op],
+                        },
+                    },
+                };
+            }
+            if (p === 'projectStatus') {
                 return {
                     displayName: 'Project Status',
                     name: p,

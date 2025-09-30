@@ -334,6 +334,13 @@ const extraProperties: INodeProperties[] = [
                 description: 'Project category to set after order creation',
             },
             {
+                displayName: 'System Language Code',
+                name: 'systemLanguageCode',
+                type: 'string',
+                default: 'EN',
+                description: 'System language code for project category',
+            },
+            {
                 displayName: 'Project Status',
                 name: 'projectStatus',
                 type: 'options',
@@ -534,6 +541,13 @@ const extraProperties: INodeProperties[] = [
                 type: 'string',
                 default: '',
                 description: 'Project category to set after order update',
+            },
+            {
+                displayName: 'System Language Code',
+                name: 'systemLanguageCode',
+                type: 'string',
+                default: 'EN',
+                description: 'System language code for project category',
             },
             {
                 displayName: 'Project Status',
@@ -792,8 +806,8 @@ export const DataOrder30CoreService: Service = {
                     { name: 'setEN15038Requested', param: 'isEN15038', type: 'boolean' },
                     { name: 'setExternalID', param: 'externalID', type: 'string' },
                     { name: 'setMasterProjectID', param: 'masterProjectID', type: 'number' },
-                    { name: 'setProjectCategory', param: 'projectCategory', type: 'string' },
-                    { name: 'setProjectStatus', param: 'status', type: 'number' }
+                    { name: 'setProjectCategory', param: 'projectCategory', type: 'string', needsSystemLanguageCode: true },
+                    { name: 'setProjectStatus', param: 'projectStatus', type: 'number' }
                 ];
                 
                 // Execute additional field operations if values are provided in collection
@@ -811,6 +825,10 @@ export const DataOrder30CoreService: Service = {
                                     // For the specific parameter, use the value from the collection
                                     if (paramName === op.param) {
                                         return value;
+                                    }
+                                    // Special handling for setProjectCategory - needs systemLanguageCode
+                                    if (op.name === 'setProjectCategory' && paramName === 'systemLanguageCode') {
+                                        return additionalFieldOperations.systemLanguageCode || 'EN';
                                     }
                                     return ctx.getNodeParameter(paramName, itemIdx, defaultValue);
                                 }
@@ -844,8 +862,8 @@ export const DataOrder30CoreService: Service = {
                     { name: 'setEN15038Requested', param: 'isEN15038', type: 'boolean' },
                     { name: 'setExternalID', param: 'externalID', type: 'string' },
                     { name: 'setMasterProjectID', param: 'masterProjectID', type: 'number' },
-                    { name: 'setProjectCategory', param: 'projectCategory', type: 'string' },
-                    { name: 'setProjectStatus', param: 'status', type: 'number' }
+                    { name: 'setProjectCategory', param: 'projectCategory', type: 'string', needsSystemLanguageCode: true },
+                    { name: 'setProjectStatus', param: 'projectStatus', type: 'number' }
                 ];
                 
                 // Execute additional field operations if values are provided in collection
@@ -863,6 +881,10 @@ export const DataOrder30CoreService: Service = {
                                     // For the specific parameter, use the value from the collection
                                     if (paramName === op.param) {
                                         return value;
+                                    }
+                                    // Special handling for setProjectCategory - needs systemLanguageCode
+                                    if (op.name === 'setProjectCategory' && paramName === 'systemLanguageCode') {
+                                        return additionalFieldOperations.systemLanguageCode || 'EN';
                                     }
                                     return ctx.getNodeParameter(paramName, itemIdx, defaultValue);
                                 }
