@@ -98,7 +98,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         resourceDisplayName: RESOURCE_DISPLAY_NAME,
         description: 'Search for orders based on various criteria',
         returnType: 'IntegerArray',
-        paramOrder: ['languageCode', 'timeFrame', 'searchFilters'],
+        paramOrder: ['languageCode', 'dateRelation', 'dateFrom', 'dateTo', 'searchFilters'],
         active: true,
     },
 };
@@ -575,43 +575,47 @@ const extraProperties: INodeProperties[] = [
         },
     },
     {
-        displayName: 'Time Frame',
-        name: 'timeFrame',
-        type: 'collection',
-        placeholder: 'Add Time Frame',
-        default: {},
+        displayName: 'Date Relation',
+        name: 'dateRelation',
+        type: 'options',
+        options: SearchScopeOptions,
+        default: 1,
         required: true,
-        description: 'Time frame for the search (mandatory)',
+        description: 'Date relation scope for the search (mandatory)',
         displayOptions: {
             show: {
                 resource: [RESOURCE],
                 operation: ['search'],
             },
         },
-        options: [
-            {
-                displayName: 'Date From',
-                name: 'dateFrom',
-                type: 'dateTime',
-                default: '',
-                description: 'Start date for the search',
+    },
+    {
+        displayName: 'Date From',
+        name: 'dateFrom',
+        type: 'dateTime',
+        default: '',
+        required: true,
+        description: 'Start date for the search (mandatory)',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['search'],
             },
-            {
-                displayName: 'Date To',
-                name: 'dateTo',
-                type: 'dateTime',
-                default: '',
-                description: 'End date for the search',
+        },
+    },
+    {
+        displayName: 'Date To',
+        name: 'dateTo',
+        type: 'dateTime',
+        default: '',
+        required: true,
+        description: 'End date for the search (mandatory)',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['search'],
             },
-            {
-                displayName: 'Date Relation',
-                name: 'dateRelation',
-                type: 'options',
-                options: SearchScopeOptions,
-                default: 1,
-                description: 'Date relation scope for the search',
-            },
-        ],
+        },
     },
     {
         displayName: 'Search Filters',
@@ -801,7 +805,9 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             if (op === 'search') {
                 // Build custom SOAP body for search operation
                 const languageCode = ctx.getNodeParameter('languageCode', itemIndex, 'EN') as string;
-                const timeFrame = ctx.getNodeParameter('timeFrame', itemIndex, {}) as IDataObject;
+                const dateRelation = ctx.getNodeParameter('dateRelation', itemIndex, 1) as number;
+                const dateFrom = ctx.getNodeParameter('dateFrom', itemIndex, '') as string;
+                const dateTo = ctx.getNodeParameter('dateTo', itemIndex, '') as string;
                 const searchFilters = ctx.getNodeParameter('searchFilters', itemIndex, {}) as IDataObject;
                 
                 let searchFilter = `<SearchFilter>`;
@@ -809,10 +815,10 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 // Add mandatory language code
                 searchFilter += `\n<languageCode>${escapeXml(languageCode)}</languageCode>`;
                 
-                // Add mandatory time frame
-                if (timeFrame.dateFrom) searchFilter += `\n<dateFrom>${escapeXml(timeFrame.dateFrom as string)}</dateFrom>`;
-                if (timeFrame.dateTo) searchFilter += `\n<dateTo>${escapeXml(timeFrame.dateTo as string)}</dateTo>`;
-                if (timeFrame.dateRelation) searchFilter += `\n<dateRelation>${timeFrame.dateRelation}</dateRelation>`;
+                // Add mandatory time frame fields
+                if (dateFrom) searchFilter += `\n<dateFrom>${escapeXml(dateFrom)}</dateFrom>`;
+                if (dateTo) searchFilter += `\n<dateTo>${escapeXml(dateTo)}</dateTo>`;
+                searchFilter += `\n<dateRelation>${dateRelation}</dateRelation>`;
                 
                 // Add optional search filters
                 if (searchFilters.customerID) searchFilter += `\n<customerID>${searchFilters.customerID}</customerID>`;
