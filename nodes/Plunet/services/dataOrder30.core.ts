@@ -12,6 +12,9 @@ import {
 import { parseOrderResult } from '../core/parsers/order';
 import { ProjectTypeOptions } from '../enums/project-type';
 import { ArchivStatusOptions, idToArchivStatusName } from '../enums/archiv-status';
+import { ProjectClassTypeOptions } from '../enums/project-class-type';
+import { ItemStatusOptions } from '../enums/item-status';
+import { SearchScopeOptions } from '../enums/search-scope';
 import {
     toSoapParamValue,
     escapeXml,
@@ -83,6 +86,19 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Update an existing order with optional additional field operations',
         returnType: 'Void',
         paramOrder: ['orderID', 'customerID', 'projectManagerID', 'currency', 'customerContactID', 'deliveryDeadline', 'orderDate', 'projectManagerMemo', 'projectName', 'rate', 'referenceNumber', 'subject', 'requestID', 'creationDate', 'en15038Requested', 'externalID', 'masterProjectID', 'projectCategory', 'projectStatus'],
+        active: true,
+    },
+    searchOrders: {
+        soapAction: 'search',
+        endpoint: ENDPOINT,
+        uiName: 'Search Orders',
+        subtitleName: 'search: order',
+        titleName: 'Search Orders',
+        resource: RESOURCE,
+        resourceDisplayName: RESOURCE_DISPLAY_NAME,
+        description: 'Search for orders based on various criteria and filters',
+        returnType: 'IntegerArray',
+        paramOrder: ['languageCode', 'timeFrame'],
         active: true,
     },
 };
@@ -543,6 +559,139 @@ const extraProperties: INodeProperties[] = [
             },
         ],
     },
+    // Search Orders UI Properties
+    {
+        displayName: 'Language Code',
+        name: 'languageCode',
+        type: 'string',
+        default: 'EN',
+        required: true,
+        description: 'Language code for the search (mandatory)',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['searchOrders'],
+            },
+        },
+    },
+    {
+        displayName: 'Time Frame',
+        name: 'timeFrame',
+        type: 'collection',
+        placeholder: 'Add Time Frame',
+        default: {},
+        required: true,
+        description: 'Time frame for the search (mandatory)',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['searchOrders'],
+            },
+        },
+        options: [
+            {
+                displayName: 'Date From',
+                name: 'dateFrom',
+                type: 'dateTime',
+                default: '',
+                required: true,
+                description: 'Start date for the search',
+            },
+            {
+                displayName: 'Date To',
+                name: 'dateTo',
+                type: 'dateTime',
+                default: '',
+                required: true,
+                description: 'End date for the search',
+            },
+            {
+                displayName: 'Date Relation',
+                name: 'dateRelation',
+                type: 'options',
+                options: SearchScopeOptions,
+                default: 1,
+                required: true,
+                description: 'Date relation scope for the search',
+            },
+        ],
+    },
+    // Search Filters Collection
+    {
+        displayName: 'Search Filters',
+        name: 'searchFilters',
+        type: 'collection',
+        placeholder: 'Add Filter',
+        default: {},
+        description: 'Optional search filters',
+        displayOptions: {
+            show: {
+                resource: [RESOURCE],
+                operation: ['searchOrders'],
+            },
+        },
+        options: [
+            {
+                displayName: 'Customer ID',
+                name: 'customerID',
+                type: 'number',
+                default: 0,
+                description: 'Filter by customer ID',
+            },
+            {
+                displayName: 'Item Status',
+                name: 'itemStatus',
+                type: 'options',
+                options: ItemStatusOptions,
+                default: 1,
+                description: 'Filter by item status',
+            },
+            {
+                displayName: 'Project Description',
+                name: 'projectDescription',
+                type: 'string',
+                default: '',
+                description: 'Filter by project description',
+            },
+            {
+                displayName: 'Project Name',
+                name: 'projectName',
+                type: 'string',
+                default: '',
+                description: 'Filter by project name',
+            },
+            {
+                displayName: 'Project Type',
+                name: 'projectType',
+                type: 'options',
+                options: ProjectClassTypeOptions,
+                default: 0,
+                description: 'Filter by project type',
+            },
+            {
+                displayName: 'Source Language',
+                name: 'sourceLanguage',
+                type: 'string',
+                default: '',
+                description: 'Filter by source language',
+            },
+            {
+                displayName: 'Target Language',
+                name: 'targetLanguage',
+                type: 'string',
+                default: '',
+                description: 'Filter by target language',
+            },
+            {
+                displayName: 'Status Project File Archiving',
+                name: 'statusProjectFileArchiving',
+                type: 'options',
+                options: ArchivStatusOptions,
+                default: 1,
+                description: 'Filter by project file archiving status',
+            },
+        ],
+    },
 ];
 
 // Create the execution configuration
@@ -652,6 +801,54 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 // Add enableNullOrEmptyValues field outside OrderIN (use UI value)
                 const enableValue = enableNullOrEmptyValues ? 1 : 0;
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n${orderIN}\n<enableNullOrEmptyValues>${enableValue}</enableNullOrEmptyValues>`;
+            }
+            if (op === 'search') {
+                // Build custom SOAP body for search operation
+                const languageCode = ctx.getNodeParameter('languageCode', itemIndex, 'EN') as string;
+                const timeFrame = ctx.getNodeParameter('timeFrame', itemIndex, {}) as IDataObject;
+                const searchFilters = ctx.getNodeParameter('searchFilters', itemIndex, {}) as IDataObject;
+                
+                let searchFilter = `<SearchFilter>`;
+                searchFilter += `\n<languageCode>${escapeXml(languageCode)}</languageCode>`;
+                
+                // Add time frame (mandatory)
+                if (timeFrame.dateFrom && timeFrame.dateTo && timeFrame.dateRelation) {
+                    searchFilter += `\n<timeFrame>`;
+                    searchFilter += `\n<dateFrom>${escapeXml(timeFrame.dateFrom as string)}</dateFrom>`;
+                    searchFilter += `\n<dateRelation>${timeFrame.dateRelation}</dateRelation>`;
+                    searchFilter += `\n<dateTo>${escapeXml(timeFrame.dateTo as string)}</dateTo>`;
+                    searchFilter += `\n</timeFrame>`;
+                }
+                
+                // Add optional filters
+                if (searchFilters.customerID) {
+                    searchFilter += `\n<customerID>${searchFilters.customerID}</customerID>`;
+                }
+                if (searchFilters.itemStatus) {
+                    searchFilter += `\n<itemStatus>${searchFilters.itemStatus}</itemStatus>`;
+                }
+                if (searchFilters.projectDescription) {
+                    searchFilter += `\n<projectDescription>${escapeXml(searchFilters.projectDescription as string)}</projectDescription>`;
+                }
+                if (searchFilters.projectName) {
+                    searchFilter += `\n<projectName>${escapeXml(searchFilters.projectName as string)}</projectName>`;
+                }
+                if (searchFilters.projectType) {
+                    searchFilter += `\n<projectType>${searchFilters.projectType}</projectType>`;
+                }
+                if (searchFilters.sourceLanguage) {
+                    searchFilter += `\n<sourceLanguage>${escapeXml(searchFilters.sourceLanguage as string)}</sourceLanguage>`;
+                }
+                if (searchFilters.targetLanguage) {
+                    searchFilter += `\n<targetLanguage>${escapeXml(searchFilters.targetLanguage as string)}</targetLanguage>`;
+                }
+                if (searchFilters.statusProjectFileArchiving) {
+                    searchFilter += `\n<statusProjectFileArchiving>${searchFilters.statusProjectFileArchiving}</statusProjectFileArchiving>`;
+                }
+                
+                searchFilter += `\n</SearchFilter>`;
+                
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n${searchFilter}`;
             }
             return null;
         },
