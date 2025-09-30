@@ -785,6 +785,22 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 return `<UUID>${escapeXml(sessionId)}</UUID>\n<sourceOrderId>${sourceOrderId}</sourceOrderId>\n<targetId>${targetId}</targetId>\n<projectType>${projectType}</projectType>\n<isBidirectional>${isBidirectional ? 1 : 0}</isBidirectional>\n<memo>${escapeXml(memo)}</memo>`;
             }
 
+            if (op === 'setProjectCategory') {
+                const projectCategory = ctx.getNodeParameter('projectCategory', itemIndex, '') as string;
+                const systemLanguageCode = ctx.getNodeParameter('systemLanguageCode', itemIndex, 'EN') as string;
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n<projectCategory>${escapeXml(projectCategory)}</projectCategory>\n<systemLanguageCode>${escapeXml(systemLanguageCode)}</systemLanguageCode>\n<orderID>${orderID}</orderID>`;
+            }
+
+            if (op === 'setEN15038Requested') {
+                const isEN15038 = ctx.getNodeParameter('isEN15038', itemIndex, false) as boolean;
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n<isEN15038>${isEN15038 ? 1 : 0}</isEN15038>\n<orderID>${orderID}</orderID>`;
+            }
+
+            if (op === 'setProjectStatus') {
+                const projectStatus = ctx.getNodeParameter('projectStatus', itemIndex, 1) as number;
+                return `<UUID>${escapeXml(sessionId)}</UUID>\n<orderID>${orderID}</orderID>\n<projectStatus>${projectStatus}</projectStatus>`;
+            }
+
             return `<UUID>${escapeXml(sessionId)}</UUID>\n<orderID>${orderID}</orderID>`;
         },
     );
