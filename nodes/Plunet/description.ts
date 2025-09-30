@@ -121,7 +121,7 @@ export const description: INodeTypeDescription = {
     inputs: ['main'],
     outputs: ['main'],
     credentials: [{ name: 'plunetApi', required: true }],
-    subtitle: createSubtitleExpression(),
+    subtitle: '={{ $parameter["operation"] }}',
     properties: [
         {
             displayName: 'Resource',
