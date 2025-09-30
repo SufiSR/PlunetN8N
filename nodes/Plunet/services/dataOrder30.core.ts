@@ -815,9 +815,19 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                 // Add mandatory language code
                 searchFilter += `\n<languageCode>${escapeXml(languageCode)}</languageCode>`;
                 
-                // Add mandatory time frame fields
-                if (dateFrom) searchFilter += `\n<dateFrom>${escapeXml(dateFrom)}</dateFrom>`;
-                if (dateTo) searchFilter += `\n<dateTo>${escapeXml(dateTo)}</dateTo>`;
+                // Add mandatory time frame fields (format dates to YYYY-MM-DD)
+                if (dateFrom && dateFrom !== '') {
+                    const formattedDateFrom = new Date(dateFrom).toISOString().split('T')[0];
+                    if (formattedDateFrom) {
+                        searchFilter += `\n<dateFrom>${escapeXml(formattedDateFrom)}</dateFrom>`;
+                    }
+                }
+                if (dateTo && dateTo !== '') {
+                    const formattedDateTo = new Date(dateTo).toISOString().split('T')[0];
+                    if (formattedDateTo) {
+                        searchFilter += `\n<dateTo>${escapeXml(formattedDateTo)}</dateTo>`;
+                    }
+                }
                 searchFilter += `\n<dateRelation>${dateRelation}</dateRelation>`;
                 
                 // Add optional search filters
