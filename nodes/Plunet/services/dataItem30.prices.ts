@@ -139,7 +139,7 @@ import {
       resourceDisplayName: RESOURCE_DISPLAY_NAME,
       description: 'Retrieve all pricelist entries for a pricelist',
       returnType: 'PricelistEntryList',
-      paramOrder: ['pricelistID', 'sourceLanguage', 'targetLanguage'],
+      paramOrder: ['PricelistID', 'SourceLanguage', 'TargetLanguage'],
       active: true,
     },
     getPriceUnits: {
@@ -178,7 +178,7 @@ import {
       resourceDisplayName: RESOURCE_DISPLAY_NAME,
       description: 'Apply prices from the pricelist currently set in the item to all price lines of the item',
       returnType: 'Void',
-      paramOrder: ['itemID', 'projectType'],
+      paramOrder: ['itemId', 'projectType'],
       active: true,
     },
   };
