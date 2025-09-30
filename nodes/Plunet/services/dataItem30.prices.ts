@@ -165,7 +165,7 @@ import {
       resourceDisplayName: RESOURCE_DISPLAY_NAME,
       description: 'Retrieve a specific price unit',
       returnType: 'PriceUnit',
-      paramOrder: ['priceUnitID', 'languageCode'],
+      paramOrder: ['PriceUnitID', 'languageCode'],
       active: true,
     },
     updatePrices: {

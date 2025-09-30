@@ -79,6 +79,7 @@ import {
       active: true,
     },
     getItemByLanguage: {
+        // Call is currently not working
       soapAction: 'get_ByLanguage',
       endpoint: ENDPOINT,
       uiName: 'Get Item by Language',
@@ -89,7 +90,7 @@ import {
       description: 'Get item by project type, project ID, and language combination',
       returnType: 'Integer',
       paramOrder: ['projectType', 'projectID', 'sourceLanguage', 'targetLanguage'],
-      active: true,
+      active: false,
     },
   };
   
