@@ -17,6 +17,7 @@ import {
   import { TaxTypeOptions, idToTaxTypeName } from '../enums/tax-type';
   import { MANDATORY_FIELDS } from '../core/field-definitions';
   import { generateOperationOptionsFromRegistry } from '../core/service-utils';
+  import { DataItem30MiscService } from './dataItem30.misc';
   
   const RESOURCE = 'DataItem30Core';
   const ENDPOINT = 'DataItem30';
@@ -146,10 +147,10 @@ import {
   async function getExtendedItemData(ctx: IExecuteFunctions, sessionId: string, itemID: number, projectType: number, config: ExecuteConfig, itemIndex: number): Promise<IDataObject> {
     const extendedData: IDataObject = {};
     
-    // Helper function to safely call an operation and return empty string on failure
-    const safeCall = async (operation: string, params: IDataObject): Promise<string> => {
+    // Helper function to safely call misc operations and return empty string on failure
+    const safeCallMisc = async (operation: string, creds: Creds, url: string, baseUrl: string, timeoutMs: number): Promise<string> => {
       try {
-        const result = await executeOperation(ctx, operation, params, config, itemIndex);
+        const result = await DataItem30MiscService.execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex);
         if (Array.isArray(result)) {
           const item = result[0] || {};
           // Extract data based on the operation type
@@ -176,9 +177,16 @@ import {
       }
     };
     
+    // Get the credentials and URL info from the context
+    const creds = (await ctx.getCredentials('plunetApi')) as unknown as Creds;
+    const scheme = creds.useHttps ? 'https' : 'http';
+    const baseUrl = `${scheme}://${creds.baseHost.replace(/\/$/, '')}`;
+    const url = `${baseUrl}/${DataItem30MiscService.endpoint}`;
+    const timeoutMs = creds.timeout ?? 30000;
+    
     // Get comment
     try {
-      const commentResult = await safeCall('getComment', { itemID, projectType });
+      const commentResult = await safeCallMisc('getComment', creds, url, baseUrl, timeoutMs);
       extendedData.comment = String(commentResult);
     } catch (error) {
       extendedData.comment = '';
@@ -186,7 +194,7 @@ import {
     
     // Get default contact person
     try {
-      const contactResult = await safeCall('getDefaultContactPerson', { itemID, projectType });
+      const contactResult = await safeCallMisc('getDefaultContactPerson', creds, url, baseUrl, timeoutMs);
       extendedData.DefaultContactPerson = String(contactResult);
     } catch (error) {
       extendedData.DefaultContactPerson = '';
@@ -194,7 +202,7 @@ import {
     
     // Get delivery date
     try {
-      const deliveryDateResult = await safeCall('getDeliveryDate', { itemID, projectType });
+      const deliveryDateResult = await safeCallMisc('getDeliveryDate', creds, url, baseUrl, timeoutMs);
       extendedData['Delivery Date'] = String(deliveryDateResult);
     } catch (error) {
       extendedData['Delivery Date'] = '';
@@ -202,7 +210,7 @@ import {
     
     // Get item reference
     try {
-      const referenceResult = await safeCall('getItemReference', { itemID, projectType });
+      const referenceResult = await safeCallMisc('getItemReference', creds, url, baseUrl, timeoutMs);
       extendedData['Item Reference'] = String(referenceResult);
     } catch (error) {
       extendedData['Item Reference'] = '';
