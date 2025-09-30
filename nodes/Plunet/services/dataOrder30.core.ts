@@ -29,7 +29,7 @@ import {
 
 const RESOURCE = 'DataOrder30Core';
 const ENDPOINT = 'DataOrder30';
-const RESOURCE_DISPLAY_NAME = 'Order (BETA)';
+const RESOURCE_DISPLAY_NAME = 'Order';
 
 /** ─ Centralized Operation Registry ─ */
 const OPERATION_REGISTRY: ServiceOperationRegistry = {
@@ -340,14 +340,6 @@ const extraProperties: INodeProperties[] = [
                 default: 'EN',
                 description: 'System language code for project category',
             },
-            {
-                displayName: 'Project Status',
-                name: 'projectStatus',
-                type: 'options',
-                options: ArchivStatusOptions,
-                default: 1,
-                description: 'Project status to set after order creation',
-            },
         ],
     },
     // Update Order UI Properties
@@ -548,14 +540,6 @@ const extraProperties: INodeProperties[] = [
                 type: 'string',
                 default: 'EN',
                 description: 'System language code for project category',
-            },
-            {
-                displayName: 'Project Status',
-                name: 'projectStatus',
-                type: 'options',
-                options: ArchivStatusOptions,
-                default: 1,
-                description: 'Project status to set after order update',
             },
         ],
     },
@@ -806,8 +790,7 @@ export const DataOrder30CoreService: Service = {
                     { name: 'setEN15038Requested', param: 'isEN15038', type: 'boolean' },
                     { name: 'setExternalID', param: 'externalID', type: 'string' },
                     { name: 'setMasterProjectID', param: 'masterProjectID', type: 'number' },
-                    { name: 'setProjectCategory', param: 'projectCategory', type: 'string', needsSystemLanguageCode: true },
-                    { name: 'setProjectStatus', param: 'projectStatus', type: 'number' }
+                    { name: 'setProjectCategory', param: 'projectCategory', type: 'string', needsSystemLanguageCode: true }
                 ];
                 
                 // Execute additional field operations if values are provided in collection
@@ -862,8 +845,7 @@ export const DataOrder30CoreService: Service = {
                     { name: 'setEN15038Requested', param: 'isEN15038', type: 'boolean' },
                     { name: 'setExternalID', param: 'externalID', type: 'string' },
                     { name: 'setMasterProjectID', param: 'masterProjectID', type: 'number' },
-                    { name: 'setProjectCategory', param: 'projectCategory', type: 'string', needsSystemLanguageCode: true },
-                    { name: 'setProjectStatus', param: 'projectStatus', type: 'number' }
+                    { name: 'setProjectCategory', param: 'projectCategory', type: 'string', needsSystemLanguageCode: true }
                 ];
                 
                 // Execute additional field operations if values are provided in collection

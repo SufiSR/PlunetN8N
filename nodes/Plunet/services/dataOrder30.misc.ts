@@ -345,6 +345,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         active: true,
     },
     setProjectStatus: {
+        // Call is currently not working
         soapAction: 'setProjectStatus',
         endpoint: ENDPOINT,
         uiName: 'Set Project Status',
@@ -355,7 +356,7 @@ const OPERATION_REGISTRY: ServiceOperationRegistry = {
         description: 'Set the project status for an order',
         returnType: 'Void',
         paramOrder: ['orderID', 'projectStatus'],
-        active: true,
+        active: false,
     },
 };
 
