@@ -570,7 +570,7 @@ const extraProperties: INodeProperties[] = [
         displayOptions: {
             show: {
                 resource: [RESOURCE],
-                operation: ['searchOrders'],
+                operation: ['search'],
             },
         },
     },
@@ -585,7 +585,7 @@ const extraProperties: INodeProperties[] = [
         displayOptions: {
             show: {
                 resource: [RESOURCE],
-                operation: ['searchOrders'],
+                operation: ['search'],
             },
         },
         options: [
@@ -623,7 +623,7 @@ const extraProperties: INodeProperties[] = [
         displayOptions: {
             show: {
                 resource: [RESOURCE],
-                operation: ['searchOrders'],
+                operation: ['search'],
             },
         },
         options: [
