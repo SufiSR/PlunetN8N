@@ -13,6 +13,9 @@ import { DataJob30Service } from './services/dataJob30';
 import { DataDocument30Service } from './services/dataDocument30';
 import { DataCustomFields30Service } from './services/dataCustomFields30';
 import { DataAdmin30Service } from './services/dataAdmin30';
+import { DataItem30CoreService } from './services/dataItem30.core';
+import { DataItem30MiscService } from './services/dataItem30.misc';
+import { DataItem30PricesService } from './services/dataItem30.prices';
 import { buildSubtitleLookup } from './core/service-utils';
 
 
@@ -21,7 +24,9 @@ const services = [
     DataCustomer30CoreService,
     DataResource30CoreService,
     DataOrder30CoreService,
-    DataJob30CoreService,
+    DataItem30CoreService,
+    DataJob30CoreService,        
+    DataItem30PricesService,
     DataJob30PricesService,
     DataDocument30Service,
     DataCustomFields30Service,
@@ -29,7 +34,8 @@ const services = [
     DataCustomer30MiscService,
     DataResource30MiscService,
     DataOrder30MiscService,
-    DataJob30MiscService,    
+    DataItem30MiscService, 
+    DataJob30MiscService,       
     //DataJob30Service, // not used
 ] as const;
 

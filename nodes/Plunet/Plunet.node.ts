@@ -120,6 +120,9 @@ import { DataOrder30MiscService } from './services/dataOrder30.misc';
 import { DataDocument30Service } from './services/dataDocument30';
 import { DataCustomFields30Service } from './services/dataCustomFields30';
 import { DataAdmin30Service } from './services/dataAdmin30';
+import { DataItem30CoreService } from './services/dataItem30.core';
+import { DataItem30MiscService } from './services/dataItem30.misc';
+import { DataItem30PricesService } from './services/dataItem30.prices';
 import { getAvailablePropertyNames, getAvailableTextModuleFlags } from './services/loadOptions';
 // import { DataJob30Service } from './services/dataJob30';
 
@@ -133,6 +136,9 @@ const registry: Record<string, Service> = {
     [DataDocument30Service.resource]: DataDocument30Service,
     [DataCustomFields30Service.resource]: DataCustomFields30Service,
     [DataAdmin30Service.resource]: DataAdmin30Service,
+    [DataItem30CoreService.resource]: DataItem30CoreService,
+    [DataItem30MiscService.resource]: DataItem30MiscService,
+    [DataItem30PricesService.resource]: DataItem30PricesService,
     [DataCustomer30MiscService.resource]: DataCustomer30MiscService,
     [DataResource30MiscService.resource]: DataResource30MiscService,
     [DataOrder30MiscService.resource]: DataOrder30MiscService,

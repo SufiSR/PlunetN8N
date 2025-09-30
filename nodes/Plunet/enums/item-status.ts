@@ -1,3 +1,5 @@
+import type { INodePropertyOptions } from 'n8n-workflow';
+
 /**
  * ItemStatus enum based on Plunet API documentation
  * @see https://apidoc.plunet.com/latest/BM/API/SOAP/Enum/ItemStatus.html
@@ -22,7 +24,7 @@ export enum ItemStatus {
 /**
  * UI options for ItemStatus dropdown
  */
-export const ItemStatusOptions: Array<{ name: string; value: number }> = [
+export const ItemStatusOptions: INodePropertyOptions[] = [
     { name: 'In Progress (1)', value: ItemStatus.IN_PROGRESS },
     { name: 'Delivered (2)', value: ItemStatus.DELIVERED },
     { name: 'Approved (3)', value: ItemStatus.APPROVED },
