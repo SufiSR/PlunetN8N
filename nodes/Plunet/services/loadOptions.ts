@@ -329,6 +329,7 @@ export async function getAvailableLanguages(this: ILoadOptionsFunctions) {
    <soap:Body>
       <api:getAvailableLanguages>
          <UUID>${sessionId}</UUID>
+         <languageCode>EN</languageCode>
       </api:getAvailableLanguages>
    </soap:Body>
 </soap:Envelope>`;
