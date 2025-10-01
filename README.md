@@ -15,6 +15,10 @@
 * **Enum Support**: Human-readable dropdowns for all status and type fields
 * **Load Options**: Dynamic dropdown population from API calls
 * **Structured Responses**: Clean JSON output with enriched data
+* **Advanced Item Operations**: Create Item (Advanced) and Update Item (Advanced) with complex field handling
+* **Language Management**: Language combination operations and language-independent item creation
+* **Workflow Integration**: Apply workflows to items and manage language combinations
+* **Pricing Operations**: Advanced pricing management with best pricelist detection
 
 ---
 

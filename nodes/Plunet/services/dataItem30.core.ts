@@ -53,19 +53,6 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
       paramOrder: ['projectID', 'projectType'],
       active: true,
     },
-    updateItem: {
-      soapAction: 'update',
-      endpoint: ENDPOINT,
-      uiName: 'Update Item',
-      subtitleName: 'update: item',
-      titleName: 'Update an Item',
-      resource: RESOURCE,
-      resourceDisplayName: RESOURCE_DISPLAY_NAME,
-      description: 'Update an existing item',
-      returnType: 'Void',
-      paramOrder: ['itemID', 'projectType'],
-      active: true,
-    },
     deleteItem: {
       soapAction: 'delete',
       endpoint: ENDPOINT,
@@ -82,9 +69,9 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
     insert2: {
       soapAction: 'insert2',
       endpoint: ENDPOINT,
-      uiName: 'Create Item (Advanced)',
+      uiName: 'Create Item',
       subtitleName: 'create item: item',
-      titleName: 'Create Item (Advanced)',
+      titleName: 'Create Item',
       resource: RESOURCE,
       resourceDisplayName: RESOURCE_DISPLAY_NAME,
       description: 'Create a new item with advanced options and follow-up operations',
@@ -95,9 +82,9 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
     update: {
       soapAction: 'update',
       endpoint: ENDPOINT,
-      uiName: 'Update Item (Advanced)',
+      uiName: 'Update Item',
       subtitleName: 'update: item',
-      titleName: 'Update Item (Advanced)',
+      titleName: 'Update Item',
       resource: RESOURCE,
       resourceDisplayName: RESOURCE_DISPLAY_NAME,
       description: 'Update an existing item with advanced options and follow-up operations',
@@ -809,11 +796,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
               // Track successful call
               addtlCalls.push(op);
               
-              return {
-                ...result,
-                sentEnvelope: sentEnvelope,
-                operation: op
-              };
+              return result;
             } catch (error) {
               // Silently fail for additional operations
               return null;
@@ -966,46 +949,8 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
         // Get the item ID from the update parameters (not result, since update returns void)
         const itemID = itemParams.itemID as number;
         
-        // Add debug information to the result
-        (result as IDataObject).debugEnvelopes = [];
-        
         // Get the main update SOAP envelope
         const sessionId = await config.getSessionId(ctx, itemIndex);
-        
-        // Build ItemIN XML with all fields
-        const itemInFields = [];
-        if (additionalFields.briefDescription) itemInFields.push(`            <briefDescription>${escapeXml(String(additionalFields.briefDescription))}</briefDescription>`);
-        if (additionalFields.comment) itemInFields.push(`            <comment>${escapeXml(String(additionalFields.comment))}</comment>`);
-        if (additionalFields.deliveryDeadline) itemInFields.push(`            <deliveryDeadline>${escapeXml(String(additionalFields.deliveryDeadline))}</deliveryDeadline>`);
-        itemInFields.push(`            <itemID>${escapeXml(String(itemParams.itemID))}</itemID>`);
-        itemInFields.push(`            <projectID>${escapeXml(String(itemParams.projectID))}</projectID>`);
-        itemInFields.push(`            <projectType>${escapeXml(String(itemParams.projectType))}</projectType>`);
-        if (additionalFields.reference) itemInFields.push(`            <reference>${escapeXml(String(additionalFields.reference))}</reference>`);
-        if (additionalFields.status) itemInFields.push(`            <status>${escapeXml(String(additionalFields.status))}</status>`);
-        if (additionalFields.taxType) itemInFields.push(`            <taxType>${escapeXml(String(additionalFields.taxType))}</taxType>`);
-        if (additionalFields.totalPrice) itemInFields.push(`            <totalPrice>${escapeXml(String(additionalFields.totalPrice))}</totalPrice>`);
-        
-        const mainEnvelope = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
-   <soap:Header/>
-   <soap:Body>
-      <api:${operation}>
-         <UUID>${escapeXml(sessionId)}</UUID>
-         <ItemIN>
-${itemInFields.join('\n')}
-         </ItemIN>
-         <enableNullOrEmptyValues>${escapeXml(String(itemParams.enableNullOrEmptyValues))}</enableNullOrEmptyValues>
-      </api:${operation}>
-   </soap:Body>
-</soap:Envelope>`;
-        
-        const debugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
-        debugEnvelopes.push({
-          operation: operation,
-          envelope: mainEnvelope,
-          timestamp: new Date().toISOString()
-        });
-        (result as IDataObject).debugEnvelopes = debugEnvelopes;
         
         if (itemID && itemID > 0) {
           const projectType = itemParams.projectType as number;
@@ -1051,54 +996,10 @@ ${itemInFields.join('\n')}
               
               const result = await executeOperation(ctx, op, { itemID, projectType }, miscConfig, itemIndex);
               
-              // Build the complete sent envelope with all parameters
-              let sentEnvelope = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
-   <soap:Header/>
-   <soap:Body>
-      <api:${op}>
-         <UUID>${escapeXml(sessionId)}</UUID>
-         <itemID>${escapeXml(String(itemID))}</itemID>
-         <projectType>${escapeXml(String(projectType))}</projectType>`;
-         
-              // Add the specific parameter to the envelope
-              if (op === 'setComment' && additionalParam) {
-                sentEnvelope += `\n         <comment>${escapeXml(String(additionalParam))}</comment>`;
-              } else if (op === 'setDefaultContactPerson' && additionalParam) {
-                sentEnvelope += `\n         <defaultContactPerson>${escapeXml(String(additionalParam))}</defaultContactPerson>`;
-              } else if (op === 'setDeliveryDate' && additionalParam) {
-                sentEnvelope += `\n         <deliveryDate>${escapeXml(String(additionalParam))}</deliveryDate>`;
-              } else if (op === 'setItemReference' && additionalParam) {
-                sentEnvelope += `\n         <itemReference>${escapeXml(String(additionalParam))}</itemReference>`;
-              }
-              
-              sentEnvelope += `
-      </api:${op}>
-   </soap:Body>
-</soap:Envelope>`;
-              
-              // Add debug information to the main result
-              const mainDebugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
-              mainDebugEnvelopes.push({
-                operation: op,
-                envelope: sentEnvelope,
-                timestamp: new Date().toISOString(),
-                parameters: {
-                  itemID: itemID,
-                  projectType: projectType,
-                  additionalParam: additionalParam
-                }
-              });
-              (result as IDataObject).debugEnvelopes = mainDebugEnvelopes;
-              
               // Track successful call
               addtlCalls.push(op);
               
-              return {
-                ...result,
-                sentEnvelope: sentEnvelope,
-                operation: op
-              };
+              return result;
             } catch (error) {
               // Silently fail for additional operations
               return null;
