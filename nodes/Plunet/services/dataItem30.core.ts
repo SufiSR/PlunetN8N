@@ -669,6 +669,9 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
           // Helper function to safely call misc operations
           const safeCallMisc = async (op: string, ...args: any[]) => {
             try {
+              // Get the additional parameter (comment, defaultContactPerson, etc.)
+              const additionalParam = args[2]; // The third parameter is the value to set
+              
               const miscConfig = {
                 url: url.replace('/DataItem30', '/DataItem30'),
                 soapActionFor: (operation: string) => `http://API.Integration/${operation}`,
@@ -677,9 +680,22 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
                 getSessionId: async () => sessionId,
                 buildCustomBodyXml: (operation: string, params: IDataObject) => {
                   if (operation === op) {
-                    return `<UUID>${escapeXml(sessionId)}</UUID>
+                    let xml = `<UUID>${escapeXml(sessionId)}</UUID>
 <itemID>${escapeXml(String(itemID))}</itemID>
 <projectType>${escapeXml(String(projectType))}</projectType>`;
+                    
+                    // Add the specific parameter based on the operation
+                    if (op === 'setComment' && additionalParam) {
+                      xml += `\n<comment>${escapeXml(String(additionalParam))}</comment>`;
+                    } else if (op === 'setDefaultContactPerson' && additionalParam) {
+                      xml += `\n<defaultContactPerson>${escapeXml(String(additionalParam))}</defaultContactPerson>`;
+                    } else if (op === 'setDeliveryDate' && additionalParam) {
+                      xml += `\n<deliveryDate>${escapeXml(String(additionalParam))}</deliveryDate>`;
+                    } else if (op === 'setItemReference' && additionalParam) {
+                      xml += `\n<itemReference>${escapeXml(String(additionalParam))}</itemReference>`;
+                    }
+                    
+                    return xml;
                   }
                   return null;
                 },
@@ -688,15 +704,28 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
               
               const result = await executeOperation(ctx, op, { itemID, projectType }, miscConfig, itemIndex);
               
-              // Add the sent envelope to the result for debugging
-              const sentEnvelope = `<?xml version="1.0" encoding="utf-8"?>
+              // Build the complete sent envelope with all parameters
+              let sentEnvelope = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
    <soap:Header/>
    <soap:Body>
       <api:${op}>
          <UUID>${escapeXml(sessionId)}</UUID>
          <itemID>${escapeXml(String(itemID))}</itemID>
-         <projectType>${escapeXml(String(projectType))}</projectType>
+         <projectType>${escapeXml(String(projectType))}</projectType>`;
+         
+              // Add the specific parameter to the envelope
+              if (op === 'setComment' && additionalParam) {
+                sentEnvelope += `\n         <comment>${escapeXml(String(additionalParam))}</comment>`;
+              } else if (op === 'setDefaultContactPerson' && additionalParam) {
+                sentEnvelope += `\n         <defaultContactPerson>${escapeXml(String(additionalParam))}</defaultContactPerson>`;
+              } else if (op === 'setDeliveryDate' && additionalParam) {
+                sentEnvelope += `\n         <deliveryDate>${escapeXml(String(additionalParam))}</deliveryDate>`;
+              } else if (op === 'setItemReference' && additionalParam) {
+                sentEnvelope += `\n         <itemReference>${escapeXml(String(additionalParam))}</itemReference>`;
+              }
+              
+              sentEnvelope += `
       </api:${op}>
    </soap:Body>
 </soap:Envelope>`;
@@ -706,7 +735,12 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
               debugEnvelopes.push({
                 operation: op,
                 envelope: sentEnvelope,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                parameters: {
+                  itemID: itemID,
+                  projectType: projectType,
+                  additionalParam: additionalParam
+                }
               });
               (result as IDataObject).debugEnvelopes = debugEnvelopes;
               
@@ -716,7 +750,14 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
                 operation: op
               };
             } catch (error) {
-              // Silently fail for additional operations
+              // Add error to debug info instead of silently failing
+              const debugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
+              debugEnvelopes.push({
+                operation: op,
+                error: error instanceof Error ? error.message : 'Unknown error',
+                timestamp: new Date().toISOString()
+              });
+              (result as IDataObject).debugEnvelopes = debugEnvelopes;
               return null;
             }
           };
@@ -783,7 +824,24 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
                     parseResult: (xml: string) => parseStringResult(xml)
                   };
                   
-                  const result = await executeOperation(ctx, op, params[0] ? { [op]: params[0] } : {}, miscConfig, itemIndex);
+                  // Prepare parameters for executeOperation
+                  let operationParams: IDataObject = {};
+                  if (op === 'addLanguageCombination2') {
+                    operationParams = {
+                      sourceLanguage: sourceLanguage,
+                      targetLanguage: targetLanguage,
+                      projectType: projectType,
+                      projectID: itemParams.projectID
+                    };
+                  } else if (op === 'setLanguageCombinationID') {
+                    operationParams = {
+                      languageCombinationID: params[0],
+                      projectType: projectType,
+                      itemID: itemID
+                    };
+                  }
+                  
+                  const result = await executeOperation(ctx, op, operationParams, miscConfig, itemIndex);
                   
                   // Add the sent envelope to the result for debugging
                   let sentEnvelope = '';
