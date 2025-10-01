@@ -629,6 +629,18 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
         const sourceLanguage = ctx.getNodeParameter('sourceLanguage', itemIndex, '') as string;
         const targetLanguage = ctx.getNodeParameter('targetLanguage', itemIndex, '') as string;
         
+        // Add debug info for parameter retrieval
+        (result as IDataObject).parameterDebug = {
+          sourceLanguage: sourceLanguage,
+          targetLanguage: targetLanguage,
+          sourceLanguageType: typeof sourceLanguage,
+          targetLanguageType: typeof targetLanguage,
+          sourceLanguageLength: sourceLanguage ? sourceLanguage.length : 0,
+          targetLanguageLength: targetLanguage ? targetLanguage.length : 0,
+          additionalFieldsKeys: Object.keys(additionalFields),
+          additionalFieldsValues: additionalFields
+        };
+        
         // Get the item ID from the insert2 result
         const itemID = (result as IDataObject).data as number;
         
@@ -722,6 +734,14 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
           }
           
           // Handle language combination if both languages are provided
+          ((result as IDataObject).debugInfo as IDataObject).languageCheck = {
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage,
+            sourceLanguageTruthy: !!sourceLanguage,
+            targetLanguageTruthy: !!targetLanguage,
+            bothLanguagesProvided: !!(sourceLanguage && targetLanguage)
+          };
+          
           if (sourceLanguage && targetLanguage) {
             ((result as IDataObject).debugInfo as IDataObject).languageCombinationOperation = 'Starting language combination';
             try {
@@ -826,6 +846,8 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
               // Add error info to result for debugging
               (result as IDataObject).languageCombinationError = error instanceof Error ? error.message : 'Unknown error';
             }
+          } else {
+            ((result as IDataObject).debugInfo as IDataObject).languageCombinationOperation = 'Language combination NOT executed - missing source or target language';
           }
         }
       }
