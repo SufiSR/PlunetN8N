@@ -326,6 +326,12 @@ import {
           priceLineInXml += '</priceLineIN>';
           return `<UUID>${escapeXml(sessionId)}</UUID>\n<itemID>${escapeXml(String(itemID))}</itemID>\n<projectType>${escapeXml(String(projectType))}</projectType>\n${priceLineInXml}`;
         }
+        if (op === 'setPricelist') {
+          return `<UUID>${escapeXml(sessionId)}</UUID>
+<itemID>${escapeXml(String(itemParams.itemID))}</itemID>
+<projectType>${escapeXml(String(itemParams.projectType))}</projectType>
+<priceListID>${escapeXml(String(itemParams.priceListID))}</priceListID>`;
+        }
         return null;
       },
       parseResult: (xml: string, op: string) => {

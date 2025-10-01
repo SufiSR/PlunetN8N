@@ -48,6 +48,7 @@ import { getAvailableWorkflows } from './loadOptions';
       active: true,
     },
     getDefaultContactPerson: {
+      // Unnecessary
       soapAction: 'getDefaultContactPerson',
       endpoint: ENDPOINT,
       uiName: 'Get Default Contact Person',
@@ -58,9 +59,10 @@ import { getAvailableWorkflows } from './loadOptions';
       description: 'Get default contact person for an item',
       returnType: 'Integer',
       paramOrder: ['itemID', 'projectType'],
-      active: true,
+      active: false,
     },
     setDefaultContactPerson: {
+      // Unnecessary
       soapAction: 'setDefaultContactPerson',
       endpoint: ENDPOINT,
       uiName: 'Update Default Contact Person',
@@ -71,7 +73,7 @@ import { getAvailableWorkflows } from './loadOptions';
       description: 'Update default contact person for an item',
       returnType: 'Void',
       paramOrder: ['itemId', 'projectType', 'resourceId'],
-      active: true,
+      active: false,
     },
     getDeliveryDate: {
       soapAction: 'getDeliveryDate',
@@ -87,6 +89,7 @@ import { getAvailableWorkflows } from './loadOptions';
       active: true,
     },
     setDeliveryDate: {
+      // Unnecessary
       soapAction: 'setDeliveryDate',
       endpoint: ENDPOINT,
       uiName: 'Update Delivery Date',
@@ -97,9 +100,10 @@ import { getAvailableWorkflows } from './loadOptions';
       description: 'Update delivery date for an item',
       returnType: 'Void',
       paramOrder: ['itemID', 'projectType', 'deliveryDate'],
-      active: true,
+      active: false,
     },
     getItemReference: {
+      // Unnecessary
       soapAction: 'getItemReference',
       endpoint: ENDPOINT,
       uiName: 'Get Item Reference',
@@ -110,9 +114,10 @@ import { getAvailableWorkflows } from './loadOptions';
       description: 'Get item reference for an item',
       returnType: 'String',
       paramOrder: ['itemID', 'projectType'],
-      active: true,
+      active: false,
     },
     setItemReference: {
+      // Unnecessary
       soapAction: 'setItemReference',
       endpoint: ENDPOINT,
       uiName: 'Update Item Reference',
@@ -123,7 +128,7 @@ import { getAvailableWorkflows } from './loadOptions';
       description: 'Update item reference for an item',
       returnType: 'Void',
       paramOrder: ['itemID', 'projectType', 'itemReference'],
-      active: true,
+      active: false,
     },
     addLanguageCombination2: {
       soapAction: 'addLanguageCombination2',
@@ -167,9 +172,9 @@ import { getAvailableWorkflows } from './loadOptions';
     copyJobsFromWorkflow: {
       soapAction: 'copyJobsFromWorkflow',
       endpoint: ENDPOINT,
-      uiName: 'Copy Jobs from Workflow',
+      uiName: 'Apply Workflow to Item',
       subtitleName: 'copy jobs from workflow: item',
-      titleName: 'Copy Jobs from Workflow',
+      titleName: 'Apply Workflow to Item',
       resource: RESOURCE,
       resourceDisplayName: RESOURCE_DISPLAY_NAME,
       description: 'Copy jobs from a workflow to an item',
