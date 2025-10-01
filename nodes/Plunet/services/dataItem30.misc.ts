@@ -124,6 +124,32 @@ import {
       paramOrder: ['itemID', 'projectType', 'itemReference'],
       active: true,
     },
+    addLanguageCombination2: {
+      soapAction: 'addLanguageCombination2',
+      endpoint: ENDPOINT,
+      uiName: 'Add Language Combination',
+      subtitleName: 'add language combination: item',
+      titleName: 'Add Language Combination',
+      resource: RESOURCE,
+      resourceDisplayName: RESOURCE_DISPLAY_NAME,
+      description: 'Add a language combination to an item',
+      returnType: 'Integer',
+      paramOrder: ['UUID', 'sourceLanguage', 'targetLanguage', 'projectType', 'projectID'],
+      active: true,
+    },
+    setLanguageCombinationID: {
+      soapAction: 'setLanguageCombinationID',
+      endpoint: ENDPOINT,
+      uiName: 'Set Language Combination ID',
+      subtitleName: 'set language combination id: item',
+      titleName: 'Set Language Combination ID',
+      resource: RESOURCE,
+      resourceDisplayName: RESOURCE_DISPLAY_NAME,
+      description: 'Set language combination ID for an item',
+      returnType: 'Void',
+      paramOrder: ['UUID', 'languageCombinationID', 'projectType', 'itemID'],
+      active: true,
+    },
   };
   
   /** ─ Derived mappings (actives only) ─ */
@@ -140,7 +166,7 @@ import {
   /** ─ UI wiring (lean) ─ */
   const isProjectTypeParam = (p: string) => p.toLowerCase() === 'projecttype';
   const isTaxTypeParam = (op: string, p: string) => op === 'setTaxType' && p === 'taxType';
-  const NUMERIC_PARAM_NAMES = new Set(['itemID', 'projectID', 'resourceID', 'projectId']);
+  const NUMERIC_PARAM_NAMES = new Set(['itemID', 'projectID', 'resourceID', 'projectId', 'languageCombinationID']);
   const isNumericParam = (p: string) => NUMERIC_PARAM_NAMES.has(p);
   const isDateParam = (p: string) => p === 'deliveryDate' || p === 'startDate' || p === 'dueDate';
   

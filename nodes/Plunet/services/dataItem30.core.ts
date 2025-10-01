@@ -12,9 +12,10 @@ import {
   import { NUMERIC_BOOLEAN_PARAMS } from '../core/constants';
   import { extractStatusMessage, parseStringResult, parseIntegerResult, parseVoidResult, parseDateResult } from '../core/xml';
   import { parseItemResult, parseItemListResult } from '../core/parsers/item';
-  import { ProjectTypeOptions } from '../enums/project-type';
-  import { ItemStatusOptions, getItemStatusName } from '../enums/item-status';
-  import { TaxTypeOptions, idToTaxTypeName } from '../enums/tax-type';
+import { ProjectTypeOptions } from '../enums/project-type';
+import { ItemStatusOptions, getItemStatusName } from '../enums/item-status';
+import { TaxTypeOptions, idToTaxTypeName } from '../enums/tax-type';
+import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-type';
   import { MANDATORY_FIELDS } from '../core/field-definitions';
   import { generateOperationOptionsFromRegistry } from '../core/service-utils';
   import { DataItem30MiscService } from './dataItem30.misc';
@@ -92,6 +93,32 @@ import {
       paramOrder: ['projectType', 'projectID', 'sourceLanguage', 'targetLanguage'],
       active: false,
     },
+    getLanguageIndependentItemObject: {
+      soapAction: 'getLanguageIndependentItemObject',
+      endpoint: ENDPOINT,
+      uiName: 'Get Language Independent Item',
+      subtitleName: 'get language independent item: item',
+      titleName: 'Get Language Independent Item',
+      resource: RESOURCE,
+      resourceDisplayName: RESOURCE_DISPLAY_NAME,
+      description: 'Get language independent item object by project type, project ID, and currency type',
+      returnType: 'Item',
+      paramOrder: ['UUID', 'projectType', 'projectID', 'currencyType'],
+      active: true,
+    },
+    insertLanguageIndependentItem: {
+      soapAction: 'insertLanguageIndependentItem',
+      endpoint: ENDPOINT,
+      uiName: 'Create Language Independent Item',
+      subtitleName: 'create language independent item: item',
+      titleName: 'Create Language Independent Item',
+      resource: RESOURCE,
+      resourceDisplayName: RESOURCE_DISPLAY_NAME,
+      description: 'Create a new language independent item',
+      returnType: 'Integer',
+      paramOrder: ['UUID', 'projectType', 'projectID', 'status', 'taxType', 'totalPrice'],
+      active: true,
+    },
   };
   
   const PARAM_ORDER: Record<string, string[]> = Object.fromEntries(
@@ -104,7 +131,10 @@ import {
   
   /** ─ UI wiring (lean) ─ */
   const isProjectTypeParam = (p: string) => p.toLowerCase() === 'projecttype';
-  const NUMERIC_PARAM_NAMES = new Set(['itemID', 'projectID', 'projectId']);
+  const isCurrencyTypeParam = (p: string) => p.toLowerCase() === 'currencytype';
+  const isStatusParam = (p: string) => p.toLowerCase() === 'status';
+  const isTaxTypeParam = (p: string) => p.toLowerCase() === 'taxtype';
+  const NUMERIC_PARAM_NAMES = new Set(['itemID', 'projectID', 'projectId', 'totalPrice']);
   const isNumericParam = (p: string) => NUMERIC_PARAM_NAMES.has(p);
   
   const operationOptions: NonEmptyArray<INodePropertyOptions> = generateOperationOptionsFromRegistry(OPERATION_REGISTRY);
@@ -115,6 +145,12 @@ import {
       params.map<INodeProperties>(p => {
         if (isProjectTypeParam(p))
           return { displayName: 'Project Type', name: p, type: 'options', options: ProjectTypeOptions, default: 3, description: `${p} parameter for ${op} (ProjectType enum)`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
+        if (isCurrencyTypeParam(p))
+          return { displayName: 'Currency Type', name: p, type: 'options', options: CurrencyTypeOptions, default: 1, description: `${p} parameter for ${op} (CurrencyType enum)`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
+        if (isStatusParam(p))
+          return { displayName: 'Status', name: p, type: 'options', options: ItemStatusOptions, default: 1, description: `${p} parameter for ${op} (ItemStatus enum)`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
+        if (isTaxTypeParam(p))
+          return { displayName: 'Tax Type', name: p, type: 'options', options: TaxTypeOptions, default: 0, description: `${p} parameter for ${op} (TaxType enum)`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
         if (isNumericParam(p))
           return { displayName: p, name: p, type: 'number', default: 0, typeOptions: { minValue: 0, step: 1 }, description: `${p} parameter for ${op} (number)`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
         return { displayName: p, name: p, type: 'string', default: '', description: `${p} parameter for ${op}`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
@@ -129,6 +165,55 @@ import {
       default: false,
       description: 'If enabled, additional item fields will be retrieved (comment, default contact person, delivery date, item reference)',
       displayOptions: { show: { resource: [RESOURCE], operation: ['getItemObject'] } },
+    },
+    
+    // Optional fields collection for insertLanguageIndependentItem
+    {
+      displayName: 'Optional Fields',
+      name: 'optionalFields',
+      type: 'collection',
+      placeholder: 'Add Field',
+      default: {},
+      description: 'Optional fields for the language independent item',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['insertLanguageIndependentItem'] } },
+      options: [
+        {
+          displayName: 'Brief Description',
+          name: 'briefDescription',
+          type: 'string',
+          default: '',
+          description: 'Brief description of the item',
+        },
+        {
+          displayName: 'Comment',
+          name: 'comment',
+          type: 'string',
+          default: '',
+          description: 'Comment for the item',
+        },
+        {
+          displayName: 'Delivery Deadline',
+          name: 'deliveryDeadline',
+          type: 'dateTime',
+          default: '',
+          description: 'Delivery deadline for the item',
+        },
+        {
+          displayName: 'Item ID',
+          name: 'itemID',
+          type: 'number',
+          default: 0,
+          typeOptions: { minValue: 0, step: 1 },
+          description: 'Item ID (optional, will be auto-generated if not provided)',
+        },
+        {
+          displayName: 'Reference',
+          name: 'reference',
+          type: 'string',
+          default: '',
+          description: 'Reference for the item',
+        },
+      ],
     },
   ];
   
@@ -227,7 +312,29 @@ import {
       paramOrder: PARAM_ORDER,
       numericBooleans: NUMERIC_BOOLEAN_PARAMS,
       getSessionId: async (ctx: IExecuteFunctions) => ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, 0),
-      buildCustomBodyXml: (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => null,
+      buildCustomBodyXml: (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
+        if (op === 'insertLanguageIndependentItem') {
+          const optionalFields = ctx.getNodeParameter('optionalFields', itemIndex, {}) as IDataObject;
+          
+          const itemInXml = [
+            '<ItemIn>',
+            optionalFields.briefDescription ? `<briefDescription>${escapeXml(String(optionalFields.briefDescription))}</briefDescription>` : '',
+            optionalFields.comment ? `<comment>${escapeXml(String(optionalFields.comment))}</comment>` : '',
+            optionalFields.deliveryDeadline ? `<deliveryDeadline>${escapeXml(String(optionalFields.deliveryDeadline))}</deliveryDeadline>` : '',
+            optionalFields.itemID ? `<itemID>${escapeXml(String(optionalFields.itemID))}</itemID>` : '',
+            `<projectID>${escapeXml(String(itemParams.projectID))}</projectID>`,
+            `<projectType>${escapeXml(String(itemParams.projectType))}</projectType>`,
+            optionalFields.reference ? `<reference>${escapeXml(String(optionalFields.reference))}</reference>` : '',
+            `<status>${escapeXml(String(itemParams.status))}</status>`,
+            `<taxType>${escapeXml(String(itemParams.taxType))}</taxType>`,
+            `<totalPrice>${escapeXml(String(itemParams.totalPrice))}</totalPrice>`,
+            '</ItemIn>'
+          ].filter(line => line !== '').join('\n');
+          
+          return `<UUID>${escapeXml(sessionId)}</UUID>\n${itemInXml}`;
+        }
+        return null;
+      },
       parseResult: (xml: string, op: string) => {
         const rt = RETURN_TYPE[op];
         let payload: IDataObject;
@@ -236,13 +343,17 @@ import {
             const r = parseItemResult(xml);
             let item = r.item;
             
-            // Add status_label and tax_type_label
+            // Add status_label, tax_type_label, and currency_type_label
             if (item.status !== undefined) {
               item.status_label = getItemStatusName(item.status);
             }
             if (item.taxType !== undefined) {
               const taxTypeName = idToTaxTypeName(item.taxType);
               item.tax_type_label = taxTypeName || `Unknown (${item.taxType})`;
+            }
+            if (item.currencyType !== undefined) {
+              const currencyTypeName = idToCurrencyTypeName(item.currencyType);
+              item.currency_type_label = currencyTypeName || `Unknown (${item.currencyType})`;
             }
             
             // Handle jobIDList as array if present
@@ -257,7 +368,7 @@ import {
           }
           case 'ItemList': {
             const r = parseItemListResult(xml);
-            // Add status_label and tax_type_label for each item
+            // Add status_label, tax_type_label, and currency_type_label for each item
             const items = r.items.map((item: any) => {
               if (item.status !== undefined) {
                 item.status_label = getItemStatusName(item.status);
@@ -265,6 +376,10 @@ import {
               if (item.taxType !== undefined) {
                 const taxTypeName = idToTaxTypeName(item.taxType);
                 item.tax_type_label = taxTypeName || `Unknown (${item.taxType})`;
+              }
+              if (item.currencyType !== undefined) {
+                const currencyTypeName = idToCurrencyTypeName(item.currencyType);
+                item.currency_type_label = currencyTypeName || `Unknown (${item.currencyType})`;
               }
               // Handle jobIDList as array if present
               if (item.jobIDList && !Array.isArray(item.jobIDList)) {
