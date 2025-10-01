@@ -819,7 +819,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
 <projectID>${escapeXml(String(itemParams.projectID))}</projectID>`;
                         } else if (op === 'setLanguageCombinationID') {
                           return `<UUID>${escapeXml(sessionId)}</UUID>
-<languageCombinationID>${escapeXml(String(params[0]))}</languageCombinationID>
+<languageCombinationID>${escapeXml(String(params.languageCombinationID || params[0]))}</languageCombinationID>
 <projectType>${escapeXml(String(projectType))}</projectType>
 <itemID>${escapeXml(String(itemID))}</itemID>`;
                         }
