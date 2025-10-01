@@ -583,33 +583,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
       const result = await executeOperation(ctx, operation, itemParams, config, itemIndex);
       
       // Add debug envelope for main operation
-      if (operation === 'insert2') {
-        (result as IDataObject).debugEnvelopes = [];
-        
-        // Get the main insert2 SOAP envelope
-        const sessionId = await config.getSessionId(ctx, itemIndex);
-        const mainEnvelope = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
-   <soap:Header/>
-   <soap:Body>
-      <api:${operation}>
-         <UUID>${escapeXml(sessionId)}</UUID>
-         <ItemIN>
-            <projectID>${escapeXml(String(itemParams.projectID))}</projectID>
-            <projectType>${escapeXml(String(itemParams.projectType))}</projectType>
-         </ItemIN>
-      </api:${operation}>
-   </soap:Body>
-</soap:Envelope>`;
-        
-        const debugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
-        debugEnvelopes.push({
-          operation: operation,
-          envelope: mainEnvelope,
-          timestamp: new Date().toISOString()
-        });
-        (result as IDataObject).debugEnvelopes = debugEnvelopes;
-      }
+      // Clean result for insert2 - no debug information
       
       // Handle extended object for getItemObject operation
       if (operation === 'getItemObject') {
@@ -629,42 +603,14 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
         const sourceLanguage = ctx.getNodeParameter('sourceLanguage', itemIndex, '') as string;
         const targetLanguage = ctx.getNodeParameter('targetLanguage', itemIndex, '') as string;
         
-        // Add debug info for parameter retrieval
-        (result as IDataObject).parameterDebug = {
-          sourceLanguage: sourceLanguage,
-          targetLanguage: targetLanguage,
-          sourceLanguageType: typeof sourceLanguage,
-          targetLanguageType: typeof targetLanguage,
-          sourceLanguageLength: sourceLanguage ? sourceLanguage.length : 0,
-          targetLanguageLength: targetLanguage ? targetLanguage.length : 0,
-          additionalFieldsKeys: Object.keys(additionalFields),
-          additionalFieldsValues: additionalFields
-        };
-        
         // Get the item ID from the insert2 result
         const itemID = (result as IDataObject).value as number;
-        
-        // Add debug info about itemID
-        (result as IDataObject).itemIDDebug = {
-          itemID: itemID,
-          itemIDType: typeof itemID,
-          itemIDTruthy: !!itemID,
-          itemIDGreaterThanZero: itemID > 0,
-          willExecuteFollowup: !!(itemID && itemID > 0)
-        };
         
         if (itemID && itemID > 0) {
           const sessionId = await config.getSessionId(ctx, itemIndex);
           const projectType = itemParams.projectType as number;
           
-          // Add debug info to result
-          (result as IDataObject).debugInfo = {
-            itemID: itemID,
-            projectType: projectType,
-            sourceLanguage: sourceLanguage,
-            targetLanguage: targetLanguage,
-            additionalFields: additionalFields
-          } as IDataObject;
+          // Clean result - no debug information
           
           // Helper function to safely call misc operations
           const safeCallMisc = async (op: string, ...args: any[]) => {
@@ -730,19 +676,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
    </soap:Body>
 </soap:Envelope>`;
               
-              // Add debug information to the main result
-              const mainDebugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
-              mainDebugEnvelopes.push({
-                operation: op,
-                envelope: sentEnvelope,
-                timestamp: new Date().toISOString(),
-                parameters: {
-                  itemID: itemID,
-                  projectType: projectType,
-                  additionalParam: additionalParam
-                }
-              });
-              (result as IDataObject).debugEnvelopes = mainDebugEnvelopes;
+              // Clean result - no debug information
               
               return {
                 ...result,
@@ -750,55 +684,31 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
                 operation: op
               };
             } catch (error) {
-              // Add error to debug info instead of silently failing
-              const mainDebugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
-              mainDebugEnvelopes.push({
-                operation: op,
-                error: error instanceof Error ? error.message : 'Unknown error',
-                timestamp: new Date().toISOString(),
-                parameters: {
-                  itemID: itemID,
-                  projectType: projectType,
-                  additionalParam: args[2]
-                }
-              });
-              (result as IDataObject).debugEnvelopes = mainDebugEnvelopes;
+              // Silently fail for additional operations
               return null;
             }
           };
           
           // Perform additional field operations
           if (additionalFields.comment) {
-            ((result as IDataObject).debugInfo as IDataObject).commentOperation = 'Calling setComment';
             await safeCallMisc('setComment', itemID, projectType, additionalFields.comment);
           }
           
           if (additionalFields.defaultContactPerson) {
-            ((result as IDataObject).debugInfo as IDataObject).contactPersonOperation = 'Calling setDefaultContactPerson';
             await safeCallMisc('setDefaultContactPerson', itemID, projectType, additionalFields.defaultContactPerson);
           }
           
           if (additionalFields.deliveryDate) {
-            ((result as IDataObject).debugInfo as IDataObject).deliveryDateOperation = 'Calling setDeliveryDate';
             await safeCallMisc('setDeliveryDate', itemID, projectType, additionalFields.deliveryDate);
           }
           
           if (additionalFields.itemReference) {
-            ((result as IDataObject).debugInfo as IDataObject).itemReferenceOperation = 'Calling setItemReference';
             await safeCallMisc('setItemReference', itemID, projectType, additionalFields.itemReference);
           }
           
           // Handle language combination if both languages are provided
-          ((result as IDataObject).debugInfo as IDataObject).languageCheck = {
-            sourceLanguage: sourceLanguage,
-            targetLanguage: targetLanguage,
-            sourceLanguageTruthy: !!sourceLanguage,
-            targetLanguageTruthy: !!targetLanguage,
-            bothLanguagesProvided: !!(sourceLanguage && targetLanguage)
-          };
           
           if (sourceLanguage && targetLanguage) {
-            ((result as IDataObject).debugInfo as IDataObject).languageCombinationOperation = 'Starting language combination';
             try {
               // Specialized function for language combination calls
               const callLanguageCombination = async (op: string, ...params: any[]) => {
@@ -879,24 +789,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
 </soap:Envelope>`;
                   }
                   
-                  // Add debug information to the main result
-                  const mainDebugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
-                  mainDebugEnvelopes.push({
-                    operation: op,
-                    envelope: sentEnvelope,
-                    timestamp: new Date().toISOString(),
-                    parameters: op === 'addLanguageCombination2' ? {
-                      sourceLanguage: sourceLanguage,
-                      targetLanguage: targetLanguage,
-                      projectType: projectType,
-                      projectID: itemParams.projectID
-                    } : {
-                      languageCombinationID: params[0],
-                      projectType: projectType,
-                      itemID: itemID
-                    }
-                  });
-                  (result as IDataObject).debugEnvelopes = mainDebugEnvelopes;
+                  // Clean result - no debug information
                   
                   return {
                     ...result,
@@ -904,24 +797,6 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
                     operation: op
                   };
                 } catch (error) {
-                  // Add error to debug info
-                  const mainDebugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
-                  mainDebugEnvelopes.push({
-                    operation: op,
-                    error: error instanceof Error ? error.message : 'Unknown error',
-                    timestamp: new Date().toISOString(),
-                    parameters: op === 'addLanguageCombination2' ? {
-                      sourceLanguage: sourceLanguage,
-                      targetLanguage: targetLanguage,
-                      projectType: projectType,
-                      projectID: itemParams.projectID
-                    } : {
-                      languageCombinationID: params[0],
-                      projectType: projectType,
-                      itemID: itemID
-                    }
-                  });
-                  (result as IDataObject).debugEnvelopes = mainDebugEnvelopes;
                   return null;
                 }
               };
@@ -931,14 +806,6 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
               
               if (addLanguageCombinationResult && (addLanguageCombinationResult as IDataObject).data) {
                 const languageCombinationID = (addLanguageCombinationResult as IDataObject).data;
-                
-                // Add debug info for setLanguageCombinationID call
-                ((result as IDataObject).debugInfo as IDataObject).setLanguageCombinationDebug = {
-                  languageCombinationID: languageCombinationID,
-                  projectType: projectType,
-                  itemID: itemID,
-                  parameters: [languageCombinationID, projectType, itemID]
-                };
                 
                 // Call setLanguageCombinationID
                 try {
@@ -950,27 +817,14 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
                   (result as IDataObject).targetLanguage = targetLanguage;
                   (result as IDataObject).addLanguageCombinationResult = addLanguageCombinationResult;
                   (result as IDataObject).setLanguageCombinationResult = setLanguageCombinationResult;
-                  
-                  // Add debug info about the result
-                  ((result as IDataObject).debugInfo as IDataObject).setLanguageCombinationResultDebug = {
-                    result: setLanguageCombinationResult,
-                    resultType: typeof setLanguageCombinationResult,
-                    resultNull: setLanguageCombinationResult === null
-                  };
                 } catch (setError) {
-                  ((result as IDataObject).debugInfo as IDataObject).setLanguageCombinationError = setError instanceof Error ? setError.message : 'Unknown error in setLanguageCombinationID';
                   (result as IDataObject).setLanguageCombinationResult = null;
                 }
               }
             } catch (error) {
-              // Add error info to result for debugging
-              (result as IDataObject).languageCombinationError = error instanceof Error ? error.message : 'Unknown error';
+              // Silently handle language combination errors
             }
-          } else {
-            ((result as IDataObject).debugInfo as IDataObject).languageCombinationOperation = 'Language combination NOT executed - missing source or target language';
           }
-        } else {
-          (result as IDataObject).followupNotExecuted = 'Follow-up operations NOT executed - itemID is not valid';
         }
       }
       
