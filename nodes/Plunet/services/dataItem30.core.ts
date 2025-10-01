@@ -582,6 +582,35 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
       for (const paramName of paramNames) itemParams[paramName] = ctx.getNodeParameter(paramName, itemIndex, '');
       const result = await executeOperation(ctx, operation, itemParams, config, itemIndex);
       
+      // Add debug envelope for main operation
+      if (operation === 'insert2') {
+        (result as IDataObject).debugEnvelopes = [];
+        
+        // Get the main insert2 SOAP envelope
+        const sessionId = await config.getSessionId(ctx, itemIndex);
+        const mainEnvelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
+   <soap:Header/>
+   <soap:Body>
+      <api:${operation}>
+         <UUID>${escapeXml(sessionId)}</UUID>
+         <ItemIN>
+            <projectID>${escapeXml(String(itemParams.projectID))}</projectID>
+            <projectType>${escapeXml(String(itemParams.projectType))}</projectType>
+         </ItemIN>
+      </api:${operation}>
+   </soap:Body>
+</soap:Envelope>`;
+        
+        const debugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
+        debugEnvelopes.push({
+          operation: operation,
+          envelope: mainEnvelope,
+          timestamp: new Date().toISOString()
+        });
+        (result as IDataObject).debugEnvelopes = debugEnvelopes;
+      }
+      
       // Handle extended object for getItemObject operation
       if (operation === 'getItemObject') {
         const getExtendedObject = ctx.getNodeParameter('getExtendedObject', itemIndex, false) as boolean;
@@ -603,12 +632,18 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
         // Get the item ID from the insert2 result
         const itemID = (result as IDataObject).data as number;
         
-        // Initialize debug envelopes array
-        (result as IDataObject).debugEnvelopes = [];
-        
         if (itemID && itemID > 0) {
           const sessionId = await config.getSessionId(ctx, itemIndex);
           const projectType = itemParams.projectType as number;
+          
+          // Add debug info to result
+          (result as IDataObject).debugInfo = {
+            itemID: itemID,
+            projectType: projectType,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage,
+            additionalFields: additionalFields
+          } as IDataObject;
           
           // Helper function to safely call misc operations
           const safeCallMisc = async (op: string, ...args: any[]) => {
@@ -667,23 +702,28 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
           
           // Perform additional field operations
           if (additionalFields.comment) {
+            ((result as IDataObject).debugInfo as IDataObject).commentOperation = 'Calling setComment';
             await safeCallMisc('setComment', itemID, projectType, additionalFields.comment);
           }
           
           if (additionalFields.defaultContactPerson) {
+            ((result as IDataObject).debugInfo as IDataObject).contactPersonOperation = 'Calling setDefaultContactPerson';
             await safeCallMisc('setDefaultContactPerson', itemID, projectType, additionalFields.defaultContactPerson);
           }
           
           if (additionalFields.deliveryDate) {
+            ((result as IDataObject).debugInfo as IDataObject).deliveryDateOperation = 'Calling setDeliveryDate';
             await safeCallMisc('setDeliveryDate', itemID, projectType, additionalFields.deliveryDate);
           }
           
           if (additionalFields.itemReference) {
+            ((result as IDataObject).debugInfo as IDataObject).itemReferenceOperation = 'Calling setItemReference';
             await safeCallMisc('setItemReference', itemID, projectType, additionalFields.itemReference);
           }
           
           // Handle language combination if both languages are provided
           if (sourceLanguage && targetLanguage) {
+            ((result as IDataObject).debugInfo as IDataObject).languageCombinationOperation = 'Starting language combination';
             try {
               // Specialized function for language combination calls
               const callLanguageCombination = async (op: string, ...params: any[]) => {
