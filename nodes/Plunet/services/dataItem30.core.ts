@@ -12,9 +12,9 @@ import {
   import { NUMERIC_BOOLEAN_PARAMS } from '../core/constants';
   import { extractStatusMessage, parseStringResult, parseIntegerResult, parseVoidResult, parseDateResult } from '../core/xml';
   import { parseItemResult, parseItemListResult } from '../core/parsers/item';
-import { ProjectTypeOptions } from '../enums/project-type';
-import { ItemStatusOptions, getItemStatusName } from '../enums/item-status';
-import { TaxTypeOptions, idToTaxTypeName } from '../enums/tax-type';
+  import { ProjectTypeOptions } from '../enums/project-type';
+  import { ItemStatusOptions, getItemStatusName } from '../enums/item-status';
+  import { TaxTypeOptions, idToTaxTypeName } from '../enums/tax-type';
 import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-type';
   import { MANDATORY_FIELDS } from '../core/field-definitions';
   import { generateOperationOptionsFromRegistry } from '../core/service-utils';
@@ -404,9 +404,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
           displayName: 'Status',
           name: 'status',
           type: 'options',
-          typeOptions: {
-            options: ItemStatusOptions,
-          },
+          options: ItemStatusOptions,
           default: '',
           description: 'Status for the item',
         },
@@ -414,9 +412,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
           displayName: 'Tax Type',
           name: 'taxType',
           type: 'options',
-          typeOptions: {
-            options: TaxTypeOptions,
-          },
+          options: TaxTypeOptions,
           default: '',
           description: 'Tax type for the item',
         },
@@ -975,6 +971,20 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
         
         // Get the main update SOAP envelope
         const sessionId = await config.getSessionId(ctx, itemIndex);
+        
+        // Build ItemIN XML with all fields
+        const itemInFields = [];
+        if (additionalFields.briefDescription) itemInFields.push(`            <briefDescription>${escapeXml(String(additionalFields.briefDescription))}</briefDescription>`);
+        if (additionalFields.comment) itemInFields.push(`            <comment>${escapeXml(String(additionalFields.comment))}</comment>`);
+        if (additionalFields.deliveryDeadline) itemInFields.push(`            <deliveryDeadline>${escapeXml(String(additionalFields.deliveryDeadline))}</deliveryDeadline>`);
+        itemInFields.push(`            <itemID>${escapeXml(String(itemParams.itemID))}</itemID>`);
+        itemInFields.push(`            <projectID>${escapeXml(String(itemParams.projectID))}</projectID>`);
+        itemInFields.push(`            <projectType>${escapeXml(String(itemParams.projectType))}</projectType>`);
+        if (additionalFields.reference) itemInFields.push(`            <reference>${escapeXml(String(additionalFields.reference))}</reference>`);
+        if (additionalFields.status) itemInFields.push(`            <status>${escapeXml(String(additionalFields.status))}</status>`);
+        if (additionalFields.taxType) itemInFields.push(`            <taxType>${escapeXml(String(additionalFields.taxType))}</taxType>`);
+        if (additionalFields.totalPrice) itemInFields.push(`            <totalPrice>${escapeXml(String(additionalFields.totalPrice))}</totalPrice>`);
+        
         const mainEnvelope = `<?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
    <soap:Header/>
@@ -982,9 +992,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
       <api:${operation}>
          <UUID>${escapeXml(sessionId)}</UUID>
          <ItemIN>
-            <itemID>${escapeXml(String(itemParams.itemID))}</itemID>
-            <projectID>${escapeXml(String(itemParams.projectID))}</projectID>
-            <projectType>${escapeXml(String(itemParams.projectType))}</projectType>
+${itemInFields.join('\n')}
          </ItemIN>
          <enableNullOrEmptyValues>${escapeXml(String(itemParams.enableNullOrEmptyValues))}</enableNullOrEmptyValues>
       </api:${operation}>
