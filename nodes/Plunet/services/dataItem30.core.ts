@@ -731,8 +731,8 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
 </soap:Envelope>`;
               
               // Add debug information to the main result
-              const debugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
-              debugEnvelopes.push({
+              const mainDebugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
+              mainDebugEnvelopes.push({
                 operation: op,
                 envelope: sentEnvelope,
                 timestamp: new Date().toISOString(),
@@ -742,7 +742,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
                   additionalParam: additionalParam
                 }
               });
-              (result as IDataObject).debugEnvelopes = debugEnvelopes;
+              (result as IDataObject).debugEnvelopes = mainDebugEnvelopes;
               
               return {
                 ...result,
@@ -751,13 +751,18 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
               };
             } catch (error) {
               // Add error to debug info instead of silently failing
-              const debugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
-              debugEnvelopes.push({
+              const mainDebugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
+              mainDebugEnvelopes.push({
                 operation: op,
                 error: error instanceof Error ? error.message : 'Unknown error',
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                parameters: {
+                  itemID: itemID,
+                  projectType: projectType,
+                  additionalParam: args[2]
+                }
               });
-              (result as IDataObject).debugEnvelopes = debugEnvelopes;
+              (result as IDataObject).debugEnvelopes = mainDebugEnvelopes;
               return null;
             }
           };
@@ -875,13 +880,23 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
                   }
                   
                   // Add debug information to the main result
-                  const debugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
-                  debugEnvelopes.push({
+                  const mainDebugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
+                  mainDebugEnvelopes.push({
                     operation: op,
                     envelope: sentEnvelope,
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString(),
+                    parameters: op === 'addLanguageCombination2' ? {
+                      sourceLanguage: sourceLanguage,
+                      targetLanguage: targetLanguage,
+                      projectType: projectType,
+                      projectID: itemParams.projectID
+                    } : {
+                      languageCombinationID: params[0],
+                      projectType: projectType,
+                      itemID: itemID
+                    }
                   });
-                  (result as IDataObject).debugEnvelopes = debugEnvelopes;
+                  (result as IDataObject).debugEnvelopes = mainDebugEnvelopes;
                   
                   return {
                     ...result,
@@ -889,6 +904,24 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
                     operation: op
                   };
                 } catch (error) {
+                  // Add error to debug info
+                  const mainDebugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
+                  mainDebugEnvelopes.push({
+                    operation: op,
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                    timestamp: new Date().toISOString(),
+                    parameters: op === 'addLanguageCombination2' ? {
+                      sourceLanguage: sourceLanguage,
+                      targetLanguage: targetLanguage,
+                      projectType: projectType,
+                      projectID: itemParams.projectID
+                    } : {
+                      languageCombinationID: params[0],
+                      projectType: projectType,
+                      itemID: itemID
+                    }
+                  });
+                  (result as IDataObject).debugEnvelopes = mainDebugEnvelopes;
                   return null;
                 }
               };
