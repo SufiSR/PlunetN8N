@@ -603,6 +603,9 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
         // Get the item ID from the insert2 result
         const itemID = (result as IDataObject).data as number;
         
+        // Initialize debug envelopes array
+        (result as IDataObject).debugEnvelopes = [];
+        
         if (itemID && itemID > 0) {
           const sessionId = await config.getSessionId(ctx, itemIndex);
           const projectType = itemParams.projectType as number;
@@ -641,6 +644,15 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
       </api:${op}>
    </soap:Body>
 </soap:Envelope>`;
+              
+              // Add debug information to the main result
+              const debugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
+              debugEnvelopes.push({
+                operation: op,
+                envelope: sentEnvelope,
+                timestamp: new Date().toISOString()
+              });
+              (result as IDataObject).debugEnvelopes = debugEnvelopes;
               
               return {
                 ...result,
@@ -734,6 +746,15 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
    </soap:Body>
 </soap:Envelope>`;
                   }
+                  
+                  // Add debug information to the main result
+                  const debugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
+                  debugEnvelopes.push({
+                    operation: op,
+                    envelope: sentEnvelope,
+                    timestamp: new Date().toISOString()
+                  });
+                  (result as IDataObject).debugEnvelopes = debugEnvelopes;
                   
                   return {
                     ...result,
