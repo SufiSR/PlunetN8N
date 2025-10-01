@@ -644,6 +644,15 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
         // Get the item ID from the insert2 result
         const itemID = (result as IDataObject).data as number;
         
+        // Add debug info about itemID
+        (result as IDataObject).itemIDDebug = {
+          itemID: itemID,
+          itemIDType: typeof itemID,
+          itemIDTruthy: !!itemID,
+          itemIDGreaterThanZero: itemID > 0,
+          willExecuteFollowup: !!(itemID && itemID > 0)
+        };
+        
         if (itemID && itemID > 0) {
           const sessionId = await config.getSessionId(ctx, itemIndex);
           const projectType = itemParams.projectType as number;
@@ -849,6 +858,8 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
           } else {
             ((result as IDataObject).debugInfo as IDataObject).languageCombinationOperation = 'Language combination NOT executed - missing source or target language';
           }
+        } else {
+          (result as IDataObject).followupNotExecuted = 'Follow-up operations NOT executed - itemID is not valid';
         }
       }
       
