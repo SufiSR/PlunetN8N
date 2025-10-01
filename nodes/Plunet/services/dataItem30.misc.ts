@@ -134,7 +134,7 @@ import {
       resourceDisplayName: RESOURCE_DISPLAY_NAME,
       description: 'Add a language combination to an item',
       returnType: 'Integer',
-      paramOrder: ['UUID', 'sourceLanguage', 'targetLanguage', 'projectType', 'projectID'],
+      paramOrder: ['sourceLanguage', 'targetLanguage', 'projectType', 'projectID'],
       active: true,
     },
     setLanguageCombinationID: {
@@ -147,7 +147,7 @@ import {
       resourceDisplayName: RESOURCE_DISPLAY_NAME,
       description: 'Set language combination ID for an item',
       returnType: 'Void',
-      paramOrder: ['UUID', 'languageCombinationID', 'projectType', 'itemID'],
+      paramOrder: ['languageCombinationID', 'projectType', 'itemID'],
       active: true,
     },
   };
@@ -207,7 +207,22 @@ import {
       paramOrder: PARAM_ORDER,
       numericBooleans: NUMERIC_BOOLEAN_PARAMS,
       getSessionId: async (ctx: IExecuteFunctions) => ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, 0),
-      buildCustomBodyXml: (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => null,
+      buildCustomBodyXml: (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
+        if (op === 'addLanguageCombination2') {
+          return `<UUID>${escapeXml(sessionId)}</UUID>
+<sourceLanguage>${escapeXml(String(itemParams.sourceLanguage))}</sourceLanguage>
+<targetLanguage>${escapeXml(String(itemParams.targetLanguage))}</targetLanguage>
+<projectType>${escapeXml(String(itemParams.projectType))}</projectType>
+<projectID>${escapeXml(String(itemParams.projectID))}</projectID>`;
+        }
+        if (op === 'setLanguageCombinationID') {
+          return `<UUID>${escapeXml(sessionId)}</UUID>
+<languageCombinationID>${escapeXml(String(itemParams.languageCombinationID))}</languageCombinationID>
+<projectType>${escapeXml(String(itemParams.projectType))}</projectType>
+<itemID>${escapeXml(String(itemParams.itemID))}</itemID>`;
+        }
+        return null;
+      },
       parseResult: (xml: string, op: string) => {
         const rt = RETURN_TYPE[op] as R | undefined;
         let payload: IDataObject;

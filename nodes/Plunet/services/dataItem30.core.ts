@@ -103,7 +103,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
       resourceDisplayName: RESOURCE_DISPLAY_NAME,
       description: 'Get language independent item object by project type, project ID, and currency type',
       returnType: 'Item',
-      paramOrder: ['UUID', 'projectType', 'projectID', 'currencyType'],
+      paramOrder: ['projectType', 'projectID', 'currencyType'],
       active: true,
     },
     insertLanguageIndependentItem: {
@@ -116,7 +116,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
       resourceDisplayName: RESOURCE_DISPLAY_NAME,
       description: 'Create a new language independent item',
       returnType: 'Integer',
-      paramOrder: ['UUID', 'projectType', 'projectID', 'status', 'taxType', 'totalPrice'],
+      paramOrder: ['projectType', 'projectID', 'status', 'taxType', 'totalPrice'],
       active: true,
     },
   };
@@ -313,6 +313,12 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
       numericBooleans: NUMERIC_BOOLEAN_PARAMS,
       getSessionId: async (ctx: IExecuteFunctions) => ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, 0),
       buildCustomBodyXml: (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
+        if (op === 'getLanguageIndependentItemObject') {
+          return `<UUID>${escapeXml(sessionId)}</UUID>
+<projectType>${escapeXml(String(itemParams.projectType))}</projectType>
+<projectID>${escapeXml(String(itemParams.projectID))}</projectID>
+<currencyType>${escapeXml(String(itemParams.currencyType))}</currencyType>`;
+        }
         if (op === 'insertLanguageIndependentItem') {
           const optionalFields = ctx.getNodeParameter('optionalFields', itemIndex, {}) as IDataObject;
           

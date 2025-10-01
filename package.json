@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-plunet",
-  "version": "3.11.1-1",
+  "version": "3.11.1-beta.2",
   "description": "n8n community node: Plunet BusinessManager",
   "keywords": [
     "n8n-community-node-package",
