@@ -610,7 +610,8 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
           const sessionId = await config.getSessionId(ctx, itemIndex);
           const projectType = itemParams.projectType as number;
           
-          // Clean result - no debug information
+          // Initialize additional calls tracking
+          const addtlCalls: string[] = [];
           
           // Helper function to safely call misc operations
           const safeCallMisc = async (op: string, ...args: any[]) => {
@@ -676,7 +677,8 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
    </soap:Body>
 </soap:Envelope>`;
               
-              // Clean result - no debug information
+              // Track successful call
+              addtlCalls.push(op);
               
               return {
                 ...result,
@@ -789,7 +791,8 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
 </soap:Envelope>`;
                   }
                   
-                  // Clean result - no debug information
+                  // Track successful call
+                  addtlCalls.push(op);
                   
                   return {
                     ...result,
@@ -811,12 +814,8 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
                 try {
                   const setLanguageCombinationResult = await callLanguageCombination('setLanguageCombinationID', languageCombinationID, projectType, itemID);
                   
-                  // Add language combination info to result
+                  // Add language combination info to result (clean)
                   (result as IDataObject).languageCombinationID = languageCombinationID;
-                  (result as IDataObject).sourceLanguage = sourceLanguage;
-                  (result as IDataObject).targetLanguage = targetLanguage;
-                  (result as IDataObject).addLanguageCombinationResult = addLanguageCombinationResult;
-                  (result as IDataObject).setLanguageCombinationResult = setLanguageCombinationResult;
                 } catch (setError) {
                   (result as IDataObject).setLanguageCombinationResult = null;
                 }
@@ -825,6 +824,9 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
               // Silently handle language combination errors
             }
           }
+          
+          // Add clean additional calls info to result
+          (result as IDataObject).addtlCalls = addtlCalls;
         }
       }
       
