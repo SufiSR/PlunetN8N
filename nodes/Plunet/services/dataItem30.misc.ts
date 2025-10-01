@@ -10,8 +10,9 @@ import {
   import { executeOperation, type ExecuteConfig } from '../core/executor';
   import { NUMERIC_BOOLEAN_PARAMS } from '../core/constants';
   import { extractStatusMessage, parseStringResult, parseIntegerResult, parseVoidResult, parseDateResult } from '../core/xml';
-  import { ProjectTypeOptions } from '../enums/project-type';
-  import { generateOperationOptionsFromRegistry } from '../core/service-utils';
+import { ProjectTypeOptions } from '../enums/project-type';
+import { generateOperationOptionsFromRegistry } from '../core/service-utils';
+import { getAvailableWorkflows } from './loadOptions';
   
   const RESOURCE = 'DataItem30Misc';
   const ENDPOINT = 'DataItem30';
@@ -150,6 +151,32 @@ import {
       paramOrder: ['languageCombinationID', 'projectType', 'itemID'],
       active: true,
     },
+    getBestPricelist: {
+      soapAction: 'getBestPricelist',
+      endpoint: ENDPOINT,
+      uiName: 'Get Best Pricelist',
+      subtitleName: 'get best pricelist: item',
+      titleName: 'Get Best Pricelist',
+      resource: RESOURCE,
+      resourceDisplayName: RESOURCE_DISPLAY_NAME,
+      description: 'Get the best pricelist for an item',
+      returnType: 'String',
+      paramOrder: ['projectType', 'itemID'],
+      active: true,
+    },
+    copyJobsFromWorkflow: {
+      soapAction: 'copyJobsFromWorkflow',
+      endpoint: ENDPOINT,
+      uiName: 'Copy Jobs from Workflow',
+      subtitleName: 'copy jobs from workflow: item',
+      titleName: 'Copy Jobs from Workflow',
+      resource: RESOURCE,
+      resourceDisplayName: RESOURCE_DISPLAY_NAME,
+      description: 'Copy jobs from a workflow to an item',
+      returnType: 'Void',
+      paramOrder: ['projectType', 'itemID', 'workflowID'],
+      active: true,
+    },
   };
   
   /** ─ Derived mappings (actives only) ─ */
@@ -166,6 +193,7 @@ import {
   /** ─ UI wiring (lean) ─ */
   const isProjectTypeParam = (p: string) => p.toLowerCase() === 'projecttype';
   const isTaxTypeParam = (op: string, p: string) => op === 'setTaxType' && p === 'taxType';
+  const isWorkflowIDParam = (p: string) => p.toLowerCase() === 'workflowid';
   const NUMERIC_PARAM_NAMES = new Set(['itemID', 'projectID', 'resourceID', 'projectId', 'languageCombinationID']);
   const isNumericParam = (p: string) => NUMERIC_PARAM_NAMES.has(p);
   const isDateParam = (p: string) => p === 'deliveryDate' || p === 'startDate' || p === 'dueDate';
@@ -179,6 +207,8 @@ import {
           return { displayName: 'Project Type', name: p, type: 'options', options: ProjectTypeOptions, default: 3, description: `${p} parameter for ${op} (ProjectType enum)`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
         if (isTaxTypeParam(op, p))
           return { displayName: 'Tax Type', name: p, type: 'number', default: 0, typeOptions: { minValue: 0, step: 1 }, description: `${p} parameter for ${op} (TaxType enum)`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
+        if (isWorkflowIDParam(p))
+          return { displayName: 'Workflow ID', name: p, type: 'options', loadOptionsMethod: 'getAvailableWorkflows', default: '', description: `${p} parameter for ${op} (workflow selection)`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
         if (isNumericParam(p))
           return { displayName: p, name: p, type: 'number', default: 0, typeOptions: { minValue: 0, step: 1 }, description: `${p} parameter for ${op} (number)`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
         if (isDateParam(p))
@@ -221,6 +251,17 @@ import {
 <projectType>${escapeXml(String(itemParams.projectType))}</projectType>
 <itemID>${escapeXml(String(itemParams.itemID))}</itemID>`;
         }
+        if (op === 'getBestPricelist') {
+          return `<UUID>${escapeXml(sessionId)}</UUID>
+<projectType>${escapeXml(String(itemParams.projectType))}</projectType>
+<itemID>${escapeXml(String(itemParams.itemID))}</itemID>`;
+        }
+        if (op === 'copyJobsFromWorkflow') {
+          return `<UUID>${escapeXml(sessionId)}</UUID>
+<workflowID>${escapeXml(String(itemParams.workflowID))}</workflowID>
+<projectType>${escapeXml(String(itemParams.projectType))}</projectType>
+<itemID>${escapeXml(String(itemParams.itemID))}</itemID>`;
+        }
         return null;
       },
       parseResult: (xml: string, op: string) => {
@@ -229,7 +270,11 @@ import {
         switch (rt) {
           case 'String': {
             const r = parseStringResult(xml);
-            payload = { data: r.data ?? '', statusMessage: r.statusMessage, statusCode: r.statusCode };
+            if (op === 'getBestPricelist') {
+              payload = { PricelistID: r.data ?? '', statusMessage: r.statusMessage, statusCode: r.statusCode };
+            } else {
+              payload = { data: r.data ?? '', statusMessage: r.statusMessage, statusCode: r.statusCode };
+            }
             break;
           }
           case 'Integer': {

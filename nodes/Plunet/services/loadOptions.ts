@@ -200,6 +200,85 @@ function createAdminExecuteConfig(creds: Creds, url: string, baseUrl: string, ti
 /**
  * Load options for DataCustomFields30 Text Module Flag field
  */
+export async function getAvailableWorkflows(this: ILoadOptionsFunctions) {
+  try {
+    // Get credentials
+    const creds = await this.getCredentials('plunetApi') as Creds;
+    const scheme = creds.useHttps ? 'https' : 'http';
+    const baseUrl = `${scheme}://${creds.baseHost.replace(/\/$/, '')}`;
+    const url = `${baseUrl}/DataAdmin30`;
+    const timeoutMs = creds.timeout ?? 30000;
+    
+    // Create execute config for DataAdmin30
+    const config = createAdminExecuteConfig(creds, url, baseUrl, timeoutMs);
+    
+    // Call getAvailableWorkflows
+    const sessionId = await config.getSessionId(this as any, 0);
+    const soapAction = config.soapActionFor('getAvailableWorkflows');
+    
+    // Build SOAP envelope
+    const envelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
+   <soap:Header/>
+   <soap:Body>
+      <api:getAvailableWorkflows>
+         <UUID>${sessionId}</UUID>
+      </api:getAvailableWorkflows>
+   </soap:Body>
+</soap:Envelope>`;
+    
+    // Make SOAP request
+    const response = await this.helpers.request({
+      method: 'POST',
+      url: config.url,
+      headers: {
+        'Content-Type': 'application/soap+xml; charset=utf-8',
+        'SOAPAction': soapAction,
+      },
+      body: envelope,
+    });
+    
+    // Parse response
+    const parsed = config.parseResult(response, 'getAvailableWorkflows') as IDataObject;
+    
+    // Check for errors
+    if (parsed.statusCode && parsed.statusCode !== 0) {
+      return [
+        {
+          name: `API Error: ${parsed.statusMessage || 'Unknown error'} (Code: ${parsed.statusCode})`,
+          value: '',
+          disabled: true
+        }
+      ];
+    }
+    
+    // Extract workflows from response
+    if (parsed.workflows && Array.isArray(parsed.workflows)) {
+      return parsed.workflows.map((workflow: any) => ({
+        name: `${workflow.name} (ID: ${workflow.workflowId}) - ${workflow.description || 'No description'}`,
+        value: workflow.workflowId
+      }));
+    }
+    
+    return [
+      {
+        name: 'No workflows available',
+        value: '',
+        disabled: true
+      }
+    ];
+    
+  } catch (error) {
+    return [
+      {
+        name: `Error loading workflows: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        value: '',
+        disabled: true
+      }
+    ];
+  }
+}
+
 export async function getAvailableTextModuleFlags(this: ILoadOptionsFunctions) {
   const textModuleUsageArea = this.getCurrentNodeParameter('TextModuleUsageArea') as number;
   const id = this.getCurrentNodeParameter('ID') as number;
