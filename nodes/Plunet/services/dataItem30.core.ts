@@ -627,7 +627,26 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
                 parseResult: (xml: string) => parseStringResult(xml)
               };
               
-              return await executeOperation(ctx, op, { itemID, projectType }, miscConfig, itemIndex);
+              const result = await executeOperation(ctx, op, { itemID, projectType }, miscConfig, itemIndex);
+              
+              // Add the sent envelope to the result for debugging
+              const sentEnvelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
+   <soap:Header/>
+   <soap:Body>
+      <api:${op}>
+         <UUID>${escapeXml(sessionId)}</UUID>
+         <itemID>${escapeXml(String(itemID))}</itemID>
+         <projectType>${escapeXml(String(projectType))}</projectType>
+      </api:${op}>
+   </soap:Body>
+</soap:Envelope>`;
+              
+              return {
+                ...result,
+                sentEnvelope: sentEnvelope,
+                operation: op
+              };
             } catch (error) {
               // Silently fail for additional operations
               return null;
@@ -654,22 +673,97 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
           // Handle language combination if both languages are provided
           if (sourceLanguage && targetLanguage) {
             try {
-              // Call addLanguageCombination2
-              const languageCombinationResult = await safeCallMisc('addLanguageCombination2', sourceLanguage, targetLanguage, projectType, itemParams.projectID);
+              // Specialized function for language combination calls
+              const callLanguageCombination = async (op: string, ...params: any[]) => {
+                try {
+                  const miscConfig = {
+                    url: url.replace('/DataItem30', '/DataItem30'),
+                    soapActionFor: (operation: string) => `http://API.Integration/${operation}`,
+                    paramOrder: { [op]: op === 'addLanguageCombination2' ? ['sourceLanguage', 'targetLanguage', 'projectType', 'projectID'] : ['languageCombinationID', 'projectType', 'itemID'] },
+                    numericBooleans: new Set<string>(),
+                    getSessionId: async () => sessionId,
+                    buildCustomBodyXml: (operation: string, params: IDataObject) => {
+                      if (operation === op) {
+                        if (op === 'addLanguageCombination2') {
+                          return `<UUID>${escapeXml(sessionId)}</UUID>
+<sourceLanguage>${escapeXml(String(sourceLanguage))}</sourceLanguage>
+<targetLanguage>${escapeXml(String(targetLanguage))}</targetLanguage>
+<projectType>${escapeXml(String(projectType))}</projectType>
+<projectID>${escapeXml(String(itemParams.projectID))}</projectID>`;
+                        } else if (op === 'setLanguageCombinationID') {
+                          return `<UUID>${escapeXml(sessionId)}</UUID>
+<languageCombinationID>${escapeXml(String(params.languageCombinationID))}</languageCombinationID>
+<projectType>${escapeXml(String(projectType))}</projectType>
+<itemID>${escapeXml(String(itemID))}</itemID>`;
+                        }
+                      }
+                      return null;
+                    },
+                    parseResult: (xml: string) => parseStringResult(xml)
+                  };
+                  
+                  const result = await executeOperation(ctx, op, params[0] ? { [op]: params[0] } : {}, miscConfig, itemIndex);
+                  
+                  // Add the sent envelope to the result for debugging
+                  let sentEnvelope = '';
+                  if (op === 'addLanguageCombination2') {
+                    sentEnvelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
+   <soap:Header/>
+   <soap:Body>
+      <api:${op}>
+         <UUID>${escapeXml(sessionId)}</UUID>
+         <sourceLanguage>${escapeXml(String(sourceLanguage))}</sourceLanguage>
+         <targetLanguage>${escapeXml(String(targetLanguage))}</targetLanguage>
+         <projectType>${escapeXml(String(projectType))}</projectType>
+         <projectID>${escapeXml(String(itemParams.projectID))}</projectID>
+      </api:${op}>
+   </soap:Body>
+</soap:Envelope>`;
+                  } else if (op === 'setLanguageCombinationID') {
+                    sentEnvelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
+   <soap:Header/>
+   <soap:Body>
+      <api:${op}>
+         <UUID>${escapeXml(sessionId)}</UUID>
+         <languageCombinationID>${escapeXml(String(params[0]))}</languageCombinationID>
+         <projectType>${escapeXml(String(projectType))}</projectType>
+         <itemID>${escapeXml(String(itemID))}</itemID>
+      </api:${op}>
+   </soap:Body>
+</soap:Envelope>`;
+                  }
+                  
+                  return {
+                    ...result,
+                    sentEnvelope: sentEnvelope,
+                    operation: op
+                  };
+                } catch (error) {
+                  return null;
+                }
+              };
               
-              if (languageCombinationResult && (languageCombinationResult as IDataObject).data) {
-                const languageCombinationID = (languageCombinationResult as IDataObject).data;
+              // Call addLanguageCombination2
+              const addLanguageCombinationResult = await callLanguageCombination('addLanguageCombination2', sourceLanguage, targetLanguage, projectType, itemParams.projectID);
+              
+              if (addLanguageCombinationResult && (addLanguageCombinationResult as IDataObject).data) {
+                const languageCombinationID = (addLanguageCombinationResult as IDataObject).data;
                 
                 // Call setLanguageCombinationID
-                await safeCallMisc('setLanguageCombinationID', languageCombinationID, projectType, itemID);
+                const setLanguageCombinationResult = await callLanguageCombination('setLanguageCombinationID', languageCombinationID, projectType, itemID);
                 
                 // Add language combination info to result
                 (result as IDataObject).languageCombinationID = languageCombinationID;
                 (result as IDataObject).sourceLanguage = sourceLanguage;
                 (result as IDataObject).targetLanguage = targetLanguage;
+                (result as IDataObject).addLanguageCombinationResult = addLanguageCombinationResult;
+                (result as IDataObject).setLanguageCombinationResult = setLanguageCombinationResult;
               }
             } catch (error) {
-              // Silently fail for language combination operations
+              // Add error info to result for debugging
+              (result as IDataObject).languageCombinationError = error instanceof Error ? error.message : 'Unknown error';
             }
           }
         }
