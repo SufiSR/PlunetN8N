@@ -4,6 +4,8 @@ import { ExecuteConfig } from '../core/executor';
 import { extractResultBase } from '../core/xml';
 import { findFirstTagBlock } from '../core/parsers/common';
 import { NUMERIC_BOOLEAN_PARAMS } from '../core/constants';
+import { getWorkflowStatusName } from '../enums/workflow-status';
+import { getWorkflowTypeName } from '../enums/workflow-type';
 
 /**
  * Load options for DataCustomFields30 Property Name field
@@ -190,6 +192,60 @@ function createAdminExecuteConfig(creds: Creds, url: string, baseUrl: string, ti
           statusMessage: base.statusMessage,
           statusCode: base.statusCode
         };
+      } else if (op === 'getAvailableWorkflows') {
+        // Parse WorkflowListResult for getAvailableWorkflows
+        const base = extractResultBase(xml);
+        
+        // Look for WorkflowListResult scope
+        const workflowListResultScope = findFirstTagBlock(xml, 'WorkflowListResult');
+        if (!workflowListResultScope) {
+          return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+        }
+        
+        // Extract all data blocks
+        const dataMatches = workflowListResultScope.match(/<data>[\s\S]*?<\/data>/g);
+        if (!dataMatches) {
+          return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+        }
+        
+        const workflows: Array<{
+          description: string,
+          name: string,
+          status: number,
+          statusLabel: string,
+          type: number,
+          typeLabel: string,
+          workflowId: number
+        }> = [];
+        
+        dataMatches.forEach(dataBlock => {
+          const descriptionMatch = dataBlock.match(/<description>(.*?)<\/description>/);
+          const nameMatch = dataBlock.match(/<name>(.*?)<\/name>/);
+          const statusMatch = dataBlock.match(/<status>(.*?)<\/status>/);
+          const typeMatch = dataBlock.match(/<type>(.*?)<\/type>/);
+          const workflowIdMatch = dataBlock.match(/<workflowId>(.*?)<\/workflowId>/);
+          
+          if (nameMatch && nameMatch[1] && workflowIdMatch && workflowIdMatch[1]) {
+            const status = statusMatch && statusMatch[1] ? parseInt(statusMatch[1], 10) : 0;
+            const type = typeMatch && typeMatch[1] ? parseInt(typeMatch[1], 10) : 0;
+            
+            workflows.push({
+              description: descriptionMatch && descriptionMatch[1] ? descriptionMatch[1] : '',
+              name: nameMatch[1],
+              status: status,
+              statusLabel: getWorkflowStatusName(status),
+              type: type,
+              typeLabel: getWorkflowTypeName(type),
+              workflowId: parseInt(workflowIdMatch[1], 10)
+            });
+          }
+        });
+        
+        return {
+          statusMessage: base.statusMessage,
+          statusCode: base.statusCode,
+          workflows: workflows
+        };
       }
       
       return { statusMessage: 'Unknown operation', statusCode: -1 };
@@ -255,7 +311,7 @@ export async function getAvailableWorkflows(this: ILoadOptionsFunctions) {
     // Extract workflows from response
     if (parsed.workflows && Array.isArray(parsed.workflows)) {
       return parsed.workflows.map((workflow: any) => ({
-        name: `${workflow.name} (ID: ${workflow.workflowId}) - ${workflow.description || 'No description'}`,
+        name: workflow.name,
         value: workflow.workflowId
       }));
     }
