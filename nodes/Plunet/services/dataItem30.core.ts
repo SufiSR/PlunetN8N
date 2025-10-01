@@ -642,7 +642,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
         };
         
         // Get the item ID from the insert2 result
-        const itemID = (result as IDataObject).data as number;
+        const itemID = (result as IDataObject).value as number;
         
         // Add debug info about itemID
         (result as IDataObject).itemIDDebug = {
