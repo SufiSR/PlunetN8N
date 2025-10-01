@@ -95,9 +95,9 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
     update: {
       soapAction: 'update',
       endpoint: ENDPOINT,
-      uiName: 'Update Item',
+      uiName: 'Update Item (Advanced)',
       subtitleName: 'update: item',
-      titleName: 'Update Item',
+      titleName: 'Update Item (Advanced)',
       resource: RESOURCE,
       resourceDisplayName: RESOURCE_DISPLAY_NAME,
       description: 'Update an existing item with advanced options and follow-up operations',
@@ -970,8 +970,36 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
         // Get the item ID from the update parameters (not result, since update returns void)
         const itemID = itemParams.itemID as number;
         
+        // Add debug information to the result
+        (result as IDataObject).debugEnvelopes = [];
+        
+        // Get the main update SOAP envelope
+        const sessionId = await config.getSessionId(ctx, itemIndex);
+        const mainEnvelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
+   <soap:Header/>
+   <soap:Body>
+      <api:${operation}>
+         <UUID>${escapeXml(sessionId)}</UUID>
+         <ItemIN>
+            <itemID>${escapeXml(String(itemParams.itemID))}</itemID>
+            <projectID>${escapeXml(String(itemParams.projectID))}</projectID>
+            <projectType>${escapeXml(String(itemParams.projectType))}</projectType>
+         </ItemIN>
+         <enableNullOrEmptyValues>${escapeXml(String(itemParams.enableNullOrEmptyValues))}</enableNullOrEmptyValues>
+      </api:${operation}>
+   </soap:Body>
+</soap:Envelope>`;
+        
+        const debugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
+        debugEnvelopes.push({
+          operation: operation,
+          envelope: mainEnvelope,
+          timestamp: new Date().toISOString()
+        });
+        (result as IDataObject).debugEnvelopes = debugEnvelopes;
+        
         if (itemID && itemID > 0) {
-          const sessionId = await config.getSessionId(ctx, itemIndex);
           const projectType = itemParams.projectType as number;
           
           // Initialize additional calls tracking
@@ -1015,11 +1043,52 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
               
               const result = await executeOperation(ctx, op, { itemID, projectType }, miscConfig, itemIndex);
               
+              // Build the complete sent envelope with all parameters
+              let sentEnvelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
+   <soap:Header/>
+   <soap:Body>
+      <api:${op}>
+         <UUID>${escapeXml(sessionId)}</UUID>
+         <itemID>${escapeXml(String(itemID))}</itemID>
+         <projectType>${escapeXml(String(projectType))}</projectType>`;
+         
+              // Add the specific parameter to the envelope
+              if (op === 'setComment' && additionalParam) {
+                sentEnvelope += `\n         <comment>${escapeXml(String(additionalParam))}</comment>`;
+              } else if (op === 'setDefaultContactPerson' && additionalParam) {
+                sentEnvelope += `\n         <defaultContactPerson>${escapeXml(String(additionalParam))}</defaultContactPerson>`;
+              } else if (op === 'setDeliveryDate' && additionalParam) {
+                sentEnvelope += `\n         <deliveryDate>${escapeXml(String(additionalParam))}</deliveryDate>`;
+              } else if (op === 'setItemReference' && additionalParam) {
+                sentEnvelope += `\n         <itemReference>${escapeXml(String(additionalParam))}</itemReference>`;
+              }
+              
+              sentEnvelope += `
+      </api:${op}>
+   </soap:Body>
+</soap:Envelope>`;
+              
+              // Add debug information to the main result
+              const mainDebugEnvelopes = (result as IDataObject).debugEnvelopes as any[] || [];
+              mainDebugEnvelopes.push({
+                operation: op,
+                envelope: sentEnvelope,
+                timestamp: new Date().toISOString(),
+                parameters: {
+                  itemID: itemID,
+                  projectType: projectType,
+                  additionalParam: additionalParam
+                }
+              });
+              (result as IDataObject).debugEnvelopes = mainDebugEnvelopes;
+              
               // Track successful call
               addtlCalls.push(op);
               
               return {
                 ...result,
+                sentEnvelope: sentEnvelope,
                 operation: op
               };
             } catch (error) {
