@@ -208,7 +208,7 @@ import { getAvailableWorkflows } from './loadOptions';
         if (isTaxTypeParam(op, p))
           return { displayName: 'Tax Type', name: p, type: 'number', default: 0, typeOptions: { minValue: 0, step: 1 }, description: `${p} parameter for ${op} (TaxType enum)`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
         if (isWorkflowIDParam(p))
-          return { displayName: 'Workflow ID', name: p, type: 'options', loadOptionsMethod: 'getAvailableWorkflows', default: '', description: `${p} parameter for ${op} (workflow selection)`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
+          return { displayName: 'Workflow ID', name: p, type: 'options', typeOptions: { loadOptionsMethod: 'getAvailableWorkflows' }, default: '', description: `${p} parameter for ${op} (workflow selection)`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
         if (isNumericParam(p))
           return { displayName: p, name: p, type: 'number', default: 0, typeOptions: { minValue: 0, step: 1 }, description: `${p} parameter for ${op} (number)`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
         if (isDateParam(p))
