@@ -841,15 +841,35 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
               if (addLanguageCombinationResult && (addLanguageCombinationResult as IDataObject).data) {
                 const languageCombinationID = (addLanguageCombinationResult as IDataObject).data;
                 
-                // Call setLanguageCombinationID
-                const setLanguageCombinationResult = await callLanguageCombination('setLanguageCombinationID', languageCombinationID, projectType, itemID);
+                // Add debug info for setLanguageCombinationID call
+                ((result as IDataObject).debugInfo as IDataObject).setLanguageCombinationDebug = {
+                  languageCombinationID: languageCombinationID,
+                  projectType: projectType,
+                  itemID: itemID,
+                  parameters: [languageCombinationID, projectType, itemID]
+                };
                 
-                // Add language combination info to result
-                (result as IDataObject).languageCombinationID = languageCombinationID;
-                (result as IDataObject).sourceLanguage = sourceLanguage;
-                (result as IDataObject).targetLanguage = targetLanguage;
-                (result as IDataObject).addLanguageCombinationResult = addLanguageCombinationResult;
-                (result as IDataObject).setLanguageCombinationResult = setLanguageCombinationResult;
+                // Call setLanguageCombinationID
+                try {
+                  const setLanguageCombinationResult = await callLanguageCombination('setLanguageCombinationID', languageCombinationID, projectType, itemID);
+                  
+                  // Add language combination info to result
+                  (result as IDataObject).languageCombinationID = languageCombinationID;
+                  (result as IDataObject).sourceLanguage = sourceLanguage;
+                  (result as IDataObject).targetLanguage = targetLanguage;
+                  (result as IDataObject).addLanguageCombinationResult = addLanguageCombinationResult;
+                  (result as IDataObject).setLanguageCombinationResult = setLanguageCombinationResult;
+                  
+                  // Add debug info about the result
+                  ((result as IDataObject).debugInfo as IDataObject).setLanguageCombinationResultDebug = {
+                    result: setLanguageCombinationResult,
+                    resultType: typeof setLanguageCombinationResult,
+                    resultNull: setLanguageCombinationResult === null
+                  };
+                } catch (setError) {
+                  ((result as IDataObject).debugInfo as IDataObject).setLanguageCombinationError = setError instanceof Error ? setError.message : 'Unknown error in setLanguageCombinationID';
+                  (result as IDataObject).setLanguageCombinationResult = null;
+                }
               }
             } catch (error) {
               // Add error info to result for debugging
