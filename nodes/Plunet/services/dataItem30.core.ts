@@ -92,6 +92,19 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
       paramOrder: ['projectType', 'projectID'],
       active: true,
     },
+    update: {
+      soapAction: 'update',
+      endpoint: ENDPOINT,
+      uiName: 'Update Item',
+      subtitleName: 'update: item',
+      titleName: 'Update Item',
+      resource: RESOURCE,
+      resourceDisplayName: RESOURCE_DISPLAY_NAME,
+      description: 'Update an existing item with advanced options and follow-up operations',
+      returnType: 'Void',
+      paramOrder: ['itemID', 'projectType', 'projectID', 'enableNullOrEmptyValues'],
+      active: true,
+    },
     getItemByLanguage: {
         // Call is currently not working
       soapAction: 'get_ByLanguage',
@@ -338,6 +351,106 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
         },
       ],
     },
+    
+    // Enable Null or Empty Values for update
+    {
+      displayName: 'Enable Null or Empty Values',
+      name: 'enableNullOrEmptyValues',
+      type: 'boolean',
+      default: false,
+      description: 'Whether to enable null or empty values for the update operation',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['update'] } },
+    },
+    
+    // Collection for additional field operations for update
+    {
+      displayName: 'Additional Fields',
+      name: 'additionalFields',
+      type: 'collection',
+      placeholder: 'Add Field',
+      default: {},
+      description: 'Additional field operations to perform after item update',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['update'] } },
+      options: [
+        {
+          displayName: 'Brief Description',
+          name: 'briefDescription',
+          type: 'string',
+          default: '',
+          description: 'Brief description for the item',
+        },
+        {
+          displayName: 'Comment',
+          name: 'comment',
+          type: 'string',
+          default: '',
+          description: 'Comment for the item',
+        },
+        {
+          displayName: 'Delivery Deadline',
+          name: 'deliveryDeadline',
+          type: 'dateTime',
+          default: '',
+          description: 'Delivery deadline for the item',
+        },
+        {
+          displayName: 'Reference',
+          name: 'reference',
+          type: 'string',
+          default: '',
+          description: 'Reference for the item',
+        },
+        {
+          displayName: 'Status',
+          name: 'status',
+          type: 'options',
+          typeOptions: {
+            options: ItemStatusOptions,
+          },
+          default: '',
+          description: 'Status for the item',
+        },
+        {
+          displayName: 'Tax Type',
+          name: 'taxType',
+          type: 'options',
+          typeOptions: {
+            options: TaxTypeOptions,
+          },
+          default: '',
+          description: 'Tax type for the item',
+        },
+        {
+          displayName: 'Total Price',
+          name: 'totalPrice',
+          type: 'number',
+          default: 0,
+          typeOptions: { minValue: 0, step: 0.01 },
+          description: 'Total price for the item',
+        },
+        {
+          displayName: 'Default Contact Person',
+          name: 'defaultContactPerson',
+          type: 'string',
+          default: '',
+          description: 'Default contact person for the item',
+        },
+        {
+          displayName: 'Delivery Date',
+          name: 'deliveryDate',
+          type: 'dateTime',
+          default: '',
+          description: 'Delivery date for the item',
+        },
+        {
+          displayName: 'Item Reference',
+          name: 'itemReference',
+          type: 'string',
+          default: '',
+          description: 'Item reference for the item',
+        },
+      ],
+    },
   ];
   
   function toSoapParamValue(raw: unknown, paramName: string): string {
@@ -480,6 +593,26 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
           ].filter(line => line !== '').join('\n');
           
           return `<UUID>${escapeXml(sessionId)}</UUID>\n${itemInXml}`;
+        }
+        if (op === 'update') {
+          const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
+          
+          const itemInXml = [
+            '<ItemIN>',
+            additionalFields.briefDescription ? `<briefDescription>${escapeXml(String(additionalFields.briefDescription))}</briefDescription>` : '',
+            additionalFields.comment ? `<comment>${escapeXml(String(additionalFields.comment))}</comment>` : '',
+            additionalFields.deliveryDeadline ? `<deliveryDeadline>${escapeXml(String(additionalFields.deliveryDeadline))}</deliveryDeadline>` : '',
+            `<itemID>${escapeXml(String(itemParams.itemID))}</itemID>`,
+            `<projectID>${escapeXml(String(itemParams.projectID))}</projectID>`,
+            `<projectType>${escapeXml(String(itemParams.projectType))}</projectType>`,
+            additionalFields.reference ? `<reference>${escapeXml(String(additionalFields.reference))}</reference>` : '',
+            additionalFields.status ? `<status>${escapeXml(String(additionalFields.status))}</status>` : '',
+            additionalFields.taxType ? `<taxType>${escapeXml(String(additionalFields.taxType))}</taxType>` : '',
+            additionalFields.totalPrice ? `<totalPrice>${escapeXml(String(additionalFields.totalPrice))}</totalPrice>` : '',
+            '</ItemIN>'
+          ].filter(line => line !== '').join('\n');
+          
+          return `<UUID>${escapeXml(sessionId)}</UUID>\n${itemInXml}\n<enableNullOrEmptyValues>${escapeXml(String(itemParams.enableNullOrEmptyValues))}</enableNullOrEmptyValues>`;
         }
         return null;
       },
@@ -823,6 +956,93 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
             } catch (error) {
               // Silently handle language combination errors
             }
+          }
+          
+          // Add clean additional calls info to result
+          (result as IDataObject).addtlCalls = addtlCalls;
+        }
+      }
+      
+      // Handle complex update operation with follow-up calls
+      if (operation === 'update') {
+        const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
+        
+        // Get the item ID from the update parameters (not result, since update returns void)
+        const itemID = itemParams.itemID as number;
+        
+        if (itemID && itemID > 0) {
+          const sessionId = await config.getSessionId(ctx, itemIndex);
+          const projectType = itemParams.projectType as number;
+          
+          // Initialize additional calls tracking
+          const addtlCalls: string[] = [];
+          
+          // Helper function to safely call misc operations
+          const safeCallMisc = async (op: string, ...args: any[]) => {
+            try {
+              // Get the additional parameter (comment, defaultContactPerson, etc.)
+              const additionalParam = args[2]; // The third parameter is the value to set
+              
+              const miscConfig = {
+                url: url.replace('/DataItem30', '/DataItem30'),
+                soapActionFor: (operation: string) => `http://API.Integration/${operation}`,
+                paramOrder: { [op]: ['itemID', 'projectType'] },
+                numericBooleans: new Set<string>(),
+                getSessionId: async () => sessionId,
+                buildCustomBodyXml: (operation: string, params: IDataObject) => {
+                  if (operation === op) {
+                    let xml = `<UUID>${escapeXml(sessionId)}</UUID>
+<itemID>${escapeXml(String(itemID))}</itemID>
+<projectType>${escapeXml(String(projectType))}</projectType>`;
+                    
+                    // Add the specific parameter based on the operation
+                    if (op === 'setComment' && additionalParam) {
+                      xml += `\n<comment>${escapeXml(String(additionalParam))}</comment>`;
+                    } else if (op === 'setDefaultContactPerson' && additionalParam) {
+                      xml += `\n<defaultContactPerson>${escapeXml(String(additionalParam))}</defaultContactPerson>`;
+                    } else if (op === 'setDeliveryDate' && additionalParam) {
+                      xml += `\n<deliveryDate>${escapeXml(String(additionalParam))}</deliveryDate>`;
+                    } else if (op === 'setItemReference' && additionalParam) {
+                      xml += `\n<itemReference>${escapeXml(String(additionalParam))}</itemReference>`;
+                    }
+                    
+                    return xml;
+                  }
+                  return null;
+                },
+                parseResult: (xml: string) => parseStringResult(xml)
+              };
+              
+              const result = await executeOperation(ctx, op, { itemID, projectType }, miscConfig, itemIndex);
+              
+              // Track successful call
+              addtlCalls.push(op);
+              
+              return {
+                ...result,
+                operation: op
+              };
+            } catch (error) {
+              // Silently fail for additional operations
+              return null;
+            }
+          };
+          
+          // Perform additional field operations
+          if (additionalFields.comment) {
+            await safeCallMisc('setComment', itemID, projectType, additionalFields.comment);
+          }
+          
+          if (additionalFields.defaultContactPerson) {
+            await safeCallMisc('setDefaultContactPerson', itemID, projectType, additionalFields.defaultContactPerson);
+          }
+          
+          if (additionalFields.deliveryDate) {
+            await safeCallMisc('setDeliveryDate', itemID, projectType, additionalFields.deliveryDate);
+          }
+          
+          if (additionalFields.itemReference) {
+            await safeCallMisc('setItemReference', itemID, projectType, additionalFields.itemReference);
           }
           
           // Add clean additional calls info to result
