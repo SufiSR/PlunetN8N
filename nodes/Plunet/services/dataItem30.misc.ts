@@ -140,9 +140,9 @@ import {
     setLanguageCombinationID: {
       soapAction: 'setLanguageCombinationID',
       endpoint: ENDPOINT,
-      uiName: 'Set Language Combination ID',
+      uiName: 'Set Language Combination to Item',
       subtitleName: 'set language combination id: item',
-      titleName: 'Set Language Combination ID',
+      titleName: 'Set Language Combination to Item',
       resource: RESOURCE,
       resourceDisplayName: RESOURCE_DISPLAY_NAME,
       description: 'Set language combination ID for an item',
