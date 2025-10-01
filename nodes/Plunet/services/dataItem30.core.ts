@@ -446,7 +446,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
           const optionalFields = ctx.getNodeParameter('optionalFields', itemIndex, {}) as IDataObject;
           
           const itemInXml = [
-            '<ItemIn>',
+            '<ItemIN>',
             optionalFields.briefDescription ? `<briefDescription>${escapeXml(String(optionalFields.briefDescription))}</briefDescription>` : '',
             optionalFields.comment ? `<comment>${escapeXml(String(optionalFields.comment))}</comment>` : '',
             optionalFields.deliveryDeadline ? `<deliveryDeadline>${escapeXml(String(optionalFields.deliveryDeadline))}</deliveryDeadline>` : '',
@@ -457,7 +457,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
             `<status>${escapeXml(String(itemParams.status))}</status>`,
             `<taxType>${escapeXml(String(itemParams.taxType))}</taxType>`,
             `<totalPrice>${escapeXml(String(itemParams.totalPrice))}</totalPrice>`,
-            '</ItemIn>'
+            '</ItemIN>'
           ].filter(line => line !== '').join('\n');
           
           return `<UUID>${escapeXml(sessionId)}</UUID>\n${itemInXml}`;
@@ -466,7 +466,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
           const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
           
           const itemInXml = [
-            '<ItemIn>',
+            '<ItemIN>',
             additionalFields.briefDescription ? `<briefDescription>${escapeXml(String(additionalFields.briefDescription))}</briefDescription>` : '',
             additionalFields.comment ? `<comment>${escapeXml(String(additionalFields.comment))}</comment>` : '',
             additionalFields.deliveryDeadline ? `<deliveryDeadline>${escapeXml(String(additionalFields.deliveryDeadline))}</deliveryDeadline>` : '',
@@ -476,7 +476,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
             additionalFields.totalPrice ? `<totalPrice>${escapeXml(String(additionalFields.totalPrice))}</totalPrice>` : '',
             `<projectID>${escapeXml(String(itemParams.projectID))}</projectID>`,
             `<projectType>${escapeXml(String(itemParams.projectType))}</projectType>`,
-            '</ItemIn>'
+            '</ItemIN>'
           ].filter(line => line !== '').join('\n');
           
           return `<UUID>${escapeXml(sessionId)}</UUID>\n${itemInXml}`;
