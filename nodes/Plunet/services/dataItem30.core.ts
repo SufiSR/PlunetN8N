@@ -79,6 +79,19 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
       paramOrder: ['itemID', 'projectType'],
       active: true,
     },
+    insert2: {
+      soapAction: 'insert2',
+      endpoint: ENDPOINT,
+      uiName: 'Create Item (Advanced)',
+      subtitleName: 'create item: item',
+      titleName: 'Create Item (Advanced)',
+      resource: RESOURCE,
+      resourceDisplayName: RESOURCE_DISPLAY_NAME,
+      description: 'Create a new item with advanced options and follow-up operations',
+      returnType: 'Integer',
+      paramOrder: ['projectType', 'projectID'],
+      active: true,
+    },
     getItemByLanguage: {
         // Call is currently not working
       soapAction: 'get_ByLanguage',
@@ -215,6 +228,71 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
         },
       ],
     },
+    
+    // Language fields for insert2
+    {
+      displayName: 'Source Language',
+      name: 'sourceLanguage',
+      type: 'options',
+      typeOptions: {
+        loadOptionsMethod: 'getAvailableLanguages',
+      },
+      default: '',
+      description: 'Source language for the item',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['insert2'] } },
+    },
+    {
+      displayName: 'Target Language',
+      name: 'targetLanguage',
+      type: 'options',
+      typeOptions: {
+        loadOptionsMethod: 'getAvailableLanguages',
+      },
+      default: '',
+      description: 'Target language for the item',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['insert2'] } },
+    },
+    
+    // Collection for additional field operations for insert2
+    {
+      displayName: 'Additional Fields',
+      name: 'additionalFields',
+      type: 'collection',
+      placeholder: 'Add Field',
+      default: {},
+      description: 'Additional field operations to perform after item creation',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['insert2'] } },
+      options: [
+        {
+          displayName: 'Comment',
+          name: 'comment',
+          type: 'string',
+          default: '',
+          description: 'Comment for the item',
+        },
+        {
+          displayName: 'Default Contact Person',
+          name: 'defaultContactPerson',
+          type: 'string',
+          default: '',
+          description: 'Default contact person for the item',
+        },
+        {
+          displayName: 'Delivery Date',
+          name: 'deliveryDate',
+          type: 'dateTime',
+          default: '',
+          description: 'Delivery date for the item',
+        },
+        {
+          displayName: 'Item Reference',
+          name: 'itemReference',
+          type: 'string',
+          default: '',
+          description: 'Item reference for the item',
+        },
+      ],
+    },
   ];
   
   function toSoapParamValue(raw: unknown, paramName: string): string {
@@ -339,6 +417,26 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
           
           return `<UUID>${escapeXml(sessionId)}</UUID>\n${itemInXml}`;
         }
+        if (op === 'insert2') {
+          const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
+          
+          const itemInXml = [
+            '<ItemIn>',
+            additionalFields.briefDescription ? `<briefDescription>${escapeXml(String(additionalFields.briefDescription))}</briefDescription>` : '',
+            additionalFields.comment ? `<comment>${escapeXml(String(additionalFields.comment))}</comment>` : '',
+            additionalFields.deliveryDeadline ? `<deliveryDeadline>${escapeXml(String(additionalFields.deliveryDeadline))}</deliveryDeadline>` : '',
+            additionalFields.itemID ? `<itemID>${escapeXml(String(additionalFields.itemID))}</itemID>` : '',
+            `<projectID>${escapeXml(String(itemParams.projectID))}</projectID>`,
+            `<projectType>${escapeXml(String(itemParams.projectType))}</projectType>`,
+            additionalFields.reference ? `<reference>${escapeXml(String(additionalFields.reference))}</reference>` : '',
+            itemParams.status ? `<status>${escapeXml(String(itemParams.status))}</status>` : '',
+            itemParams.taxType ? `<taxType>${escapeXml(String(itemParams.taxType))}</taxType>` : '',
+            itemParams.totalPrice ? `<totalPrice>${escapeXml(String(itemParams.totalPrice))}</totalPrice>` : '',
+            '</ItemIn>'
+          ].filter(line => line !== '').join('\n');
+          
+          return `<UUID>${escapeXml(sessionId)}</UUID>\n${itemInXml}`;
+        }
         return null;
       },
       parseResult: (xml: string, op: string) => {
@@ -449,6 +547,87 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
           const sessionId = await config.getSessionId(ctx, itemIndex);
           const extendedData = await getExtendedItemData(ctx, sessionId, itemID, projectType, config, itemIndex);
           result.item = { ...(result.item as IDataObject), ...extendedData };
+        }
+      }
+      
+      // Handle complex insert2 operation with follow-up calls
+      if (operation === 'insert2') {
+        const additionalFields = ctx.getNodeParameter('additionalFields', itemIndex, {}) as IDataObject;
+        const sourceLanguage = ctx.getNodeParameter('sourceLanguage', itemIndex, '') as string;
+        const targetLanguage = ctx.getNodeParameter('targetLanguage', itemIndex, '') as string;
+        
+        // Get the item ID from the insert2 result
+        const itemID = (result as IDataObject).data as number;
+        
+        if (itemID && itemID > 0) {
+          const sessionId = await config.getSessionId(ctx, itemIndex);
+          const projectType = itemParams.projectType as number;
+          
+          // Helper function to safely call misc operations
+          const safeCallMisc = async (op: string, ...args: any[]) => {
+            try {
+              const miscConfig = {
+                url: url.replace('/DataItem30', '/DataItem30'),
+                soapActionFor: (operation: string) => `http://API.Integration/${operation}`,
+                paramOrder: { [op]: ['itemID', 'projectType'] },
+                numericBooleans: new Set<string>(),
+                getSessionId: async () => sessionId,
+                buildCustomBodyXml: (operation: string, params: IDataObject) => {
+                  if (operation === op) {
+                    return `<UUID>${escapeXml(sessionId)}</UUID>
+<itemID>${escapeXml(String(itemID))}</itemID>
+<projectType>${escapeXml(String(projectType))}</projectType>`;
+                  }
+                  return null;
+                },
+                parseResult: (xml: string) => parseStringResult(xml)
+              };
+              
+              return await executeOperation(ctx, op, { itemID, projectType }, miscConfig, itemIndex);
+            } catch (error) {
+              // Silently fail for additional operations
+              return null;
+            }
+          };
+          
+          // Perform additional field operations
+          if (additionalFields.comment) {
+            await safeCallMisc('setComment', itemID, projectType, additionalFields.comment);
+          }
+          
+          if (additionalFields.defaultContactPerson) {
+            await safeCallMisc('setDefaultContactPerson', itemID, projectType, additionalFields.defaultContactPerson);
+          }
+          
+          if (additionalFields.deliveryDate) {
+            await safeCallMisc('setDeliveryDate', itemID, projectType, additionalFields.deliveryDate);
+          }
+          
+          if (additionalFields.itemReference) {
+            await safeCallMisc('setItemReference', itemID, projectType, additionalFields.itemReference);
+          }
+          
+          // Handle language combination if both languages are provided
+          if (sourceLanguage && targetLanguage) {
+            try {
+              // Call addLanguageCombination2
+              const languageCombinationResult = await safeCallMisc('addLanguageCombination2', sourceLanguage, targetLanguage, projectType, itemParams.projectID);
+              
+              if (languageCombinationResult && (languageCombinationResult as IDataObject).data) {
+                const languageCombinationID = (languageCombinationResult as IDataObject).data;
+                
+                // Call setLanguageCombinationID
+                await safeCallMisc('setLanguageCombinationID', languageCombinationID, projectType, itemID);
+                
+                // Add language combination info to result
+                (result as IDataObject).languageCombinationID = languageCombinationID;
+                (result as IDataObject).sourceLanguage = sourceLanguage;
+                (result as IDataObject).targetLanguage = targetLanguage;
+              }
+            } catch (error) {
+              // Silently fail for language combination operations
+            }
+          }
         }
       }
       

@@ -246,6 +246,56 @@ function createAdminExecuteConfig(creds: Creds, url: string, baseUrl: string, ti
           statusCode: base.statusCode,
           workflows: workflows
         };
+      } else if (op === 'getAvailableLanguages') {
+        // Parse LanguageListResult for getAvailableLanguages
+        const base = extractResultBase(xml);
+        
+        // Look for LanguageListResult scope
+        const languageListResultScope = findFirstTagBlock(xml, 'LanguageListResult');
+        if (!languageListResultScope) {
+          return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+        }
+        
+        // Extract all data blocks
+        const dataMatches = languageListResultScope.match(/<data>[\s\S]*?<\/data>/g);
+        if (!dataMatches) {
+          return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+        }
+        
+        const languages: Array<{
+          active: boolean,
+          favorite: boolean,
+          folderName: string,
+          id: number,
+          isoCode: string,
+          name: string
+        }> = [];
+        
+        dataMatches.forEach(dataBlock => {
+          const activeMatch = dataBlock.match(/<active>(.*?)<\/active>/);
+          const favoriteMatch = dataBlock.match(/<favorite>(.*?)<\/favorite>/);
+          const folderNameMatch = dataBlock.match(/<folderName>(.*?)<\/folderName>/);
+          const idMatch = dataBlock.match(/<id>(.*?)<\/id>/);
+          const isoCodeMatch = dataBlock.match(/<isoCode>(.*?)<\/isoCode>/);
+          const nameMatch = dataBlock.match(/<name>(.*?)<\/name>/);
+          
+          if (nameMatch && nameMatch[1] && idMatch && idMatch[1]) {
+            languages.push({
+              active: activeMatch && activeMatch[1] === 'true' || false,
+              favorite: favoriteMatch && favoriteMatch[1] === 'true' || false,
+              folderName: folderNameMatch && folderNameMatch[1] ? folderNameMatch[1] : '',
+              id: parseInt(idMatch[1], 10),
+              isoCode: isoCodeMatch && isoCodeMatch[1] ? isoCodeMatch[1] : '',
+              name: nameMatch[1]
+            });
+          }
+        });
+        
+        return {
+          statusMessage: base.statusMessage,
+          statusCode: base.statusCode,
+          languages: languages
+        };
       }
       
       return { statusMessage: 'Unknown operation', statusCode: -1 };
@@ -256,6 +306,85 @@ function createAdminExecuteConfig(creds: Creds, url: string, baseUrl: string, ti
 /**
  * Load options for DataCustomFields30 Text Module Flag field
  */
+export async function getAvailableLanguages(this: ILoadOptionsFunctions) {
+  try {
+    // Get credentials
+    const creds = await this.getCredentials('plunetApi') as Creds;
+    const scheme = creds.useHttps ? 'https' : 'http';
+    const baseUrl = `${scheme}://${creds.baseHost.replace(/\/$/, '')}`;
+    const url = `${baseUrl}/DataAdmin30`;
+    const timeoutMs = creds.timeout ?? 30000;
+    
+    // Create execute config for DataAdmin30
+    const config = createAdminExecuteConfig(creds, url, baseUrl, timeoutMs);
+    
+    // Call getAvailableLanguages
+    const sessionId = await config.getSessionId(this as any, 0);
+    const soapAction = config.soapActionFor('getAvailableLanguages');
+    
+    // Build SOAP envelope
+    const envelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
+   <soap:Header/>
+   <soap:Body>
+      <api:getAvailableLanguages>
+         <UUID>${sessionId}</UUID>
+      </api:getAvailableLanguages>
+   </soap:Body>
+</soap:Envelope>`;
+    
+    // Make SOAP request
+    const response = await this.helpers.request({
+      method: 'POST',
+      url: config.url,
+      headers: {
+        'Content-Type': 'application/soap+xml; charset=utf-8',
+        'SOAPAction': soapAction,
+      },
+      body: envelope,
+    });
+    
+    // Parse response
+    const parsed = config.parseResult(response, 'getAvailableLanguages') as IDataObject;
+    
+    // Check for errors
+    if (parsed.statusCode && parsed.statusCode !== 0) {
+      return [
+        {
+          name: `API Error: ${parsed.statusMessage || 'Unknown error'} (Code: ${parsed.statusCode})`,
+          value: '',
+          disabled: true
+        }
+      ];
+    }
+    
+    // Extract languages from response
+    if (parsed.languages && Array.isArray(parsed.languages)) {
+      return parsed.languages.map((language: any) => ({
+        name: language.name,
+        value: language.name
+      }));
+    }
+    
+    return [
+      {
+        name: 'No languages available',
+        value: '',
+        disabled: true
+      }
+    ];
+    
+  } catch (error) {
+    return [
+      {
+        name: `Error loading languages: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        value: '',
+        disabled: true
+      }
+    ];
+  }
+}
+
 export async function getAvailableWorkflows(this: ILoadOptionsFunctions) {
   try {
     // Get credentials
