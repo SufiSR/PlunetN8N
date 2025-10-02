@@ -228,7 +228,25 @@ import {
       displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
     })),
 
-    // Search operation fields
+    // Search operation fields (ordered as requested)
+    {
+      displayName: 'Job Status',
+      name: 'job_Status',
+      type: 'options',
+      options: [{ name: 'Any', value: '' }, ...JobStatusOptions],
+      default: '',
+      description: 'Filter by job status (optional)',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
+    },
+    {
+      displayName: 'Job Resource ID',
+      name: 'job_resourceID',
+      type: 'number',
+      default: undefined,
+      typeOptions: { minValue: 0, step: 1 },
+      description: 'Filter by resource ID (optional)',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
+    },
     {
       displayName: 'Customer ID',
       name: 'customerID',
@@ -256,6 +274,22 @@ import {
       displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
     },
     {
+      displayName: 'Job Source Language',
+      name: 'job_SourceLanguage',
+      type: 'string',
+      default: '',
+      description: 'Filter by source language (optional)',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
+    },
+    {
+      displayName: 'Job Target Language',
+      name: 'job_TargetLanguage',
+      type: 'string',
+      default: '',
+      description: 'Filter by target language (optional)',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
+    },
+    {
       displayName: 'Job Creation Date From',
       name: 'job_CreationDate_from',
       type: 'dateTime',
@@ -269,40 +303,6 @@ import {
       type: 'dateTime',
       default: '',
       description: 'Filter jobs created until this date (optional)',
-      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
-    },
-    {
-      displayName: 'Job Source Language',
-      name: 'job_SourceLanguage',
-      type: 'string',
-      default: '',
-      description: 'Filter by source language (optional)',
-      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
-    },
-    {
-      displayName: 'Job Status',
-      name: 'job_Status',
-      type: 'options',
-      options: [{ name: 'Any', value: '' }, ...JobStatusOptions],
-      default: '',
-      description: 'Filter by job status (optional)',
-      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
-    },
-    {
-      displayName: 'Job Target Language',
-      name: 'job_TargetLanguage',
-      type: 'string',
-      default: '',
-      description: 'Filter by target language (optional)',
-      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
-    },
-    {
-      displayName: 'Job Resource ID',
-      name: 'job_resourceID',
-      type: 'number',
-      default: undefined,
-      typeOptions: { minValue: 0, step: 1 },
-      description: 'Filter by resource ID (optional)',
       displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
     },
   ];
@@ -475,7 +475,15 @@ import {
       
       const config = createExecuteConfig(creds, actualUrl, baseUrl, timeoutMs);
       const itemParams: IDataObject = {};
-      for (const paramName of paramNames) itemParams[paramName] = ctx.getNodeParameter(paramName, itemIndex, '');
+      
+      // For search operation, paramNames is empty but we still need to pass an empty object
+      if (paramNames.length === 0 && operation === 'search') {
+        // Search operation handles parameters directly in buildCustomBodyXml
+        itemParams._searchOperation = true; // Marker to indicate this is a search operation
+      } else {
+        for (const paramName of paramNames) itemParams[paramName] = ctx.getNodeParameter(paramName, itemIndex, '');
+      }
+      
       const result = await executeOperation(ctx, operation, itemParams, config, itemIndex);
       return Array.isArray(result) ? result[0] || {} : result;
     },
