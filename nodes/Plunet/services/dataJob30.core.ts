@@ -371,36 +371,39 @@ import {
           const job_TargetLanguage = ctx.getNodeParameter('job_TargetLanguage', itemIndex, '') as string;
           const job_resourceID = ctx.getNodeParameter('job_resourceID', itemIndex, undefined) as number | undefined;
 
-          // Build SearchFilter_Job XML
+          // Build SearchFilter_Job XML - include ALL fields, even if empty
           let searchFilterXml = '<SearchFilter_Job>';
           
-          if (customerID !== undefined && customerID !== null) {
-            searchFilterXml += `<customerID>${escapeXml(String(customerID))}</customerID>`;
-          }
-          if (item_Status && item_Status !== '') {
-            searchFilterXml += `<item_Status>${escapeXml(String(item_Status))}</item_Status>`;
-          }
-          if (jobAbbreviation && jobAbbreviation !== '') {
-            searchFilterXml += `<jobAbbreviation>${escapeXml(jobAbbreviation)}</jobAbbreviation>`;
-          }
-          if (job_CreationDate_from && job_CreationDate_from !== '') {
-            searchFilterXml += `<job_CreationDate_from>${escapeXml(job_CreationDate_from)}</job_CreationDate_from>`;
-          }
-          if (job_CreationDate_to && job_CreationDate_to !== '') {
-            searchFilterXml += `<job_CreationDate_to>${escapeXml(job_CreationDate_to)}</job_CreationDate_to>`;
-          }
-          if (job_SourceLanguage && job_SourceLanguage !== '') {
-            searchFilterXml += `<job_SourceLanguage>${escapeXml(job_SourceLanguage)}</job_SourceLanguage>`;
-          }
-          if (job_Status && job_Status !== '') {
-            searchFilterXml += `<job_Status>${escapeXml(String(job_Status))}</job_Status>`;
-          }
-          if (job_TargetLanguage && job_TargetLanguage !== '') {
-            searchFilterXml += `<job_TargetLanguage>${escapeXml(job_TargetLanguage)}</job_TargetLanguage>`;
-          }
-          if (job_resourceID !== undefined && job_resourceID !== null) {
-            searchFilterXml += `<job_resourceID>${escapeXml(String(job_resourceID))}</job_resourceID>`;
-          }
+          // Always include customerID (empty if not set)
+          const customerIDValue = (customerID !== undefined && customerID !== null) ? String(customerID) : '';
+          searchFilterXml += `<customerID>${escapeXml(customerIDValue)}</customerID>`;
+          
+          // Always include item_Status (empty if not set)
+          const itemStatusValue = (item_Status && item_Status !== '') ? String(item_Status) : '';
+          searchFilterXml += `<item_Status>${escapeXml(itemStatusValue)}</item_Status>`;
+          
+          // Always include jobAbbreviation (empty if not set)
+          searchFilterXml += `<jobAbbreviation>${escapeXml(jobAbbreviation || '')}</jobAbbreviation>`;
+          
+          // Always include job_CreationDate_from (empty if not set)
+          searchFilterXml += `<job_CreationDate_from>${escapeXml(job_CreationDate_from || '')}</job_CreationDate_from>`;
+          
+          // Always include job_CreationDate_to (empty if not set)
+          searchFilterXml += `<job_CreationDate_to>${escapeXml(job_CreationDate_to || '')}</job_CreationDate_to>`;
+          
+          // Always include job_SourceLanguage (empty if not set)
+          searchFilterXml += `<job_SourceLanguage>${escapeXml(job_SourceLanguage || '')}</job_SourceLanguage>`;
+          
+          // Always include job_Status (empty if not set)
+          const jobStatusValue = (job_Status && job_Status !== '') ? String(job_Status) : '';
+          searchFilterXml += `<job_Status>${escapeXml(jobStatusValue)}</job_Status>`;
+          
+          // Always include job_TargetLanguage (empty if not set)
+          searchFilterXml += `<job_TargetLanguage>${escapeXml(job_TargetLanguage || '')}</job_TargetLanguage>`;
+          
+          // Always include job_resourceID (empty if not set)
+          const resourceIDValue = (job_resourceID !== undefined && job_resourceID !== null) ? String(job_resourceID) : '';
+          searchFilterXml += `<job_resourceID>${escapeXml(resourceIDValue)}</job_resourceID>`;
           
           searchFilterXml += '</SearchFilter_Job>';
           
