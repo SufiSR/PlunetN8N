@@ -114,7 +114,8 @@ function createAdminExecuteConfig(creds: Creds, url: string, baseUrl: string, ti
     soapActionFor: (op: string) => `http://API.Integration/${op}`,
     paramOrder: { 
       getAvailableProperties: ['PropertyUsageArea', 'MainID'],
-      getAvailableTextModules: ['textModuleUsageArea', 'MainID', 'languageCode']
+      getAvailableTextModules: ['textModuleUsageArea', 'MainID', 'languageCode'],
+      getAvailableCountries: ['languageCode']
     },
     numericBooleans: NUMERIC_BOOLEAN_PARAMS,
     getSessionId: async (ctx: any) => {
@@ -626,6 +627,7 @@ export async function getAvailableCountries(this: ILoadOptionsFunctions) {
    <soap:Body>
       <api:getAvailableCountries>
          <UUID>${sessionId}</UUID>
+         <languageCode>EN</languageCode>
       </api:getAvailableCountries>
    </soap:Body>
 </soap:Envelope>`;
