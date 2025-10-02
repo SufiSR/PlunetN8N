@@ -16,6 +16,7 @@ import { DataAdmin30Service } from './services/dataAdmin30';
 import { DataItem30CoreService } from './services/dataItem30.core';
 import { DataItem30MiscService } from './services/dataItem30.misc';
 import { DataItem30PricesService } from './services/dataItem30.prices';
+import { DataCustomerAddress30CoreService } from './services/dataCustomerAddress30.core';
 import { buildSubtitleLookup } from './core/service-utils';
 
 
@@ -31,6 +32,7 @@ const services = [
     DataDocument30Service,
     DataCustomFields30Service,
     DataAdmin30Service, // New service added for testing
+    DataCustomerAddress30CoreService,
     DataCustomer30MiscService,
     DataResource30MiscService,
     DataOrder30MiscService,
