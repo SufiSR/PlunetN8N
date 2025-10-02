@@ -12,10 +12,13 @@ import {
   import { NUMERIC_BOOLEAN_PARAMS } from '../core/constants';
   import { extractStatusMessage, parseStringResult, parseIntegerResult, parseVoidResult } from '../core/xml';
   import { parseJobResult, parseJobListResult } from '../core/parsers/job';
+  import { parseIntegerArrayResult } from '../core/xml';
   import { ProjectTypeOptions } from '../enums/project-type';
   import { JobStatusOptions } from '../enums/job-status';
+  import { ItemStatusOptions } from '../enums/item-status';
   import { MANDATORY_FIELDS } from '../core/field-definitions';
   import { generateOperationOptionsFromRegistry } from '../core/service-utils';
+  import { escapeXml } from '../core/soap';
   
   const RESOURCE = 'DataJob30Core';
   const ENDPOINT = 'DataJob30';
@@ -102,6 +105,19 @@ import {
       paramOrder: ['projectType', 'projectId'],
       active: true,
     },
+    searchJobs: {
+      soapAction: 'search',
+      endpoint: 'ReportJob30',
+      uiName: 'Search Jobs',
+      subtitleName: 'search: jobs',
+      titleName: 'Search Jobs',
+      resource: RESOURCE,
+      resourceDisplayName: RESOURCE_DISPLAY_NAME,
+      description: 'Search for jobs using various filter criteria',
+      returnType: 'IntegerArray',
+      paramOrder: [],
+      active: true,
+    },
   
     // ── Inactive ops (kept for reference) ──
     getJobsByIds: {
@@ -151,7 +167,7 @@ import {
   
   const RETURN_TYPE = Object.fromEntries(
     Object.values(OPERATION_REGISTRY).filter(op => op.active).map(op => [op.soapAction, op.returnType])
-  ) as Record<string, 'Void' | 'Integer' | 'String' | 'Job' | 'JobList'>;
+  ) as Record<string, 'Void' | 'Integer' | 'String' | 'Job' | 'JobList' | 'IntegerArray'>;
   
   /** ─ UI wiring (lean) ─ */
   const isProjectTypeParam = (p: string) => p.toLowerCase() === 'projecttype';
@@ -211,6 +227,84 @@ import {
       description: 'Additional job fields to include (optional)',
       displayOptions: { show: { resource: [RESOURCE], operation: [op] } },
     })),
+
+    // Search operation fields
+    {
+      displayName: 'Customer ID',
+      name: 'customerID',
+      type: 'number',
+      default: undefined,
+      typeOptions: { minValue: 0, step: 1 },
+      description: 'Filter by customer ID (optional)',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
+    },
+    {
+      displayName: 'Item Status',
+      name: 'item_Status',
+      type: 'options',
+      options: [{ name: 'Any', value: '' }, ...ItemStatusOptions],
+      default: '',
+      description: 'Filter by item status (optional)',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
+    },
+    {
+      displayName: 'Job Abbreviation',
+      name: 'jobAbbreviation',
+      type: 'string',
+      default: '',
+      description: 'Filter by job abbreviation (optional)',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
+    },
+    {
+      displayName: 'Job Creation Date From',
+      name: 'job_CreationDate_from',
+      type: 'dateTime',
+      default: '',
+      description: 'Filter jobs created from this date (optional)',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
+    },
+    {
+      displayName: 'Job Creation Date To',
+      name: 'job_CreationDate_to',
+      type: 'dateTime',
+      default: '',
+      description: 'Filter jobs created until this date (optional)',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
+    },
+    {
+      displayName: 'Job Source Language',
+      name: 'job_SourceLanguage',
+      type: 'string',
+      default: '',
+      description: 'Filter by source language (optional)',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
+    },
+    {
+      displayName: 'Job Status',
+      name: 'job_Status',
+      type: 'options',
+      options: [{ name: 'Any', value: '' }, ...JobStatusOptions],
+      default: '',
+      description: 'Filter by job status (optional)',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
+    },
+    {
+      displayName: 'Job Target Language',
+      name: 'job_TargetLanguage',
+      type: 'string',
+      default: '',
+      description: 'Filter by target language (optional)',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
+    },
+    {
+      displayName: 'Job Resource ID',
+      name: 'job_resourceID',
+      type: 'number',
+      default: undefined,
+      typeOptions: { minValue: 0, step: 1 },
+      description: 'Filter by resource ID (optional)',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
+    },
   ];
   
   function toSoapParamValue(raw: unknown, paramName: string): string {
@@ -221,9 +315,6 @@ import {
     return String(raw);
   }
   
-  function escapeXml(s: string): string {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-  }
   
   function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeoutMs: number): ExecuteConfig {
     return {
@@ -268,6 +359,53 @@ import {
           jobInXml += '</JobIN>';
           return `<UUID>${escapeXml(sessionId)}</UUID>\n${jobInXml}`;
         }
+        if (op === 'search') {
+          // Get search filter parameters
+          const customerID = ctx.getNodeParameter('customerID', itemIndex, undefined) as number | undefined;
+          const item_Status = ctx.getNodeParameter('item_Status', itemIndex, '') as string;
+          const jobAbbreviation = ctx.getNodeParameter('jobAbbreviation', itemIndex, '') as string;
+          const job_CreationDate_from = ctx.getNodeParameter('job_CreationDate_from', itemIndex, '') as string;
+          const job_CreationDate_to = ctx.getNodeParameter('job_CreationDate_to', itemIndex, '') as string;
+          const job_SourceLanguage = ctx.getNodeParameter('job_SourceLanguage', itemIndex, '') as string;
+          const job_Status = ctx.getNodeParameter('job_Status', itemIndex, '') as string;
+          const job_TargetLanguage = ctx.getNodeParameter('job_TargetLanguage', itemIndex, '') as string;
+          const job_resourceID = ctx.getNodeParameter('job_resourceID', itemIndex, undefined) as number | undefined;
+
+          // Build SearchFilter_Job XML
+          let searchFilterXml = '<SearchFilter_Job>';
+          
+          if (customerID !== undefined && customerID !== null) {
+            searchFilterXml += `<customerID>${escapeXml(String(customerID))}</customerID>`;
+          }
+          if (item_Status && item_Status !== '') {
+            searchFilterXml += `<item_Status>${escapeXml(String(item_Status))}</item_Status>`;
+          }
+          if (jobAbbreviation && jobAbbreviation !== '') {
+            searchFilterXml += `<jobAbbreviation>${escapeXml(jobAbbreviation)}</jobAbbreviation>`;
+          }
+          if (job_CreationDate_from && job_CreationDate_from !== '') {
+            searchFilterXml += `<job_CreationDate_from>${escapeXml(job_CreationDate_from)}</job_CreationDate_from>`;
+          }
+          if (job_CreationDate_to && job_CreationDate_to !== '') {
+            searchFilterXml += `<job_CreationDate_to>${escapeXml(job_CreationDate_to)}</job_CreationDate_to>`;
+          }
+          if (job_SourceLanguage && job_SourceLanguage !== '') {
+            searchFilterXml += `<job_SourceLanguage>${escapeXml(job_SourceLanguage)}</job_SourceLanguage>`;
+          }
+          if (job_Status && job_Status !== '') {
+            searchFilterXml += `<job_Status>${escapeXml(String(job_Status))}</job_Status>`;
+          }
+          if (job_TargetLanguage && job_TargetLanguage !== '') {
+            searchFilterXml += `<job_TargetLanguage>${escapeXml(job_TargetLanguage)}</job_TargetLanguage>`;
+          }
+          if (job_resourceID !== undefined && job_resourceID !== null) {
+            searchFilterXml += `<job_resourceID>${escapeXml(String(job_resourceID))}</job_resourceID>`;
+          }
+          
+          searchFilterXml += '</SearchFilter_Job>';
+          
+          return `<UUID>${escapeXml(sessionId)}</UUID>\n${searchFilterXml}`;
+        }
         return null;
       },
       parseResult: (xml: string, op: string) => {
@@ -287,6 +425,11 @@ import {
           case 'Integer': {
             const r = parseIntegerResult(xml);
             payload = { value: r.value, statusMessage: r.statusMessage, statusCode: r.statusCode };
+            break;
+          }
+          case 'IntegerArray': {
+            const r = parseIntegerArrayResult(xml);
+            payload = { data: r.data, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
           }
           case 'Void': {
@@ -323,7 +466,14 @@ import {
     async execute(operation, ctx, creds, url, baseUrl, timeoutMs, itemIndex) {
       const paramNames = PARAM_ORDER[operation];
       if (!paramNames) throw new Error(`Unsupported operation for ${RESOURCE}: ${operation}`);
-      const config = createExecuteConfig(creds, url, baseUrl, timeoutMs);
+      
+      // Use different endpoint for search operation (ReportJob30)
+      const opConfig = Object.values(OPERATION_REGISTRY).find(op => op.soapAction === operation);
+      const actualUrl = opConfig?.endpoint === 'ReportJob30' 
+        ? url.replace('/DataJob30', '/ReportJob30')
+        : url;
+      
+      const config = createExecuteConfig(creds, actualUrl, baseUrl, timeoutMs);
       const itemParams: IDataObject = {};
       for (const paramName of paramNames) itemParams[paramName] = ctx.getNodeParameter(paramName, itemIndex, '');
       const result = await executeOperation(ctx, operation, itemParams, config, itemIndex);
