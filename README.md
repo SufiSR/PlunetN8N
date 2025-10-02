@@ -69,6 +69,7 @@ nodes/Plunet/
   plunet.png                  # node icon (copied to dist)
 
   enums/
+    address-type.ts            # AddressType enum definitions
     cat-type.ts                # CatType enum definitions
     currency-type.ts           # CurrencyType enum definitions
     customer-status.ts         # CustomerStatus enum definitions
@@ -104,6 +105,7 @@ nodes/Plunet/
     xml.ts                     # XML parsing and result extraction
     parsers/                   # Organized parser modules
       account.ts               # Account and payment info parsers
+      address.ts               # Address-related parsers and DTOs
       common.ts                # Shared XML utilities and base functions
       customer.ts              # Customer-related parsers and DTOs
       index.ts                 # Parser module exports
@@ -116,12 +118,18 @@ nodes/Plunet/
     dataAdmin30.ts             # Administrative functions (countries, languages, workflows, etc.)
     dataCustomer30.core.ts     # Core customer operations
     dataCustomer30.misc.ts     # Miscellaneous customer operations
+    dataCustomerAddress30.core.ts # Customer address management operations
     dataCustomFields30.ts      # Custom fields management (properties, text modules)
     dataDocument30.ts          # Document management operations
+    dataItem30.core.ts         # Core item operations
+    dataItem30.misc.ts         # Miscellaneous item operations
+    dataItem30.prices.ts       # Item pricing operations
     dataJob30.core.ts          # Core job operations
     dataJob30.misc.ts          # Miscellaneous job operations
     dataJob30.prices.ts        # Job pricing operations
     dataJob30.ts               # Main job operations
+    dataOrder30.core.ts        # Core order operations
+    dataOrder30.misc.ts        # Miscellaneous order operations
     dataResource30.core.ts     # Core resource operations
     dataResource30.misc.ts     # Miscellaneous resource operations
     loadOptions.ts             # Dynamic dropdown population functions
@@ -190,6 +198,33 @@ This node integrates with multiple Plunet API services for comprehensive functio
 * **Customer Status**: Active, Inactive, etc.
 * **Tax Type**: For payment information
 * **Form of Address**: Mr., Mrs., Dr., etc.
+
+### 🏠 DataCustomerAddress30 (Customer Address Management)
+**Reference**: [DataCustomerAddress30 Documentation](https://apidoc.plunet.com/latest/BM/Partner/API/SOAP/Webservice/Version30/DataCustomerAddress30.html)
+
+**Core Operations:**
+* **Create Customer Address** (`insert2`) - Create new customer address
+* **Update Customer Address** (`update`) - Update existing address with null/empty value support
+* **Delete Customer Address** (`delete`) - Remove customer address
+* **Get All Customer Addresses** (`getAllAddresses`) - Retrieve all address IDs for a customer
+* **Get Address Object** (`GetAddressObject`) - Fusion function to get complete address data
+
+**Address Fields:**
+* **Address Type** (mandatory): Delivery, Invoice, Other
+* **Description**: Address description/label
+* **Name Fields**: Name1, Name2 for contact names
+* **Office**: Office or department name
+* **Location Fields**: Street, Street2, City, ZIP Code, State
+* **Country**: Dynamic dropdown from Plunet API
+
+**Fusion Function Features:**
+* **Single API Call**: GetAddressObject retrieves all address fields in one operation
+* **Enriched Data**: Returns both address type ID and human-readable label
+* **Complete Information**: All address fields with proper formatting
+
+**Enums & Dropdowns:**
+* **Address Type**: Delivery (1), Invoice (2), Other (3)
+* **Country**: Dynamic list from DataAdmin30.getAvailableCountries
 
 ### 👤 DataResource30 (Resource Management)
 **Reference**: [DataResource30 Documentation](https://apidoc.plunet.com/latest/BM/Partner/API/SOAP/Webservice/Version30/DataResource30.html)
@@ -436,6 +471,87 @@ The node provides human-readable dropdowns for all enum fields:
 2. **DataCustomFields30 → Get Text Module** (retrieve text module content)
 3. **DataCustomFields30 → Set Text Module** (update text module with new content)
 
+### 5. Customer Address Management
+1. **DataCustomer30 → Get Customer** (retrieve customer details)
+2. **DataCustomerAddress30 → Get All Customer Addresses** (list existing addresses)
+3. **DataCustomerAddress30 → Create Customer Address** (add new address)
+4. **DataCustomerAddress30 → Get Address Object** (retrieve complete address data)
+
+---
+
+## Advanced Use Cases
+
+### 🗂️ Create Projects from Cloud Storage Upload
+**Scenario**: Automatically create Plunet projects when files are uploaded to cloud storage
+
+**Workflow**:
+1. **Cloud Storage Trigger** (Dropbox, OneDrive, Google Drive) → detects new file upload
+2. **DataDocument30 → Upload Document** → upload file to Plunet
+3. **DataCustomer30 → Search Customers** → find or create customer based on folder structure
+4. **DataJob30 → Create Job** → create translation job with uploaded document
+5. **DataAdmin30 → Get Available Workflows** → apply appropriate workflow
+6. **DataJob30 → Set Status** → set job to "Ready for Assignment"
+
+**Benefits**: Streamlined project creation, reduced manual data entry, consistent project setup
+
+### 👥 Workflow to Enrich Customer Profiles
+**Scenario**: Enhance customer data with external information and standardize addresses
+
+**Workflow**:
+1. **DataCustomer30 → Get All Customers** → retrieve customer list
+2. **External API Calls** → enrich with company data, industry information
+3. **DataCustomerAddress30 → Get All Customer Addresses** → retrieve existing addresses
+4. **Address Validation Service** → validate and standardize addresses
+5. **DataCustomerAddress30 → Update Customer Address** → update with standardized data
+6. **DataCustomFields30 → Set Property** → add enriched data as custom properties
+7. **DataCustomer30 → Update Customer** → update customer with enhanced information
+
+**Benefits**: Improved data quality, standardized addresses, enriched customer insights
+
+### 🤖 Workflow for LLM Jobs (MTQE - Machine Translation Quality Estimation)
+**Scenario**: Automated quality estimation for machine translation using LLM
+
+**Workflow**:
+1. **DataJob30 → Search Jobs** → find completed MT jobs
+2. **DataDocument30 → Download Document** → get source and target documents
+3. **LLM API Call** (OpenAI, Claude, etc.) → perform quality estimation analysis
+4. **DataCustomFields30 → Set Text Module** → store quality scores and feedback
+5. **DataJob30 → Create Job** → create review job if quality score is below threshold
+6. **DataResource30 → Get Pricelists** → assign appropriate reviewer based on language pair
+7. **DataJob30 → Set Status** → update job status based on quality assessment
+
+**Benefits**: Automated quality control, consistent evaluation criteria, efficient resource allocation
+
+### 🌐 Workflow for MT Jobs (DeepL, Google Translate)
+**Scenario**: Automated machine translation integration with quality tracking
+
+**Workflow**:
+1. **DataJob30 → Get Job** → retrieve job details and source content
+2. **DataDocument30 → Download Document** → get source document
+3. **MT API Call** (DeepL, Google Translate) → perform machine translation
+4. **DataDocument30 → Upload Document** → upload translated document
+5. **DataCustomFields30 → Set Property** → store MT engine used and confidence scores
+6. **DataJob30 → Set Status** → mark as "MT Complete - Pending Review"
+7. **DataJob30 → Create Job** → create post-editing job if required
+8. **DataResource30 → Search Resources** → find qualified post-editors
+
+**Benefits**: Faster turnaround times, consistent MT integration, quality tracking
+
+### 📄 Workflow for OCR Jobs (Mistral PDF Feature)
+**Scenario**: Automated OCR processing with AI-powered text extraction and formatting
+
+**Workflow**:
+1. **DataDocument30 → Get Document List** → find PDF documents requiring OCR
+2. **DataDocument30 → Download Document** → retrieve PDF files
+3. **OCR API Call** (Mistral PDF, Tesseract, Azure OCR) → extract text from PDFs
+4. **LLM Post-Processing** → clean and format extracted text
+5. **DataDocument30 → Upload Document** → upload processed text document
+6. **DataJob30 → Create Job** → create translation job with OCR'd content
+7. **DataCustomFields30 → Set Text Module** → store OCR confidence scores and processing notes
+8. **DataJob30 → Set Status** → mark as "OCR Complete - Ready for Translation"
+
+**Benefits**: Automated document processing, improved text quality, faster project initiation
+
 ---
 
 ## Error Handling
@@ -532,6 +648,24 @@ If you encounter any issues or need additional functionality, please open an iss
 
 ## Recent Updates
 
+### v3.14.0 - Customer Address Management & Advanced Use Cases
+- **NEW**: Complete DataCustomerAddress30 service implementation
+- **NEW**: Customer Address resource with CRUD operations (insert2, update, delete, getAllAddresses)
+- **NEW**: GetAddressObject fusion function for complete address data retrieval
+- **NEW**: AddressType enum with Delivery, Invoice, Other options
+- **NEW**: Dynamic country dropdown from Plunet API
+- **NEW**: Advanced use cases documentation for cloud storage, LLM, MT, and OCR workflows
+- **Enhanced**: README with comprehensive Customer Address documentation
+- **Enhanced**: File structure documentation with all current services
+- **Fixed**: SOAP request formats for proper API compatibility
+- **Fixed**: Country load options with proper parameter handling
+
+### v3.13.x - Beta Development Series
+- Multiple beta releases for Customer Address functionality development
+- SOAP request format fixes and improvements
+- Load options implementation and debugging
+- Service architecture refinements
+
 ### v3.8.0 - Comprehensive Documentation Update
 - Complete rewrite of README.md with accurate file structure
 - Fixed file paths and directory structure documentation
@@ -543,18 +677,3 @@ If you encounter any issues or need additional functionality, please open an iss
 - Added WorkflowType and WorkflowStatus enums
 - Enhanced workflow responses with human-readable labels
 - Improved user experience for workflow selection
-
-### v3.7.32 - Additional Admin Operations
-- Added getAvailableWorkflows operation
-- Added getSystemCurrencies operation
-- Enhanced administrative functionality
-
-### v3.7.31 - Text Module Functionality
-- Added getTextModule and setTextModule operations
-- Implemented dynamic text module content types
-- Added loadOptions for text module flags
-
-### v3.7.30 - Country and Language Support
-- Added getAvailableCountries operation
-- Added getAvailableLanguages operation
-- Enhanced internationalization support
