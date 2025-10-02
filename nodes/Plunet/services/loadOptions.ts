@@ -296,6 +296,47 @@ function createAdminExecuteConfig(creds: Creds, url: string, baseUrl: string, ti
           statusCode: base.statusCode,
           languages: languages
         };
+      } else if (op === 'getAvailableCountries') {
+        // Parse CountryListResult for getAvailableCountries
+        const base = extractResultBase(xml);
+        
+        // Look for CountryListResult scope
+        const countryListResultScope = findFirstTagBlock(xml, 'CountryListResult');
+        if (!countryListResultScope) {
+          return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+        }
+        
+        // Extract all data blocks
+        const dataMatches = countryListResultScope.match(/<data>[\s\S]*?<\/data>/g);
+        if (!dataMatches) {
+          return { statusMessage: base.statusMessage, statusCode: base.statusCode };
+        }
+        
+        const countries: Array<{
+          ID: number,
+          isoCode: string,
+          name: string
+        }> = [];
+        
+        dataMatches.forEach(dataBlock => {
+          const idMatch = dataBlock.match(/<ID>(.*?)<\/ID>/);
+          const isoCodeMatch = dataBlock.match(/<isoCode>(.*?)<\/isoCode>/);
+          const nameMatch = dataBlock.match(/<name>(.*?)<\/name>/);
+          
+          if (nameMatch && nameMatch[1] && idMatch && idMatch[1]) {
+            countries.push({
+              ID: parseInt(idMatch[1], 10),
+              isoCode: isoCodeMatch && isoCodeMatch[1] ? isoCodeMatch[1] : '',
+              name: nameMatch[1]
+            });
+          }
+        });
+        
+        return {
+          statusMessage: base.statusMessage,
+          statusCode: base.statusCode,
+          countries: countries
+        };
       }
       
       return { statusMessage: 'Unknown operation', statusCode: -1 };
@@ -555,6 +596,85 @@ export async function getAvailableTextModuleFlags(this: ILoadOptionsFunctions) {
     return [
       {
         name: `Error loading text modules: ${errorMessage}`,
+        value: '',
+        disabled: true
+      }
+    ];
+  }
+}
+
+export async function getAvailableCountries(this: ILoadOptionsFunctions) {
+  try {
+    // Get credentials
+    const creds = await this.getCredentials('plunetApi') as Creds;
+    const scheme = creds.useHttps ? 'https' : 'http';
+    const baseUrl = `${scheme}://${creds.baseHost.replace(/\/$/, '')}`;
+    const url = `${baseUrl}/DataAdmin30`;
+    const timeoutMs = creds.timeout ?? 30000;
+    
+    // Create execute config for DataAdmin30
+    const config = createAdminExecuteConfig(creds, url, baseUrl, timeoutMs);
+    
+    // Call getAvailableCountries
+    const sessionId = await config.getSessionId(this as any, 0);
+    const soapAction = config.soapActionFor('getAvailableCountries');
+    
+    // Build SOAP envelope
+    const envelope = `<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
+   <soap:Header/>
+   <soap:Body>
+      <api:getAvailableCountries>
+         <UUID>${sessionId}</UUID>
+      </api:getAvailableCountries>
+   </soap:Body>
+</soap:Envelope>`;
+    
+    // Make SOAP request
+    const response = await this.helpers.request({
+      method: 'POST',
+      url: config.url,
+      headers: {
+        'Content-Type': 'application/soap+xml; charset=utf-8',
+        'SOAPAction': soapAction,
+      },
+      body: envelope,
+    });
+    
+    // Parse response
+    const parsed = config.parseResult(response, 'getAvailableCountries') as IDataObject;
+    
+    // Check for errors
+    if (parsed.statusCode && parsed.statusCode !== 0) {
+      return [
+        {
+          name: `API Error: ${parsed.statusMessage || 'Unknown error'} (Code: ${parsed.statusCode})`,
+          value: '',
+          disabled: true
+        }
+      ];
+    }
+    
+    // Extract countries from response
+    if (parsed.countries && Array.isArray(parsed.countries)) {
+      return parsed.countries.map((country: any) => ({
+        name: country.name,
+        value: country.name
+      }));
+    }
+    
+    return [
+      {
+        name: 'No countries available',
+        value: '',
+        disabled: true
+      }
+    ];
+    
+  } catch (error) {
+    return [
+      {
+        name: `Error loading countries: ${error instanceof Error ? error.message : 'Unknown error'}`,
         value: '',
         disabled: true
       }
