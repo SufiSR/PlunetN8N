@@ -610,47 +610,37 @@ export async function getAvailableCountries(this: ILoadOptionsFunctions) {
     const creds = await this.getCredentials('plunetApi') as Creds;
     const scheme = creds.useHttps ? 'https' : 'http';
     const baseUrl = `${scheme}://${creds.baseHost.replace(/\/$/, '')}`;
-    const url = `${baseUrl}/DataAdmin30`;
-    const timeoutMs = creds.timeout ?? 30000;
     
-    // Create execute config for DataAdmin30
-    const config = createAdminExecuteConfig(creds, url, baseUrl, timeoutMs);
+    // Import and use the DataAdmin30Service directly
+    const { DataAdmin30Service } = await import('./dataAdmin30');
     
-    // Call getAvailableCountries
-    const sessionId = await config.getSessionId(this as any, 0);
-    const soapAction = config.soapActionFor('getAvailableCountries');
+    // Create a mock context that provides the languageCode parameter
+    const mockContext = {
+      ...this,
+      getNodeParameter: (paramName: string, itemIndex: number, defaultValue: any) => {
+        if (paramName === 'languageCode') {
+          return 'EN'; // Default to English
+        }
+        return defaultValue;
+      }
+    };
     
-    // Build SOAP envelope
-    const envelope = `<?xml version="1.0" encoding="utf-8"?>
-<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:api="http://API.Integration/">
-   <soap:Header/>
-   <soap:Body>
-      <api:getAvailableCountries>
-         <UUID>${sessionId}</UUID>
-         <languageCode>EN</languageCode>
-      </api:getAvailableCountries>
-   </soap:Body>
-</soap:Envelope>`;
-    
-    // Make SOAP request
-    const response = await this.helpers.request({
-      method: 'POST',
-      url: config.url,
-      headers: {
-        'Content-Type': 'application/soap+xml; charset=utf-8',
-        'SOAPAction': soapAction,
-      },
-      body: envelope,
-    });
-    
-    // Parse response
-    const parsed = config.parseResult(response, 'getAvailableCountries') as IDataObject;
+    // Call the service directly with proper parameters
+    const result = await DataAdmin30Service.execute(
+      'getAvailableCountries',
+      mockContext as any, // Cast to IExecuteFunctions
+      creds,
+      `${baseUrl}/DataAdmin30`,
+      baseUrl,
+      creds.timeout ?? 30000,
+      0 // itemIndex
+    );
     
     // Check for errors
-    if (parsed.statusCode && parsed.statusCode !== 0) {
+    if (!result.success || (result.statusCode && result.statusCode !== 0)) {
       return [
         {
-          name: `API Error: ${parsed.statusMessage || 'Unknown error'} (Code: ${parsed.statusCode})`,
+          name: `API Error: ${result.statusMessage || 'Unknown error'} (Code: ${result.statusCode || 'Unknown'})`,
           value: '',
           disabled: true
         }
@@ -658,8 +648,8 @@ export async function getAvailableCountries(this: ILoadOptionsFunctions) {
     }
     
     // Extract countries from response
-    if (parsed.countries && Array.isArray(parsed.countries)) {
-      return parsed.countries.map((country: any) => ({
+    if (result.countries && Array.isArray(result.countries)) {
+      return result.countries.map((country: any) => ({
         name: country.name,
         value: country.name
       }));
