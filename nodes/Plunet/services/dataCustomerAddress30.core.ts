@@ -210,6 +210,14 @@ import {
       description: 'Country',
       displayOptions: { show: { resource: [RESOURCE], operation: ['insert2', 'update'] } },
     },
+    {
+      displayName: 'Enable Null or Empty Values',
+      name: 'enableNullOrEmptyValues',
+      type: 'boolean',
+      default: false,
+      description: 'Whether to enable null or empty values for the update operation',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['update'] } },
+    },
   ];
   
   function toSoapParamValue(raw: unknown, paramName: string): string {
@@ -337,6 +345,7 @@ ${addressInXml}`;
           const zip = ctx.getNodeParameter('zip', itemIndex, '') as string;
           const state = ctx.getNodeParameter('state', itemIndex, '') as string;
           const country = ctx.getNodeParameter('country', itemIndex, '') as string;
+          const enableNullOrEmptyValues = ctx.getNodeParameter('enableNullOrEmptyValues', itemIndex, false) as boolean;
           
           const addressInXml = [
             '<AddressIN>',
@@ -356,7 +365,16 @@ ${addressInXml}`;
           ].filter(line => line !== '').join('\n');
           
           return `<UUID>${escapeXml(sessionId)}</UUID>
-${addressInXml}`;
+${addressInXml}
+<enableNullOrEmptyValues>${enableNullOrEmptyValues ? 'true' : 'false'}</enableNullOrEmptyValues>`;
+        }
+        if (op === 'getAllAddresses') {
+          return `<UUID>${escapeXml(sessionId)}</UUID>
+<CustomerID>${escapeXml(String(itemParams.customerID))}</CustomerID>`;
+        }
+        if (op === 'delete') {
+          return `<UUID>${escapeXml(sessionId)}</UUID>
+<AddressID>${escapeXml(String(itemParams.addressID))}</AddressID>`;
         }
         return null;
       },
