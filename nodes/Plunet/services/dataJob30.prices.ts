@@ -258,6 +258,16 @@ import {
         return { displayName: p, name: p, type: 'string', default: '', description: `${p} parameter for ${op}`, displayOptions: { show: { resource: [RESOURCE], operation: [op] } } };
       })
     ),
+
+    // Extended Object option for getPriceLines
+    {
+      displayName: 'Extended Object',
+      name: 'extendedObject',
+      type: 'boolean',
+      default: false,
+      description: 'When enabled, enriches each price line with description and service from the price unit',
+      displayOptions: { show: { resource: [RESOURCE], operation: ['getPriceLine_List'] } },
+    },
   
     // Collections for price line ops only
     ...(['insertPriceLine', 'updatePriceLine'] as const).map(op => ({
@@ -439,6 +449,57 @@ import {
       const config = createExecuteConfig(creds, url, baseUrl, timeoutMs);
       const itemParams: IDataObject = {};
       for (const paramName of paramNames) itemParams[paramName] = ctx.getNodeParameter(paramName, itemIndex, '');
+      
+      // Handle extended object enrichment for getPriceLine_List
+      if (operation === 'getPriceLine_List') {
+        const extendedObject = ctx.getNodeParameter('extendedObject', itemIndex, false) as boolean;
+        const result = await executeOperation(ctx, operation, itemParams, config, itemIndex);
+        const finalResult = Array.isArray(result) ? result[0] || {} : result;
+        
+        if (extendedObject && finalResult.priceLines && Array.isArray(finalResult.priceLines)) {
+          // Enrich each price line with price unit details
+          const enrichedPriceLines = await Promise.all(
+            finalResult.priceLines.map(async (priceLine: any) => {
+              if (priceLine.PriceUnitID) {
+                try {
+                  // Create a new config for getPriceUnit call
+                  const priceUnitConfig = createExecuteConfig(creds, url, baseUrl, timeoutMs);
+                  const priceUnitParams = {
+                    PriceUnitID: priceLine.PriceUnitID,
+                    languageCode: 'EN'
+                  };
+                  
+                  // Call getPriceUnit to get additional details
+                  const priceUnitResult = await executeOperation(ctx, 'getPriceUnit', priceUnitParams, priceUnitConfig, itemIndex);
+                  const priceUnitData = Array.isArray(priceUnitResult) ? priceUnitResult[0] || {} : priceUnitResult;
+                  
+                  // Add description and service to the price line
+                  if (priceUnitData.priceUnit && typeof priceUnitData.priceUnit === 'object') {
+                    const priceUnit = priceUnitData.priceUnit as IDataObject;
+                    return {
+                      ...priceLine,
+                      description: priceUnit.description || '',
+                      service: priceUnit.service || ''
+                    };
+                  }
+                } catch (error) {
+                  // If price unit fetch fails, return original price line
+                  // Log error for debugging but don't throw
+                }
+              }
+              return priceLine;
+            })
+          );
+          
+          return {
+            ...finalResult,
+            priceLines: enrichedPriceLines
+          };
+        }
+        
+        return finalResult;
+      }
+      
       const result = await executeOperation(ctx, operation, itemParams, config, itemIndex);
       return Array.isArray(result) ? result[0] || {} : result;
     },
