@@ -430,7 +430,8 @@ function buildResourceSearchFilterXml(
     itemIndex: number,
     fields: readonly string[],
 ): string {
-    const lines: string[] = ['<SearchFilter_Resource>'];
+    // WSDL expects the parameter element name "SearchFilterResource" (type is SearchFilter_Resource)
+    const lines: string[] = ['<SearchFilterResource>'];
     for (const name of fields) {
         const raw = ctx.getNodeParameter(name, itemIndex, '');
         const val = toSoapParamValue(raw, name);
@@ -438,7 +439,7 @@ function buildResourceSearchFilterXml(
             lines.push(`  <${name}>${escapeXml(val)}</${name}>`);
         }
     }
-    lines.push('</SearchFilter_Resource>');
+    lines.push('</SearchFilterResource>');
     return lines.join('\n      ');
 }
 
