@@ -251,9 +251,9 @@ import {
       displayName: 'Customer ID',
       name: 'customerID',
       type: 'number',
-      default: undefined,
+      default: -1,
       typeOptions: { minValue: 0, step: 1 },
-      description: 'Filter by customer ID (optional)',
+      description: 'Filter by customer ID (optional). Leave as -1 to ignore.',
       displayOptions: { show: { resource: [RESOURCE], operation: ['search'] } },
     },
     {
@@ -374,8 +374,8 @@ import {
           // Build SearchFilter_Job XML - include ALL fields, even if empty
           let searchFilterXml = '<SearchFilter_Job>';
           
-          // Always include customerID (empty if not set)
-          const customerIDValue = (customerID !== undefined && customerID !== null) ? String(customerID) : '';
+          // Always include customerID; default to -1 (means "ignore" in ReportJob30)
+          const customerIDValue = (customerID !== undefined && customerID !== null) ? String(customerID) : '-1';
           searchFilterXml += `<customerID>${escapeXml(customerIDValue)}</customerID>`;
           
           // Always include item_Status (empty if not set)
