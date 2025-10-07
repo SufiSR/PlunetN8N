@@ -18,6 +18,7 @@ import { DataItem30MiscService } from './services/dataItem30.misc';
 import { DataItem30PricesService } from './services/dataItem30.prices';
 import { DataCustomerAddress30CoreService } from './services/dataCustomerAddress30.core';
 import { buildSubtitleLookup } from './core/service-utils';
+import { DataCustomerContact30CoreService } from './services/dataCustomerContact30.core';
 
 
 const services = [
@@ -38,6 +39,7 @@ const services = [
     DataOrder30MiscService,
     DataItem30MiscService, 
     DataJob30MiscService,       
+    DataCustomerContact30CoreService,
     //DataJob30Service, // not used
 ] as const;
 

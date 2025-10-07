@@ -6,6 +6,9 @@ export * from './common';
 // Customer-related parsers and DTOs
 export * from './customer';
 
+// Customer Contact-related parsers and DTOs
+export * from './customer-contact';
+
 // Address-related parsers and DTOs
 export * from './address';
 

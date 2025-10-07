@@ -35,6 +35,28 @@ export const CUSTOMER_SEARCH_FILTER_FIELDS = [
 ] as const;
 
 // ============================================================================
+// CUSTOMER CONTACT FIELDS
+// ============================================================================
+
+export const CUSTOMER_CONTACT_IN_FIELDS = [
+    'addressID',
+    'costCenter',
+    'customerContactID',
+    'customerID',
+    'email',
+    'externalID',
+    'fax',
+    'mobilePhone',
+    'name1',
+    'name2',
+    'phone',
+    'status',
+    'supervisor1',
+    'supervisor2',
+    'userId',
+] as const;
+
+// ============================================================================
 // RESOURCE FIELDS
 // ============================================================================
 
@@ -185,6 +207,13 @@ export const MANDATORY_FIELDS: Record<string, string[]> = {
     
     // Payment operations
     'setPaymentInformation': ['customerID', 'paymentMethodID'],
+
+    // Customer Contact operations (prefixed to avoid key collisions)
+    'contactGetContactObject': ['ContactID'],
+    'contactGetAllContactObjects': ['CustomerID'],
+    'contactSeekByExternalID': ['ExternalID'],
+    'contactInsert2': ['customerID'],
+    'contactUpdate': ['customerContactID'],
 };
 
 // ============================================================================
