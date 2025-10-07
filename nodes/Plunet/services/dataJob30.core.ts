@@ -360,8 +360,8 @@ import {
           return `<UUID>${escapeXml(sessionId)}</UUID>\n${jobInXml}`;
         }
         if (op === 'search') {
-          // Get search filter parameters
-          const customerID = ctx.getNodeParameter('customerID', itemIndex, undefined) as number | undefined;
+          // Get search filter parameters (guard against non-primitive values)
+          const customerIDRaw = ctx.getNodeParameter('customerID', itemIndex, undefined) as unknown;
           const item_Status = ctx.getNodeParameter('item_Status', itemIndex, '') as string;
           const jobAbbreviation = ctx.getNodeParameter('jobAbbreviation', itemIndex, '') as string;
           const job_CreationDate_from = ctx.getNodeParameter('job_CreationDate_from', itemIndex, '') as string;
@@ -374,8 +374,14 @@ import {
           // Build SearchFilter_Job XML - include ALL fields, even if empty
           let searchFilterXml = '<SearchFilter_Job>';
           
-          // Always include customerID; default to -1 (means "ignore" in ReportJob30)
-          const customerIDValue = (customerID !== undefined && customerID !== null) ? String(customerID) : '-1';
+          // Always include customerID; empty tag if not a positive number
+          let customerIDValue = '';
+          if (typeof customerIDRaw === 'number' && Number.isFinite(customerIDRaw) && customerIDRaw > 0) {
+            customerIDValue = String(customerIDRaw);
+          } else if (typeof customerIDRaw === 'string' && customerIDRaw.trim() !== '' && !Number.isNaN(Number(customerIDRaw))) {
+            const n = Number(customerIDRaw);
+            if (n > 0) customerIDValue = String(n);
+          }
           searchFilterXml += `<customerID>${escapeXml(customerIDValue)}</customerID>`;
           
           // Always include item_Status (empty if not set)
