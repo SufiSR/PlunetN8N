@@ -127,6 +127,7 @@ import { DataCustomerAddress30CoreService } from './services/dataCustomerAddress
 import { DebugService } from './services/debug';
 import { getAvailablePropertyNames, getAvailableTextModuleFlags, getAvailableWorkflows, getAvailableLanguages, getAvailableCountries } from './services/loadOptions';
 // import { DataJob30Service } from './services/dataJob30';
+import { DataCustomerContact30CoreService } from './services/dataCustomerContact30.core';
 
 
 const registry: Record<string, Service> = {
@@ -142,6 +143,7 @@ const registry: Record<string, Service> = {
     [DataItem30MiscService.resource]: DataItem30MiscService,
     [DataItem30PricesService.resource]: DataItem30PricesService,
     [DataCustomerAddress30CoreService.resource]: DataCustomerAddress30CoreService,
+    [DataCustomerContact30CoreService.resource]: DataCustomerContact30CoreService,
     [DebugService.resource]: DebugService,
     [DataCustomer30MiscService.resource]: DataCustomer30MiscService,
     [DataResource30MiscService.resource]: DataResource30MiscService,

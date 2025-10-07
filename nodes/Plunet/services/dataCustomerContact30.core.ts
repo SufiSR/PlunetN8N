@@ -105,7 +105,9 @@ const extraProperties: INodeProperties[] = [
             op === 'insert2' ? 'contactInsert2' :
             op === 'update' ? 'contactUpdate' : op
         ] || [];
-        return mandatoryFields.map<INodeProperties>((p) => {
+        // Ensure we only render each mandatory field once per operation
+        const uniqueMandatory = Array.from(new Set(mandatoryFields));
+        return uniqueMandatory.map<INodeProperties>((p) => {
             const fieldType = FIELD_TYPES[p] || 'string';
             if (p.toLowerCase() === 'status') {
                 return createTypedProperty(
@@ -175,16 +177,23 @@ const extraProperties: INodeProperties[] = [
             options,
         }];
     }),
-    // Other params not in DTO fields
-    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) =>
-        params
-            .filter(p => !(CUSTOMER_CONTACT_IN_FIELDS as readonly string[]).includes(p) && !MANDATORY_FIELDS[op]?.includes(p))
+    // Other params not in DTO fields (avoid duplicating mandatory ones)
+    ...Object.entries(PARAM_ORDER).flatMap(([op, params]) => {
+        const mandatoryFields = MANDATORY_FIELDS[
+            op === 'getContactObject' ? 'contactGetContactObject' :
+            op === 'getAllContactObjects' ? 'contactGetAllContactObjects' :
+            op === 'seekByExternalID' ? 'contactSeekByExternalID' :
+            op === 'insert2' ? 'contactInsert2' :
+            op === 'update' ? 'contactUpdate' : op
+        ] || [];
+        return params
+            .filter(p => !(CUSTOMER_CONTACT_IN_FIELDS as readonly string[]).includes(p) && !mandatoryFields.includes(p))
             .map<INodeProperties>((p) => {
                 const fieldType = (FIELD_TYPES as Record<string, 'string' | 'number' | 'boolean' | 'date'>)[p] || 'string';
                 const displayName = labelize(p);
                 return createTypedProperty(p, displayName, `${displayName} parameter for ${op}`, RESOURCE, op, fieldType, false);
-            }),
-    ),
+            });
+    }),
 ];
 
 function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeoutMs: number) {
