@@ -187,7 +187,7 @@ const extraProperties: INodeProperties[] = [
     name: 'binaryData',
     type: 'string',
     default: '',
-    description: 'The binary data from a previous n8n node (usually from binary.data)',
+    description: 'The binary data from a previous n8n node (usually from binary.data) or Base64 string when input type is "Base64 String"',
     displayOptions: { show: { resource: [RESOURCE], operation: ['convertBinaryToBytestream'] } },
   },
   // Upload Document parameters
@@ -412,49 +412,84 @@ export const DataDocument30Service: Service = {
         throw new Error(`Failed to convert bytestream to binary: ${errorMessage}`);
       }
     } else if (operation === 'convertBinaryToBytestream') {
-      // Get binary data from input
-      const inputData = ctx.getInputData()[itemIndex];
-      const binaryData = inputData?.binary?.data;
-      if (!binaryData) {
-        throw new Error('No binary data found in input. Please connect a node that provides binary data.');
-      }
+      // Check input type to determine how to handle the data
+      const inputType = ctx.getNodeParameter('inputType', itemIndex) as string;
       
-      try {
-        // Get the binary buffer
-        const buffer = await ctx.helpers.getBinaryDataBuffer(itemIndex, 'data');
+      if (inputType === 'base64') {
+        // Handle Base64 string input
+        const base64String = String(ctx.getNodeParameter('binaryData', itemIndex) || '');
+        if (!base64String || base64String.trim() === '') {
+          throw new Error('Base64 string is required when input type is set to "Base64 String".');
+        }
         
-        // Convert to base64 string
-        const base64String = buffer.toString('base64');
-        
-        return {
-          json: { 
-            success: true,
-            resource: RESOURCE,
-            operation: 'convertBinaryToBytestream',
-            message: 'Successfully converted binary data to bytestream',
-            fileContent: base64String,
-            fileName: binaryData.fileName || 'converted_file',
-            mimeType: binaryData.mimeType || 'application/octet-stream'
-          }
-        };
-      } catch (bufferError) {
-        // If getBinaryDataBuffer fails, try to get the data directly from the binary object
-        if (binaryData.data) {
-          const base64String = binaryData.data;
+        try {
+          // Validate that it's a valid base64 string by trying to decode it
+          // @ts-ignore - Buffer is available globally in Node.js
+          const buffer = Buffer.from(base64String, 'base64');
+          
           return {
             json: { 
               success: true,
               resource: RESOURCE,
               operation: 'convertBinaryToBytestream',
-              message: 'Successfully converted binary data to bytestream (direct method)',
+              message: 'Successfully processed Base64 string to bytestream',
               fileContent: base64String,
-              fileName: binaryData.fileName || 'converted_file',
-              mimeType: binaryData.mimeType || 'application/octet-stream'
+              fileName: 'base64_input',
+              mimeType: 'application/octet-stream',
+              inputType: 'base64'
             }
           };
-        } else {
-          const errorMessage = bufferError instanceof Error ? bufferError.message : String(bufferError);
-          throw new Error(`Failed to convert binary data: ${errorMessage}`);
+        } catch (base64Error) {
+          const errorMessage = base64Error instanceof Error ? base64Error.message : String(base64Error);
+          throw new Error(`Invalid Base64 string: ${errorMessage}`);
+        }
+      } else {
+        // Handle binary data from previous node (default behavior)
+        const inputData = ctx.getInputData()[itemIndex];
+        const binaryData = inputData?.binary?.data;
+        if (!binaryData) {
+          throw new Error('No binary data found in input. Please connect a node that provides binary data or select "Base64 String" input type.');
+        }
+        
+        try {
+          // Get the binary buffer
+          const buffer = await ctx.helpers.getBinaryDataBuffer(itemIndex, 'data');
+          
+          // Convert to base64 string
+          const base64String = buffer.toString('base64');
+          
+          return {
+            json: { 
+              success: true,
+              resource: RESOURCE,
+              operation: 'convertBinaryToBytestream',
+              message: 'Successfully converted binary data to bytestream',
+              fileContent: base64String,
+              fileName: binaryData.fileName || 'converted_file',
+              mimeType: binaryData.mimeType || 'application/octet-stream',
+              inputType: 'binary'
+            }
+          };
+        } catch (bufferError) {
+          // If getBinaryDataBuffer fails, try to get the data directly from the binary object
+          if (binaryData.data) {
+            const base64String = binaryData.data;
+            return {
+              json: { 
+                success: true,
+                resource: RESOURCE,
+                operation: 'convertBinaryToBytestream',
+                message: 'Successfully converted binary data to bytestream (direct method)',
+                fileContent: base64String,
+                fileName: binaryData.fileName || 'converted_file',
+                mimeType: binaryData.mimeType || 'application/octet-stream',
+                inputType: 'binary'
+              }
+            };
+          } else {
+            const errorMessage = bufferError instanceof Error ? bufferError.message : String(bufferError);
+            throw new Error(`Failed to convert binary data: ${errorMessage}`);
+          }
         }
       }
     }
