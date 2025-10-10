@@ -3,12 +3,14 @@
 > **n8n community node for the Plunet SOAP API**
 > Comprehensive integration with Plunet BusinessManager API including authentication, customer management, resource management, job operations, document handling, and administrative functions.
 
+> **⚠️ WORK IN PROGRESS** - This node is actively being developed and expanded. New features and services are being added regularly. Some operations may be in beta or testing phase.
+
 ---
 
 ## Features
 
 * **Session Management**: Automatic login with UUID caching per `baseHost + scheme`
-* **Multi-Service Integration**: Support for 6+ Plunet API services with unified interface
+* **Multi-Service Integration**: Support for 19+ Plunet API services with unified interface
 * **Enhanced UX**: User-friendly field names, dropdowns, and structured responses
 * **Type Safety**: Full TypeScript support with proper type definitions
 * **Error Handling**: Comprehensive error handling with meaningful messages
@@ -311,6 +313,167 @@ This node integrates with multiple Plunet API services for comprehensive functio
 * **Dynamic Content Types**: String, Single Select, Multi Select, Date
 * **Usage Area Support**: Different text module categories
 * **Language Support**: Multi-language text modules
+
+### 📋 DataOrder30 (Order Management)
+**Reference**: [DataOrder30 Documentation](https://apidoc.plunet.com/latest/BM/Projekt/Order/API/SOAP/Webservice/Version30/DataOrder30.html)
+
+**Core Operations:**
+* **Get Order** (`getOrderObject`) - Retrieve order details with optional extended object data
+* **Create Order** (`insert2`) - Create new order with comprehensive field support
+* **Update Order** (`update`) - Update existing order with all field operations
+* **Delete Order** (`delete`) - Remove order
+* **Search Orders** (`search`) - Search orders with various criteria
+
+**Order Fields:**
+* **Project Information**: Project name, manager, category, status
+* **Customer Details**: Customer ID, contact person, delivery deadline
+* **Financial**: Currency, rate, reference number
+* **Timeline**: Order date, creation date, delivery deadline
+* **Standards**: EN15038 compliance, external ID, master project
+
+### 📦 DataItem30 (Item Management)
+**Reference**: [DataItem30 Documentation](https://apidoc.plunet.com/latest/BM/Projekt/Item/API/SOAP/Webservice/Version30/DataItem30.html)
+
+**Core Operations:**
+* **Get Item** (`getItemObject`) - Retrieve single item by ID
+* **Get All Items** (`getAllItemObjects`) - Retrieve all items for a project
+* **Create Item** (`insert2`) - Create new item with advanced options
+* **Update Item** (`update`) - Update existing item with advanced options
+* **Delete Item** (`delete`) - Remove item
+
+**Item Fields:**
+* **Language Information**: Source language, target language, language combination
+* **Content Details**: Word count, character count, item status
+* **Project Context**: Project ID, project type, workflow information
+* **Comments**: Item comments and notes
+
+### 💰 DataItem30Prices (Item Pricing)
+**Reference**: [DataItem30 Documentation](https://apidoc.plunet.com/latest/BM/Projekt/Item/API/SOAP/Webservice/Version30/DataItem30.html)
+
+**Pricing Operations:**
+* **Get Price Lines** (`getPriceLine_List`) - Retrieve price lines for an item
+* **Get Price Lines by Currency** (`getPriceLine_ListByCurrency`) - Currency-specific price lines
+* **Get Price Units** (`getPriceUnit_List`) - Retrieve price units for an item
+* **Get Price Units by Currency** (`getPriceUnit_ListByCurrency`) - Currency-specific price units
+* **Get Pricelists** (`getPricelist_List`) - Get pricelists for an item
+* **Get Pricelist Entries** (`getPricelistEntry_List`) - Get pricelist entries for an item
+
+### 💰 DataJob30Prices (Job Pricing)
+**Reference**: [DataJob30 Documentation](https://apidoc.plunet.com/latest/BM/Projekt/Job/API/SOAP/Webservice/Version30/DataJob30.html)
+
+**Pricing Operations:**
+* **Get Job Metrics** (`getJobMetrics`) - Retrieve metrics for a job
+* **Get Price Lines** (`getPriceLine_List`) - Retrieve price lines for a job
+* **Get Price Lines by Currency** (`getPriceLine_ListByCurrency`) - Currency-specific price lines
+* **Get Price Units** (`getPriceUnit_List`) - Retrieve price units for a job
+* **Get Price Units by Currency** (`getPriceUnit_ListByCurrency`) - Currency-specific price units
+* **Get Pricelists** (`getPricelist_List`) - Get pricelists for a job
+* **Get Pricelist Entries** (`getPricelistEntry_List`) - Get pricelist entries for a job
+
+### 👤 DataCustomerContact30 (Customer Contact Management)
+**Reference**: [DataCustomerContact30 Documentation](https://apidoc.plunet.com/latest/BM/Partner/API/SOAP/Webservice/Version30/DataCustomerContact30.html)
+
+**Core Operations:**
+* **Get Many Contact Objects** (`getAllContactObjects`) - Retrieve all contacts for a customer
+* **Get Contact Object** (`getContactObject`) - Retrieve single contact by ID
+* **Get by External ID** (`seekByExternalID`) - Find contacts by external identifier
+* **Create Contact** (`insert2`) - Create new customer contact
+* **Update Contact** (`update`) - Update existing contact
+* **Delete Contact** (`delete`) - Remove contact
+
+**Contact Fields:**
+* **Personal Information**: Name, title, form of address
+* **Contact Details**: Email, phone, mobile, fax
+* **Status**: Contact person status and availability
+* **External Integration**: External ID for system integration
+
+### 🔧 DataCustomer30Misc (Customer Field Operations)
+**Reference**: [DataCustomer30 Documentation](https://apidoc.plunet.com/latest/BM/Partner/API/SOAP/Webservice/Version30/DataCustomer30.html)
+
+**Field Operations:**
+* **Get by External ID** (`seekByExternalID`) - Find customer by external identifier
+* **Get All Customers** (`getAllCustomerObjects`) - List all customers
+* **Status Management** (`getStatus`/`setStatus`) - Customer status operations
+* **Payment Information** (`getPaymentInformation`/`setPaymentInformation`) - Payment details
+* **Account Manager** (`getAccountManagerID`/`setAccountManagerID`) - Manager assignment
+* **Project Manager** (`getProjectManagerID`/`setProjectManagerID`) - Project manager assignment
+* **Contact Information** (`getDateOfInitialContact`, `getSourceOfContact`, `getDossier`) - Contact details
+* **Workflow Management** (`getWorkflowList`/`setWorkflowList`) - Workflow assignments
+
+### 🔧 DataResource30Misc (Resource Field Operations)
+**Reference**: [DataResource30 Documentation](https://apidoc.plunet.com/latest/BM/Partner/API/SOAP/Webservice/Version30/DataResource30.html)
+
+**Field Operations:**
+* **Get by External ID** (`seekByExternalID`) - Find resource by external identifier
+* **Get All Resources** (`getAllResourceObjects`) - List all resources
+* **Status Management** (`getStatus`/`setStatus`) - Resource status operations
+* **Working Status** (`getWorkingStatus`/`setWorkingStatus`) - Working status management
+* **Resource Type** (`getResourceType`/`setResourceType`) - Resource type operations
+* **Payment Information** (`getPaymentInformation`/`setPaymentInformation`) - Payment details
+* **Pricelist Operations** (`getPricelists`/`getPricelists2`) - Pricelist management
+
+### 🔧 DataOrder30Misc (Order Field Operations)
+**Reference**: [DataOrder30 Documentation](https://apidoc.plunet.com/latest/BM/Projekt/Order/API/SOAP/Webservice/Version30/DataOrder30.html)
+
+**Field Operations:**
+* **Get Creation Date** (`getCreationDate`) - Retrieve order creation date
+* **Get Order Status** (`getOrderStatus`/`setOrderStatus`) - Order status management
+* **Get Project Manager** (`getProjectManagerID`/`setProjectManagerID`) - Project manager assignment
+* **Get Customer** (`getCustomerID`/`setCustomerID`) - Customer assignment
+* **Get Customer Contact** (`getCustomerContactID`/`setCustomerContactID`) - Contact assignment
+* **Get Delivery Deadline** (`getDeliveryDeadline`/`setDeliveryDeadline`) - Deadline management
+* **Get Order Date** (`getOrderDate`/`setOrderDate`) - Order date operations
+* **Get Project Name** (`getProjectName`/`setProjectName`) - Project name management
+* **Get Reference Number** (`getReferenceNumber`/`setReferenceNumber`) - Reference management
+* **Get Subject** (`getSubject`/`setSubject`) - Subject management
+* **Get Rate** (`getRate`/`setRate`) - Rate management
+* **Get Currency** (`getCurrency`/`setCurrency`) - Currency operations
+* **Get External ID** (`getExternalID`/`setExternalID`) - External ID management
+* **Get Master Project** (`getMasterProjectID`/`setMasterProjectID`) - Master project assignment
+* **Get Project Category** (`getProjectCategory`/`setProjectCategory`) - Category management
+* **Get Project Status** (`getProjectStatus`/`setProjectStatus`) - Project status operations
+* **Get EN15038** (`getEN15038Requested`/`setEN15038Requested`) - EN15038 standard compliance
+* **Get Request ID** (`getRequestID`/`setRequestID`) - Request ID management
+* **Get Creation Date** (`getCreationDate`/`setCreationDate`) - Creation date operations
+* **Get Project Manager Memo** (`getProjectManagerMemo`/`setProjectManagerMemo`) - Memo management
+* **Get Archive Status** (`getArchiveStatus`/`setArchiveStatus`) - Archive status operations
+* **Get All Orders** (`getAllOrderObjects`) - List all orders
+* **Search Orders** (`search`) - Search orders with filters
+
+### 🔧 DataItem30Misc (Item Field Operations)
+**Reference**: [DataItem30 Documentation](https://apidoc.plunet.com/latest/BM/Projekt/Item/API/SOAP/Webservice/Version30/DataItem30.html)
+
+**Field Operations:**
+* **Get Comment** (`getComment`/`setComment`) - Item comment management
+* **Get Default Contact Person** (`getDefaultContactPerson`/`setDefaultContactPerson`) - Contact person assignment
+* **Get Source Language** (`getSourceLanguage`/`setSourceLanguage`) - Source language operations
+* **Get Target Language** (`getTargetLanguage`/`setTargetLanguage`) - Target language operations
+* **Get Language Combination** (`getLanguageCombination`/`setLanguageCombination`) - Language pair management
+* **Get Word Count** (`getWordCount`/`setWordCount`) - Word count operations
+* **Get Character Count** (`getCharacterCount`/`setCharacterCount`) - Character count operations
+* **Get Item Status** (`getItemStatus`/`setItemStatus`) - Item status management
+* **Get Workflow** (`getWorkflow`/`setWorkflow`) - Workflow assignment
+* **Get All Items** (`getAllItemObjects`) - List all items for a project
+* **Search Items** (`search`) - Search items with filters
+
+### 🔧 DataJob30Misc (Job Field Operations)
+**Reference**: [DataJob30 Documentation](https://apidoc.plunet.com/latest/BM/Projekt/Job/API/SOAP/Webservice/Version30/DataJob30.html)
+
+**Field Operations:**
+* **Update Job Status** (`setJobStatus`) - Job status management
+* **Run Automatic Job** (`runAutomaticJob`) - Execute automatic job processes
+* **Get Job Status** (`getJobStatus`/`setJobStatus`) - Job status operations
+* **Get Project Type** (`getProjectType`/`setProjectType`) - Project type management
+* **Get Resource** (`getResourceID`/`setResourceID`) - Resource assignment
+* **Get Delivery Date** (`getDeliveryDate`/`setDeliveryDate`) - Delivery date management
+* **Get Start Date** (`getStartDate`/`setStartDate`) - Start date operations
+* **Get End Date** (`getEndDate`/`setEndDate`) - End date operations
+* **Get Word Count** (`getWordCount`/`setWordCount`) - Word count operations
+* **Get Character Count** (`getCharacterCount`/`setCharacterCount`) - Character count operations
+* **Get Page Count** (`getPageCount`/`setPageCount`) - Page count operations
+* **Get Comment** (`getComment`/`setComment`) - Job comment management
+* **Get All Jobs** (`getAllJobObjects`) - List all jobs
+* **Search Jobs** (`search`) - Search jobs with filters
 
 ---
 
@@ -647,6 +810,26 @@ If you encounter any issues or need additional functionality, please open an iss
 ---
 
 ## Recent Updates
+
+### v4.0.0 - Comprehensive Service Implementation & Documentation Update
+- **NEW**: Complete DataOrder30 service implementation with full CRUD operations
+- **NEW**: Complete DataItem30 service implementation with advanced item management
+- **NEW**: DataItem30Prices service with comprehensive pricing operations
+- **NEW**: DataJob30Prices service with job metrics and pricing management
+- **NEW**: DataCustomerContact30 service for customer contact management
+- **NEW**: DataCustomer30Misc service with extensive field operations
+- **NEW**: DataResource30Misc service with resource field management
+- **NEW**: DataOrder30Misc service with order field operations
+- **NEW**: DataItem30Misc service with item field management
+- **NEW**: DataJob30Misc service with job field operations
+- **NEW**: Work in Progress notice added to documentation
+- **Enhanced**: Complete README documentation with all 19 implemented services
+- **Enhanced**: Comprehensive operation lists for all services
+- **Enhanced**: Detailed field operation documentation
+- **Enhanced**: Service architecture with proper separation of concerns
+- **Fixed**: All service implementations with proper error handling
+- **Fixed**: SOAP request formats and response parsing
+- **Fixed**: Load options and dynamic dropdown population
 
 ### v3.14.0 - Customer Address Management & Advanced Use Cases
 - **NEW**: Complete DataCustomerAddress30 service implementation
