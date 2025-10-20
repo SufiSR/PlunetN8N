@@ -9,6 +9,7 @@ import { executeOperation } from './executor';
 import { labelize, asNonEmpty } from './utils';
 import { NUMERIC_BOOLEAN_PARAMS } from './constants';
 import { extractStatusMessage } from './xml';
+import { escapeXml } from './soap';
 
 // ============================================================================
 // COMMON UTILITY FUNCTIONS
@@ -29,17 +30,7 @@ export function toSoapParamValue(raw: unknown, paramName: string): string {
     return String(raw);                        // fallback
 }
 
-/**
- * Escape XML special characters
- */
-export function escapeXml(s: string): string {
-    return s
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
-}
+// escapeXml function moved to soap.ts to avoid duplication
 
 // ============================================================================
 // COMMON SERVICE CONFIGURATION
@@ -67,6 +58,7 @@ export function createStandardExecuteConfig(
         },
         buildCustomBodyXml: buildCustomBodyXml || (() => null),
         parseResult,
+        creds, // Pass credentials for debug mode
     };
 }
 
@@ -320,13 +312,14 @@ export function handleVoidResult(
     xml: string,
     operation: string,
     parseVoidResult: (xml: string) => { ok: boolean; statusMessage?: string; statusCode?: number },
+    resource: string = 'Unknown',
 ): IDataObject {
     const r = parseVoidResult(xml);
     if (!r.ok) {
         const msg = r.statusMessage || 'Operation failed';
         throw new NodeOperationError(
             {} as any,
-            `${operation}: ${msg}${r.statusCode !== undefined ? ` [${r.statusCode}]` : ''}`,
+            `[${resource}] ${operation}: ${msg}${r.statusCode !== undefined ? ` [${r.statusCode}]` : ''}`,
             { itemIndex: 0 },
         );
     }

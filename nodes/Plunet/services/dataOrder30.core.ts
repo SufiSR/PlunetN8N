@@ -17,7 +17,6 @@ import { ItemStatusOptions } from '../enums/item-status';
 import { SearchScopeOptions } from '../enums/search-scope';
 import {
     toSoapParamValue,
-    escapeXml,
     createStandardExecuteConfig,
     executeStandardService,
     generateOperationOptions,
@@ -29,6 +28,7 @@ import {
     handleVoidResult,
     buildSearchFilterXml,
 } from '../core/service-utils';
+import { escapeXml } from '../core/soap';
 
 const RESOURCE = 'DataOrder30Core';
 const ENDPOINT = 'DataOrder30';
@@ -729,7 +729,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                     break;
                 }
                 case 'Void': {
-                    payload = handleVoidResult(xml, op, parseVoidResult);
+                    payload = handleVoidResult(xml, op, parseVoidResult, RESOURCE);
                     break;
                 }
                 default: {

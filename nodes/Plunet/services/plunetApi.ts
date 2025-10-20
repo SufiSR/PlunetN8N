@@ -10,15 +10,13 @@ import type { Creds, Service, NonEmptyArray } from '../core/types';
 import { escapeXml, sendSoapWithFallback } from '../core/soap';
 import { extractResultBase, extractStatusMessage, extractUuid, parseValidate, xmlParser } from '../core/xml';
 import { ensureSession, getSession, saveSession, clearSession } from '../core/session';
+import { labelize } from '../core/utils';
 
 
 
 const RESOURCE = 'PlunetAPI';
 
-function labelize(op: string): string {
-    if (op.includes('_')) return op.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
-    return op.replace(/([a-z])([A-Z0-9])/g, '$1 $2').replace(/\b\w/g, (m) => m.toUpperCase());
-}
+// labelize function imported from core/utils
 
 function asNonEmpty<T>(arr: T[], err = 'Expected non-empty array'): [T, ...T[]] {
     if (arr.length === 0) throw new Error(err);
@@ -118,14 +116,14 @@ async function doLogin(
     // Read raw <return> (UUID on success, "refused" on failure)
     const ret = extractLoginReturnString(body);
     if (ret && ret.toLowerCase() === 'refused') {
-        throw new NodeOperationError(ctx.getNode(), 'Login refused');
+        throw new NodeOperationError(ctx.getNode(), '[PlunetAPI] login: Login refused');
     }
 
     // Accept only a real UUID as success
     const uuid = extractUuid(body);
     if (!uuid) {
         const msg = ret ? `Login failed: ${ret}` : 'Login failed: UUID not found in response';
-        throw new NodeOperationError(ctx.getNode(), msg);
+        throw new NodeOperationError(ctx.getNode(), `[PlunetAPI] login: ${msg}`);
     }
 
     // Cache for subsequent calls
@@ -166,7 +164,7 @@ async function doValidate(
     if (base.statusMessage && base.statusMessage !== 'OK') {
         throw new NodeOperationError(
             ctx.getNode(),
-            `Plunet error (validate): ${base.statusMessage}${base.statusCode !== undefined ? ` [${base.statusCode}]` : ''}`,
+            `[PlunetAPI] validate: ${base.statusMessage}${base.statusCode !== undefined ? ` [${base.statusCode}]` : ''}`,
             { itemIndex },
         );
     }
@@ -204,7 +202,7 @@ async function doLogout(
     if (base.statusMessage && base.statusMessage !== 'OK') {
         throw new NodeOperationError(
             ctx.getNode(),
-            `Plunet error (logout): ${base.statusMessage}${base.statusCode !== undefined ? ` [${base.statusCode}]` : ''}`,
+            `[PlunetAPI] logout: ${base.statusMessage}${base.statusCode !== undefined ? ` [${base.statusCode}]` : ''}`,
             { itemIndex },
         );
     }

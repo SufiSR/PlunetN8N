@@ -172,17 +172,16 @@ export async function sendSoap(
     const logMessage = `SOAP Request Failed: ${JSON.stringify(errorDetails, null, 2)}`;
     // Note: In n8n context, this will be visible in the workflow execution logs
     
-    // Create a more detailed error message
-    const detailedError = new Error(
-      `SOAP request failed: ${errorDetails.error}\n\n` +
-      `Request Details:\n` +
-      `URL: ${url}\n` +
-      `SOAP Action: ${soapAction}\n` +
-      `Envelope:\n${envelope}\n\n` +
-      `Response: ${errorDetails.responseBody || 'No response body'}`
-    );
+    // Import error factory for consistent error handling
+    const { PlunetErrorFactory } = await import('./errors');
     
-    throw detailedError;
+    // Create a more detailed error message using the factory
+    throw PlunetErrorFactory.createNetworkError(
+      'SOAP_REQUEST',
+      'PlunetAPI',
+      `SOAP request failed: ${errorDetails.error}`,
+      envelope
+    );
   }
   return resp.body;
 }

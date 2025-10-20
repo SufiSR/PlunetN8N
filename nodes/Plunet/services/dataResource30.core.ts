@@ -22,7 +22,6 @@ import { FormOfAddressOptions, idToFormOfAddressName } from '../enums/form-of-ad
 import { WorkingStatusOptions } from '../enums/working-status';
 import {
     toSoapParamValue,
-    escapeXml,
     createStandardExecuteConfig,
     executeStandardService,
     generateOperationOptions,
@@ -33,6 +32,7 @@ import {
     handleVoidResult,
     generateOperationOptionsFromRegistry,
 } from '../core/service-utils';
+import { escapeXml } from '../core/soap';
 import {
     RESOURCE_IN_FIELDS,
     RESOURCE_SEARCH_FILTER_FIELDS,
@@ -487,7 +487,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                     break;
                 }
                 case 'Void': {
-                    payload = handleVoidResult(xml, op, parseVoidResult);
+                    payload = handleVoidResult(xml, op, parseVoidResult, RESOURCE);
                     break;
                 }
                 default: {

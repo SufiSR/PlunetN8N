@@ -13,7 +13,6 @@ import {
 import { ArchivStatusOptions, idToArchivStatusName } from '../enums/archiv-status';
 import {
     toSoapParamValue,
-    escapeXml,
     createStandardExecuteConfig,
     executeStandardService,
     generateOperationOptionsFromParams,
@@ -23,6 +22,7 @@ import {
     handleVoidResult,
     buildSearchFilterXml,
 } from '../core/service-utils';
+import { escapeXml } from '../core/soap';
 
 const RESOURCE = 'DataOrder30Misc';
 const ENDPOINT = 'DataOrder30';

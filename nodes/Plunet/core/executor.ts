@@ -2,6 +2,8 @@ import type { IExecuteFunctions, IDataObject } from 'n8n-workflow';
 import { buildEnvelope, sendSoap, parseXml, extractResultBase } from './soap';
 import { throwForSoapFaultOrStatus } from './errors';
 import { toSoapParamValue } from './utils';
+import { DebugManager } from './debug';
+import { Creds } from './types';
 
 export type ParamOrder = Record<string, string[]>;
 export type NumericBoolSet = Set<string>;
@@ -13,6 +15,7 @@ export interface ExecuteConfig {
   buildCustomBodyXml?: (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => string | null;
   parseResult: (xml: string, op: string) => IDataObject | IDataObject[];
   getSessionId: (ctx: IExecuteFunctions, itemIndex: number) => Promise<string>;
+  creds?: Creds; // Add credentials for debug mode
 }
 
 export async function executeOperation(
@@ -35,7 +38,23 @@ export async function executeOperation(
   const { statusCode, statusMessage } = extractResultBase(xmlObj);
   throwForSoapFaultOrStatus(xmlObj, op, cfg.url, soapAction, envelope, statusCode, statusMessage);
 
-  return cfg.parseResult(xml, op);
+  const result = cfg.parseResult(xml, op);
+  
+  // Add debug information if debug mode is enabled
+  if (cfg.creds && DebugManager.shouldDebug(cfg.creds)) {
+    const debugOutput = DebugManager.createDebugOutput(envelope, soapAction, cfg.url, xml);
+    if (Array.isArray(result)) {
+      // If result is an array, add debug info to first item
+      if (result.length > 0 && result[0]) {
+        Object.assign(result[0], debugOutput);
+      }
+    } else if (result) {
+      // If result is a single object, add debug info
+      Object.assign(result, debugOutput);
+    }
+  }
+
+  return result;
 }
 
 function defaultBodyXml(

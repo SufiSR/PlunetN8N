@@ -13,7 +13,8 @@
 * **Multi-Service Integration**: Support for 19+ Plunet API services with unified interface
 * **Enhanced UX**: User-friendly field names, dropdowns, and structured responses
 * **Type Safety**: Full TypeScript support with proper type definitions
-* **Error Handling**: Comprehensive error handling with meaningful messages
+* **Error Handling**: Comprehensive error handling with meaningful messages and operation context
+* **Debug Mode**: Credential-level debug mode with sanitized SOAP envelope logging
 * **Enum Support**: Human-readable dropdowns for all status and type fields
 * **Load Options**: Dynamic dropdown population from API calls
 * **Structured Responses**: Clean JSON output with enriched data
@@ -21,6 +22,90 @@
 * **Language Management**: Language combination operations and language-independent item creation
 * **Workflow Integration**: Apply workflows to items and manage language combinations
 * **Pricing Operations**: Advanced pricing management with best pricelist detection
+
+---
+
+## Debug Mode
+
+The Plunet node includes a credential-level debug mode for troubleshooting API issues:
+
+### Enabling Debug Mode
+
+1. Go to your Plunet credentials in n8n
+2. Enable the "Enable Debug Mode" checkbox
+3. Save your credentials
+
+### What Debug Mode Provides
+
+When enabled, debug mode adds a `debugInfo` object to all successful responses containing:
+
+- **Request Details**: URL, SOAP action, and sanitized SOAP envelope
+- **Response Details**: Full XML response from Plunet
+- **Security**: UUIDs and sensitive data are automatically redacted
+
+### Example Debug Output
+
+```json
+{
+  "success": true,
+  "resource": "Customer",
+  "operation": "getCustomer",
+  "customer": { ... },
+  "debugInfo": {
+    "request": {
+      "url": "https://your-instance.plunet.com/DataCustomer30",
+      "soapAction": "http://API.Integration/getCustomerObject",
+      "envelope": "<?xml version=\"1.0\" encoding=\"utf-8\"?>..."
+    },
+    "response": {
+      "xml": "<?xml version=\"1.0\" encoding=\"utf-8\"?>..."
+    },
+    "timestamp": "2024-01-15T10:30:00.000Z"
+  }
+}
+```
+
+### When to Use Debug Mode
+
+- **Troubleshooting API errors**: See exactly what was sent to Plunet
+- **API integration issues**: Verify request format and parameters
+- **Development and testing**: Understand API behavior
+- **Support requests**: Provide detailed information to support teams
+
+**Note**: Debug mode should only be enabled when troubleshooting. It increases response size and should be disabled in production workflows.
+
+---
+
+## Error Handling
+
+The Plunet node provides enhanced error messages with operation context:
+
+### Error Message Format
+
+All errors now include operation context in the format:
+```
+[Resource] operation: message [statusCode]
+```
+
+### Examples
+
+- **Old format**: `"Customer not found"`
+- **New format**: `"[Customer] getCustomer: Customer not found [404]"`
+
+### Error Types
+
+- **Authentication errors**: `[PlunetAPI] login: Login refused`
+- **Validation errors**: `[PlunetAPI] validate: Invalid session [401]`
+- **Business logic errors**: `[Customer] getCustomer: Customer not found [404]`
+- **Network errors**: `[PlunetAPI] SOAP_REQUEST: Connection timeout`
+
+### Status Codes
+
+Common Plunet status codes:
+- `0`: Success
+- `401`: Authentication failed
+- `404`: Resource not found
+- `500`: Internal server error
 
 ---
 

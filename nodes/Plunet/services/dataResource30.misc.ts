@@ -21,7 +21,6 @@ import { TaxTypeOptions, idToTaxTypeName } from '../enums/tax-type';
 import { WorkingStatusOptions } from '../enums/working-status';
 import {
     toSoapParamValue,
-    escapeXml,
     createStandardExecuteConfig,
     executeStandardService,
     generateOperationOptionsFromParams,
@@ -30,6 +29,7 @@ import {
     createOptionsProperty,
     handleVoidResult,
 } from '../core/service-utils';
+import { escapeXml } from '../core/soap';
 
 const RESOURCE = 'DataResource30Misc';
 const ENDPOINT = 'DataResource30';

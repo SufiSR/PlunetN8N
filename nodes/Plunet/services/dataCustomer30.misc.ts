@@ -18,7 +18,6 @@ import { CustomerStatusOptions } from '../enums/customer-status';
 import { TaxTypeOptions, idToTaxTypeName } from '../enums/tax-type';
 import {
     toSoapParamValue,
-    escapeXml,
     createStandardExecuteConfig,
     executeStandardService,
     generateOperationOptionsFromParams,
@@ -28,6 +27,7 @@ import {
     handleVoidResult,
     buildSearchFilterXml,
 } from '../core/service-utils';
+import { escapeXml } from '../core/soap';
 import { CUSTOMER_SEARCH_FILTER_FIELDS } from '../core/field-definitions';
 
 const RESOURCE = 'DataCustomer30Misc';

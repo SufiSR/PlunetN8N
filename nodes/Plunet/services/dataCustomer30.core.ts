@@ -13,7 +13,6 @@ import {
 import { CustomerStatusOptions } from '../enums/customer-status';
 import {
     toSoapParamValue,
-    escapeXml,
     createStandardExecuteConfig,
     executeStandardService,
     generateOperationOptions,
@@ -25,6 +24,7 @@ import {
     handleVoidResult,
     buildSearchFilterXml,
 } from '../core/service-utils';
+import { escapeXml } from '../core/soap';
 import {
     CUSTOMER_IN_FIELDS,
     CUSTOMER_SEARCH_FILTER_FIELDS,
@@ -410,7 +410,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
                     break;
                 }
                 case 'Void': {
-                    payload = handleVoidResult(xml, op, parseVoidResult);
+                    payload = handleVoidResult(xml, op, parseVoidResult, RESOURCE);
                     break;
                 }
                 default: {

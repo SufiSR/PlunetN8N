@@ -14,6 +14,7 @@ export type Creds = {
     username?: string;
     password?: string;
     timeout?: number; // ms
+    enableDebugMode?: boolean; // debug mode for SOAP envelope logging
 };
 
 export type SessionMap = Record<string, { uuid: string; issuedAt: number }>;

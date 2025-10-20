@@ -40,6 +40,13 @@ export class PlunetApi implements ICredentialType {
             type: 'number',
             typeOptions: { minValue: 0 },
             default: 30000
+        },
+        {
+            displayName: 'Enable Debug Mode',
+            name: 'enableDebugMode',
+            type: 'boolean',
+            default: false,
+            description: 'When enabled, includes sanitized SOAP envelopes in responses for debugging. UUIDs and sensitive data will be redacted. Only enable when troubleshooting API issues.'
         }
     ];
 }

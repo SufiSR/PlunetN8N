@@ -68,7 +68,12 @@ export async function ensureSession(
 
     const uuid = extractUuid(body);
     if (!uuid) {
-        throw new Error('Auto-login succeeded but UUID not found in SOAP response');
+        const { PlunetErrorFactory } = await import('./errors');
+        throw PlunetErrorFactory.createNetworkError(
+            'login',
+            'PlunetAPI',
+            'Auto-login succeeded but UUID not found in SOAP response'
+        );
     }
 
     saveSession(ctx, creds, uuid);
