@@ -47,6 +47,7 @@ export function createStandardExecuteConfig(
     paramOrder: Record<string, string[]>,
     parseResult: (xml: string, op: string) => IDataObject,
     buildCustomBodyXml?: (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => string | null,
+    resource?: string, // Add resource parameter
 ): ExecuteConfig {
     return {
         url,
@@ -59,6 +60,7 @@ export function createStandardExecuteConfig(
         buildCustomBodyXml: buildCustomBodyXml || (() => null),
         parseResult,
         creds, // Pass credentials for debug mode
+        resource, // Pass resource name for error context
     };
 }
 

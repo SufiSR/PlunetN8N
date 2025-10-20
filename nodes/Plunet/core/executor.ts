@@ -16,6 +16,7 @@ export interface ExecuteConfig {
   parseResult: (xml: string, op: string) => IDataObject | IDataObject[];
   getSessionId: (ctx: IExecuteFunctions, itemIndex: number) => Promise<string>;
   creds?: Creds; // Add credentials for debug mode
+  resource?: string; // Add resource name for error context
 }
 
 export async function executeOperation(
@@ -32,29 +33,47 @@ export async function executeOperation(
 
   const envelope = buildEnvelope(op, bodyXml);
   const soapAction = cfg.soapActionFor(op);
-  const xml = await sendSoap(ctx, cfg.url, soapAction, envelope);
-
-  const xmlObj = parseXml(xml);
-  const { statusCode, statusMessage } = extractResultBase(xmlObj);
-  throwForSoapFaultOrStatus(xmlObj, op, cfg.url, soapAction, envelope, statusCode, statusMessage);
-
-  const result = cfg.parseResult(xml, op);
   
-  // Add debug information if debug mode is enabled
-  if (cfg.creds && DebugManager.shouldDebug(cfg.creds)) {
-    const debugOutput = DebugManager.createDebugOutput(envelope, soapAction, cfg.url, xml);
-    if (Array.isArray(result)) {
-      // If result is an array, add debug info to first item
-      if (result.length > 0 && result[0]) {
-        Object.assign(result[0], debugOutput);
-      }
-    } else if (result) {
-      // If result is a single object, add debug info
-      Object.assign(result, debugOutput);
-    }
-  }
+  try {
+    const xml = await sendSoap(ctx, cfg.url, soapAction, envelope);
+    const xmlObj = parseXml(xml);
+    const { statusCode, statusMessage } = extractResultBase(xmlObj);
+    
+    // Pass resource name to error handler
+    throwForSoapFaultOrStatus(xmlObj, op, cfg.url, soapAction, envelope, statusCode, statusMessage, cfg.resource);
 
-  return result;
+    const result = cfg.parseResult(xml, op);
+    
+    // Add debug information if debug mode is enabled
+    if (cfg.creds && DebugManager.shouldDebug(cfg.creds)) {
+      const debugOutput = DebugManager.createDebugOutput(envelope, soapAction, cfg.url, xml);
+      if (Array.isArray(result)) {
+        // If result is an array, add debug info to first item
+        if (result.length > 0 && result[0]) {
+          Object.assign(result[0], debugOutput);
+        }
+      } else if (result) {
+        // If result is a single object, add debug info
+        Object.assign(result, debugOutput);
+      }
+    }
+
+    return result;
+  } catch (error) {
+    // If debug mode is enabled and this is a PlunetOperationError, add debug info
+    if (cfg.creds && DebugManager.shouldDebug(cfg.creds) && error instanceof Error) {
+      const debugOutput = DebugManager.createDebugOutput(envelope, soapAction, cfg.url, '');
+      
+      // Create enhanced error with debug information
+      const enhancedError = new Error(`${error.message}\n\nDebug Information:\n${JSON.stringify(debugOutput, null, 2)}`);
+      enhancedError.name = error.name;
+      enhancedError.stack = error.stack;
+      throw enhancedError;
+    }
+    
+    // Re-throw the original error if debug mode is not enabled
+    throw error;
+  }
 }
 
 function defaultBodyXml(

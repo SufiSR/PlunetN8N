@@ -804,6 +804,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
 
             return `<UUID>${escapeXml(sessionId)}</UUID>\n<orderID>${orderID}</orderID>`;
         },
+        RESOURCE, // Pass resource name for error context
     );
 }
 

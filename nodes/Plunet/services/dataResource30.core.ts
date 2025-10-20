@@ -545,6 +545,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             }
             return null;
         },
+        RESOURCE, // Pass resource name for error context
     );
 }
 

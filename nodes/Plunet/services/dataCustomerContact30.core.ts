@@ -231,6 +231,7 @@ function createExecuteConfig(creds: Creds, url: string, baseUrl: string, timeout
             }
         },
         (op: string) => null,
+        RESOURCE, // Pass resource name for error context
     );
 }
 

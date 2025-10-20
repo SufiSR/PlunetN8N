@@ -531,6 +531,8 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
       paramOrder: PARAM_ORDER,
       numericBooleans: NUMERIC_BOOLEAN_PARAMS,
       getSessionId: async (ctx: IExecuteFunctions) => ensureSession(ctx, creds, `${baseUrl}/PlunetAPI`, timeoutMs, 0),
+      creds, // Pass credentials for debug mode
+      resource: RESOURCE, // Pass resource name for error context
       buildCustomBodyXml: (op: string, itemParams: IDataObject, sessionId: string, ctx: IExecuteFunctions, itemIndex: number) => {
         if (op === 'getLanguageIndependentItemObject') {
           return `<UUID>${escapeXml(sessionId)}</UUID>
