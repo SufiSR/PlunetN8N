@@ -10,7 +10,7 @@ import {
   import { executeOperation, type ExecuteConfig } from '../core/executor';
   import { labelize } from '../core/utils';
   import { NUMERIC_BOOLEAN_PARAMS } from '../core/constants';
-  import { extractStatusMessage } from '../core/xml';
+  import { extractStatusMessage, parseVoidResult } from '../core/xml';
   import { parseJobMetricResult, parsePriceLineResult, parsePriceLineListResult, parsePriceUnitResult, parsePriceUnitListResult } from '../core/parsers/job';
   import { parsePricelistResult, parsePricelistListResult, parsePricelistEntryListResult } from '../core/parsers/pricelist';
   import { CurrencyTypeOptions } from '../enums/currency-type';
@@ -417,12 +417,12 @@ import {
             break;
           }
           case 'Void': {
-            const ok = /<StatusCode>\s*0\s*<\/StatusCode>/.test(xml);
-            if (!ok) {
-              const msg = extractStatusMessage(xml) || 'Operation failed';
-              throw new NodeOperationError({} as any, `${op}: ${msg}`, { itemIndex: 0 });
+            const r = parseVoidResult(xml);
+            if (!r.ok) {
+              const msg = r.statusMessage || 'Operation failed';
+              throw new NodeOperationError({} as any, `${op}: ${msg}${r.statusCode !== undefined ? ` [${r.statusCode}]` : ''}`, { itemIndex: 0 });
             }
-            payload = { ok, statusMessage: extractStatusMessage(xml) };
+            payload = { ok: r.ok, statusMessage: r.statusMessage, statusCode: r.statusCode };
             break;
           }
           default: {
