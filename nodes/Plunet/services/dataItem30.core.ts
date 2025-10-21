@@ -544,7 +544,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
           const optionalFields = ctx.getNodeParameter('optionalFields', itemIndex, {}) as IDataObject;
           
           const itemInXml = [
-            '<ItemIN>',
+            '<ItemIn>',
             optionalFields.briefDescription ? `<briefDescription>${escapeXml(String(optionalFields.briefDescription))}</briefDescription>` : '',
             optionalFields.comment ? `<comment>${escapeXml(String(optionalFields.comment))}</comment>` : '',
             optionalFields.deliveryDeadline ? `<deliveryDeadline>${escapeXml(String(optionalFields.deliveryDeadline))}</deliveryDeadline>` : '',
@@ -555,7 +555,7 @@ import { CurrencyTypeOptions, idToCurrencyTypeName } from '../enums/currency-typ
             `<status>${escapeXml(String(itemParams.status))}</status>`,
             `<taxType>${escapeXml(String(itemParams.taxType))}</taxType>`,
             `<totalPrice>${escapeXml(String(itemParams.totalPrice))}</totalPrice>`,
-            '</ItemIN>'
+            '</ItemIn>'
           ].filter(line => line !== '').join('\n');
           
           return `<UUID>${escapeXml(sessionId)}</UUID>\n${itemInXml}`;
